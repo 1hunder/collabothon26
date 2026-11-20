@@ -33,7 +33,7 @@ This feature therefore has two parts:
 1. **Disguise.** An AI writer automatically turns each real case into a disguised scenario, following fixed rules: an invented company name, story days instead of calendar dates, rescaled prices and amounts, and rewritten news.
 2. **Recognition check (the "gate").** Several AI guessers then try to name the real company and period. Any scenario a guesser recognises is rewritten at most twice. If it is still recognised, the case is dropped and a different case is used instead. Players only ever get scenarios that passed.
 
-The honest product claim becomes: **"Every one-shot passes an automatic recognition check before you see it."** We will not claim "nobody can recognise it".
+The honest product claim becomes: **"Every one-shot built from a source case passes an automatic recognition check before you see it."** We will not claim "nobody can recognise it". Campaigns built from hand-prepared **reference packs** (spec 003, e.g. the Enron case) do not go through the recognition check; the team reviews them instead (see 2.3). They still follow every display rule in 2.1 and 2.2.
 
 **Success measures for this feature (stage prototype):**
 
@@ -55,7 +55,10 @@ Before the reveal, the rules below apply to everything the player sees: the stor
 - **Name.** The company has an invented name. It shares no word with the real company name, does not start with the same three letters, and does not contain the stock ticker.
 - **Time.** Time is shown only as story days counted from the start of the story (for example "Day 84"), in the same unit on every screen. No calendar year, month name, quarter label (Q1–Q4) or weekday appears anywhere. Gaps between news items are rounded to whole weeks and may be stretched or shortened by up to 30%, so they no longer line up with companies' regular quarterly results dates.
 - **Named things.** No real product, brand, person, city, country, named regulator, union, partner, rival, customer or famous slogan is named. General terms are allowed: continents ("in Europe"), roles ("the regulator", "the central bank", "a major customer") and the industry.
-- **Amounts.** Amounts such as users, revenue, headcount and deal sizes are each multiplied by their own hidden factor, and rounded to two significant figures. So ratios between different kinds of figures (for example revenue per employee) no longer match reality. Each factor is chosen so every amount shown falls between 0 and 10,000. No amount is written in millions or billions, because young players find small, comparable numbers easier to grasp.
+- **Amounts.**
+  - **Money:** every amount of money in a case (revenue, profit or loss, cash flow, cash, debt, equity, deal sizes) is multiplied by **one shared hidden money factor**, so comparisons between money figures stay true. For example, profit versus cash flow, or debt versus cash, keep their real relationship, and the ledger lessons still work.
+  - **Other kinds of amount:** users, headcount and similar each get their own hidden factor. Ratios between money and these figures (for example revenue per employee) therefore no longer match reality.
+  - **Range and rounding:** each factor is chosen so every amount shown falls between 0 and 10,000, rounded to two significant figures. No amount is written in millions or billions, because young players find small, comparable numbers easier to grasp.
 - **News wording.** News items are rewritten in plain words and do not reuse the wording of real headlines. They contain no phrase that compares the event with a span of years or with the company's whole history, such as "worst in decades", "biggest since …", "first time in its history" or "all-time record".
 - **Industry.** The industry shown may be the real one, a more general version of it (for example "streaming entertainment" becomes "online subscription media"), or a different but economically similar industry (for example an aircraft-safety crisis retold as a medical-device recall). If the industry is moved, the business logic behind the lesson must still hold (subscriptions stay subscriptions, factories stay factories). The readability rating in 2.3 catches stories that no longer read as believable.
 
@@ -107,6 +110,12 @@ Before the reveal, the rules below apply to everything the player sees: the stor
 - After 3 failed attempts, the case's final status is **Rejected: too recognisable**. It is never offered to players.
 - A case whose attempt passes every step gets the final status **Approved**.
 
+**Reference packs (spec 003) skip the guessers.**
+- A hand-prepared campaign reference pack, such as the Enron case, does not go through the guess rounds.
+- It still must pass the **final scan** (step 2) on everything a player can see before the reveal.
+- It becomes playable only after a team member has reviewed it.
+- It appears in the list of playable scenarios marked as a reference pack.
+
 **Guessers:** for the hackathon, all guessers use Claude, each in its own separate session. The report notes that guessers from the same family as the AI writer give a weaker test than guessers from mixed providers.
 
 **Acceptance Criteria:**
@@ -115,7 +124,8 @@ Before the reveal, the rules below apply to everything the player sees: the stor
 - [ ] Given one of the six famous test cases as a candidate, when the check finishes after 3 failed attempts, then its final status is "Rejected: too recognisable", and it is missing from the report's list of playable scenarios.
 - [ ] Given a candidate that every guesser misses in both rounds, with a clean final scan and an average readability of 3 or more, when the check finishes, then its final status is "Approved" and it appears in the list of playable scenarios.
 - [ ] Given a candidate whose disguised text still contains a calendar year, when the attempt is checked, then that attempt shows "Failed" with the reason "Real date found in text".
-- [ ] When a player starts a quest, then the scenario they get is in the list of playable scenarios.
+- [ ] When a player starts a quest, then the scenario they get is in the list of playable scenarios: either an approved case or a reviewed reference pack.
+- [ ] Given a reference pack whose player-visible text contains a calendar year, when the pack is checked, then it is not playable and shows the reason "Real date found in text".
 
 ### 2.4 The team checks a batch of candidate cases in one run
 
@@ -171,28 +181,28 @@ Before the reveal, the rules below apply to everything the player sees: the stor
 
 **As a** player, **I want** to learn which real company and period I was playing, and how the story was disguised, **so that** I trust it was real and can look it up.
 
-- The reveal comes at the end of the mission, after the time skip and the debrief.
+- The reveal comes at the end of the mission, after the time skip, the debrief and the player's reflection. Spec 003 defines that flow; there, this reveal is the "company reveal" step.
 - The reveal screen shows:
   - the real company name and the real start and end dates;
   - a chart of the real historical prices with the in-game news items marked on it;
   - a table listing each news item with its real date and real price;
   - a "What we changed" list in plain words, for example: "We changed the company name, hid the dates, multiplied prices by a hidden factor, and rewrote the news in our own words. The ups and downs are real."
-  - the check result: "Before you played, [G] AI testers tried to guess this company. None of them got it." Here G is the number of different guessers that checked the approved version.
-  - the label "Education only — not investment advice".
+  - **The check result:** "Before you played, [G] AI testers tried to guess this company. None of them got it." Here G is the number of different guessers that checked the approved version. This line appears only for scenarios that went through the recognition check, not for reference packs.
 - The reveal never suggests buying the revealed company's shares.
 
 **Acceptance Criteria:**
 
-- [ ] Given the player has submitted a decision and finished the debrief, when they reach the reveal, then they see the real company name, the real dates, the real price chart with news markers, and the table of real dates and prices.
+- [ ] Given the player has submitted a decision, finished the debrief and submitted their reflection, when they reach the reveal, then they see the real company name, the real dates, the real price chart with news markers, and the table of real dates and prices.
 - [ ] Given the player has not yet finished the debrief, when they try to reach the reveal (for example with the browser's forward button), then they don't see the real company name and are returned to the step they were on.
 - [ ] Given a scenario approved by 3 different guessers, when the player views the reveal, then they see the "What we changed" list and the sentence "Before you played, 3 AI testers tried to guess this company. None of them got it."
-- [ ] When the player views the reveal, then they see "Education only — not investment advice", and no button or text offers to buy the revealed company's shares.
+- [ ] When the player views the reveal, then no button or text offers to buy the revealed company's shares, and no disclaimer line is shown (the demo carries no "Education only" label).
+- [ ] Given a reference-pack campaign, when the player views the reveal, then the sentence "Before you played, … AI testers…" is not shown.
 
 ### 2.7 Before starting, the player is told the story is real but disguised
 
 **As a** player, **I want** to know up front that this is real history in disguise, **so that** I take it seriously and don't feel tricked at the end.
 
-- The note appears at the start of every mission, before the first story beat, and is dismissed with a "Got it" button.
+- The note appears at the start of every mission, before the first story beat, and is dismissed with a "Got it" button. In spec 003's flow it appears right after "Find my quest" and before the Campaign Master's Tavern briefing.
 
 **Acceptance Criteria:**
 
@@ -219,7 +229,7 @@ Before the reveal, the rules below apply to everything the player sees: the stor
 - Creating new scenarios live while a player waits. For the prototype, players only get scenarios that were checked in advance. With up to 12 web searches per guesser, a check would take far too long for a waiting player.
 - Blending sources (one company's price chart combined with general news written to explain it), because it would weaken the "real history" promise.
 - The stage presentation page and its side panels (separate spec). This spec only provides the statistics and check results those panels would show.
-- The Data Room screens, CommerzBuddy, the Campaign Master, the time skip, debrief, rewind and savings plan themselves (separate specs). This spec only sets the disguise rules they must follow.
+- The Data Room screens, CommerzBuddy, the Campaign Master, the time skip, debrief, rewind and savings plan themselves. Spec 003 (campaign engine) builds these: the Data Room is its Library and Market Square locations. This spec only sets the disguise rules they must follow.
 - Generated scene art (separate spec). Its only rule here: no real logos, products or faces.
 - A study with human testers trying to recognise the company (a product-level metric, run separately).
 
@@ -227,4 +237,9 @@ Before the reveal, the rules below apply to everything the player sees: the stor
 
 ## Change Log
 
-- [YYYY-MM-DD] — [source reference] — [what behavior changed and why]
+- 2026-11-20 — alignment with spec 003 (campaign engine), team decisions — Five changes:
+  - **Amounts (2.1):** all money amounts in a case now share one hidden money factor, so ledger lessons keep working.
+  - **Reference packs (2.3):** spec 003's hand-prepared packs skip the guess rounds, but must pass the final scan and a team review before they are playable.
+  - **Reveal (2.6):** it now follows the player's reflection. The "Education only" label is removed, at the team's decision: no disclaimer anywhere in the demo. The "AI testers" line shows only for gate-checked scenarios.
+  - **Disclosure note (2.7):** placed before the Tavern briefing.
+  - **Data Room:** realised by spec 003.

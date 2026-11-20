@@ -4,6 +4,8 @@
 - **Status:** In Review
 - **Author(s):** Davyd, with Claude (python-backend, langgraph-agents and vercel-railway-infra specialists; frontend section drafted by the orchestrator because the react-frontend agent was not loaded in this session)
 
+> **Shared contracts:** this spec is implemented in parallel with spec 003 (campaign engine). Ownership, shared tables, routes, display rules and the mission order are fixed in [`context/product/shared-contracts-002-003.md`](../../product/shared-contracts-002-003.md). Where this document disagrees with it, the contract wins.
+
 ---
 
 ## 1. High-Level Technical Approach
@@ -77,10 +79,15 @@ The **secrecy boundary** follows architecture §2: tables marked *server-only* n
 | `attempt` | id, run_id, case_id, n (1–3), number_plan (JSON), scenario_json, scan_result (JSON), avg_readability, verdict, fail_reason (enum: real_date_found, recognised_name, recognised_date, unreadable, error) | All attempts are kept for the report |
 | `guess` | attempt_id, guesser (persona), round (memory/web), top3 (JSON), start_month, start_year, start_conf, clues (JSON), readability, readability_issues, searches_used, queries, citations, recognised | One per guesser per round |
 | `case_result` | case_id, run_id, final_status (approved/rejected/skipped/error), approved_attempt_id, recognised_first_attempt | The **playable list** is the latest result per case |
-| `scenario` *(player-facing)* | id, case_id, attempt_id, invented_name, industry_shown, story_days (JSON), beats (JSON, disguised), chart_series (JSON, by story day), company_card, status (playable/retired) | Only `playable` is served |
-| `scenario_secret` *(server-only, reveal only)* | scenario_id, real_name, ticker, real_beats (JSON with real dates and prices), price_series_ref, price_factor, amount_factors, seed, what_changed (JSON list), n_guessers | Read only by the reveal endpoint |
+| `scenario` *(player-facing)* | id, case_id (nullable for reference packs), attempt_id (nullable), **source** (`gate`/`reference_pack`), invented_name, industry_shown, story_days (JSON), beats (JSON, disguised), chart_series (JSON, by story day), company_card, **manifest** (JSONB, nullable; spec 003 fills it for reference packs), status (playable/retired) | Only `playable` is served |
+| `scenario_secret` *(server-only, reveal only)* | scenario_id, real_name, ticker, real_beats (JSON with real dates and prices), price_series_ref, price_factor, amount_factors (incl. money factor), seed, what_changed (JSON list), n_guessers (0 for reference packs), **leak_terms** (JSON) | Read only by the reveal endpoint and spec 003's leak guard |
 
-The architecture's `Event`, `Decision` and `Debrief` tables stay as designed (owned by other specs). This spec only needs `Decision` and an `Event` of type `debrief_complete` to gate the reveal. Until those specs land, a minimal `event` table and an endpoint that writes events are added here.
+**Shared `event` and `decision` tables.** This spec's first migration creates both with the **full columns from the shared contract §3**, so spec 003 can write to them without altering them:
+
+- `event`: id, session_id, scenario_id, campaign_id, seq, type, payload, client_msg_id, ts
+- `decision`: id, session_id, scenario_id, campaign_id, action, amount_cents, evidence, forecast_pct, confidence, locked_at
+
+Spec 003 inserts the `decision` at lock and writes `debrief_complete` when the player submits the reflection. Those two rows are what unlocks the reveal.
 
 ### 2.3 Deterministic algorithms (`engine/disguise.py`, `reid/*`)
 
@@ -91,7 +98,11 @@ The rule throughout: **code owns every number, date and verdict. The models only
   - Apply `f` to every daily point, and take the beat prices from that same series. That keeps every move exact; a property test checks it stays within 1 percentage point.
   - **Story days.** Each real gap between news items is multiplied by `U(0.7, 1.3)` and rounded to whole weeks, with a minimum of 7 days. The daily series is re-timed linearly between beats.
   - **Seeding.** The seed is `zlib.crc32(case_id) + run_salt`, not `hash()`; this fixes the sandbox's reproducibility bug. The seed is stored in `scenario_secret`.
-  - **Amounts.** Each amount family (users, revenue, headcount, deal size) gets its own factor, chosen so its largest value is ≤ 10,000, and values are rounded to 2 significant figures. Ratio-type figures (for example "25% raise") are tokenised with identity scaling.
+  - **Amounts.**
+    - **Money:** every money amount in a case (revenue, profit or loss, cash flow, cash, debt, equity, deal size) shares **one money factor**, chosen so the case's largest money value is ≤ 10,000. Money-to-money ratios stay true.
+    - **Other families:** each non-money family (users, headcount, …) gets its own factor, ≤ 10,000.
+    - **Rounding:** 2 significant figures.
+    - **Ratios:** ratio-type figures (for example "25% raise") are tokenised with identity scaling.
 - **Placeholders.** The writer sees the real facts with each amount replaced by a family-tagged token (`{A1}`, `{A2}`, …), plus each beat's direction and size as a word (for example "down, large"), never a number. Code then fills the tokens. Any digit run left in the writer's text that isn't a token fails the scan.
 - **Final scan (`reid/scan.py`).** The scan runs over prose fields only, so numeric fields can't trigger the year regex. It fails on:
   - the real name, ticker, aliases or identifying terms, matched on word boundaries and case-insensitively. Executive surnames that are also common words (for example "Deal") are matched only together with the first name;
@@ -194,10 +205,10 @@ Every route requires `X-Session-Id`, issued by `POST /session` (architecture §4
 
 | Method & path | Response / behaviour |
 |---|---|
-| `GET /scenarios/playable` | `[{id, industry_shown}]`: latest-approved, `status=playable` only; never the real name |
+| `GET /scenarios/playable` | `[{id, industry_shown, source}]`: latest-approved gate scenarios plus reviewed reference packs, `status=playable` only; never the real name |
 | `GET /scenario/{id}/view` | Disguised view up to story today (gated): invented name, industry, beats `{story_day, headline, facts}`, chart points `{story_day, price}`, company card. No dates ever |
 | `POST /scenario/{id}/events` | `{type}` writes an `Event` (this spec needs `debrief_complete`; 409 unless a `Decision` exists for the session) |
-| `GET /scenario/{id}/reveal` | **403** unless a `Decision` and a `debrief_complete` event exist for this session and scenario. Body: `{real_name, ticker, start_date, end_date, series:[{date, price}], news_points:[{story_day, real_date, real_price, headline}], what_changed:[string], n_guessers, disclaimer}` |
+| `GET /scenario/{id}/reveal` | **403** unless a `Decision` and a `debrief_complete` event exist for this session and scenario. Body: `{real_name, ticker, start_date, end_date, series:[{date, price}], news_points:[{story_day, real_date, real_price, headline}], what_changed:[string], n_guessers}` (no disclaimer; `n_guessers` is 0 for reference packs, and then the frontend omits the testers sentence) |
 | `GET /healthz` | Database, fixtures loaded, Claude reachable, playable count |
 
 A contract test asserts that no field from `scenario_secret` appears in any non-reveal response.
@@ -236,9 +247,9 @@ The existing conventions from spec 001 apply: `src/quest/` never imports from `s
 | `src/quest/lib/storyNumber.ts` | Shared formatter: plain grouped numbers ≤ 10,000, no million/billion/k suffixes; `formatStoryDay(n)` → "Day 84" |
 | `src/quest/components/StoryChart.tsx` | Shared wrapper around TradingView Lightweight Charts with a story-day axis and optional news markers; **lazy-loaded** with `React.lazy` to keep it out of the main bundle. The Data Room spec reuses it |
 | `src/quest/components/DisclosureNote.tsx` | The spec 2.7 note with a "Got it" button; shown at every mission start before the first story beat |
-| `src/quest/screens/Reveal.tsx` | Route `/quest/reveal`: real name, dates, `StoryChart` in real-date mode with news markers, a news-point table (real date, real price), the "What we changed" list, "Before you played, {G} AI testers tried to guess this company. None of them got it.", "Education only — not investment advice", and no buy button |
-| `src/quest/questStore.ts` (extend) | The record's `state` gets a typed shape `{scenarioId, step: 'intro'\|'investigate'\|'decide'\|'timeskip'\|'debrief'\|'reveal', disclosureSeen}`. The record version stays `v: 1`, so older records whose `state` is `null` are still valid |
-| `src/quest/RevealGuard.tsx` | If `step` is not past `debrief`, or the API returns 403, redirect with `replace` to `lastPath` (the current step) |
+| `src/quest/screens/Reveal.tsx` | Route `/quest/reveal` (the company reveal in spec 003's flow, after the reflection), styled with spec 003's quest tokens:<br>• real name and dates<br>• `StoryChart` in real-date mode with news markers<br>• a news-point table (real date, real price)<br>• the "What we changed" list<br>• "Before you played, {G} AI testers tried to guess this company. None of them got it.", only when G > 0<br>• no disclaimer and no buy button |
+| `src/quest/questStore.ts` | **Owned by spec 003** (`fq.quest.v2` = `{v: 2, status, lastPath, campaignId, scenarioId, disclosureSeen, savedAt}`). This spec only reads `scenarioId` and reads/writes `disclosureSeen` through the store's accessors |
+| `src/quest/RevealGuard.tsx` | If the API returns 403, or the campaign phase is not yet `company`, redirect with `replace` to the server-phase route (spec 003's `PhaseGuard` logic) |
 
 ### 2.8 Configuration (env vars)
 
