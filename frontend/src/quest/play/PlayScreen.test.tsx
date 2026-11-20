@@ -307,6 +307,6 @@ describe('PlayScreen: Buddy and the dock', () => {
     const onPageShown = vi.fn();
     setupPlay('analyst', { onPageShown });
     await screen.findByTestId('name-tab');
-    await waitFor(() => expect(onPageShown).toHaveBeenCalledWith(expect.stringContaining('Gilded Tavern'), 'dm'));
+    await waitFor(() => expect(onPageShown).toHaveBeenCalledWith(expect.stringContaining('Gilded Tavern'), 'dm', null));
   });
 });

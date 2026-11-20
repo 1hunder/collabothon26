@@ -63,7 +63,7 @@ def replay_streamed(db: Session, run: CampaignRun, pack: Pack, ev: Event) -> Str
     delta = state_delta(db, run, pack)
     cards = [c for c in (p.get("card"), p.get("news")) if c]
     done = {**p, "audio_text_id": ev.id, **delta, "replayed": True}
-    if p.get("news", {}).get("framing"):
+    if (p.get("news") or {}).get("framing"):
         done["news_text"] = p["news"]["framing"]
     return Streamed(text=str(p.get("text", "")), cards=cards, state=delta, done=done)
 

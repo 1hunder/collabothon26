@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, useCreateCampaign, useHero } from '../../api/campaign';
+import { ApiError } from '../../api/client';
 import type { CampaignState, Hero, Interest } from '../../api/types';
 import DisclosureNote from '../components/DisclosureNote';
 import { unlockVoice } from '../../voice';
@@ -28,7 +29,13 @@ export default function WhatAreYouInto(): React.JSX.Element {
     setFailed(false);
     try {
       setCampaign(await createCampaign.mutateAsync({ interests: [...picked] }));
-    } catch {
+    } catch (e: unknown) {
+      if (e instanceof ApiError && e.code === 'campaign_in_progress' && e.campaignId) {
+        // A campaign is already running: resume it instead of failing.
+        await qc.invalidateQueries({ queryKey: queryKeys.hero });
+        void navigate('/quest/play', { replace: true });
+        return;
+      }
       setFailed(true);
     }
   };

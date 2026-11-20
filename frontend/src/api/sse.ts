@@ -1,4 +1,4 @@
-import { ApiError, authedFetch, isFixtureMode } from './client';
+import { ApiError, authedFetch, errorFromResponse, isFixtureMode } from './client';
 import { fixtureSseChunks } from './fixtures';
 import type { DmEvent } from './types';
 
@@ -73,7 +73,8 @@ export async function postSse(
   signal?: AbortSignal,
 ): Promise<void> {
   const res = isFixtureMode() ? fixtureStream(path, body) : await authedFetch('POST', path, body, signal);
-  if (!res.ok || !res.body) throw new ApiError(res.status === 409 ? 'Conflict' : 'Server', res.status);
+  if (!res.ok) throw await errorFromResponse(res);
+  if (!res.body) throw new ApiError('Server', res.status);
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   const push = createSseParser(onEvent);
   for (;;) {

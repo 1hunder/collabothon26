@@ -12,6 +12,7 @@ export interface StoryBeat {
   facts: string[];
 }
 
+/** Prices are numbers in the app; the 002 endpoints send decimal strings, coerced in api/client.ts. */
 export interface StoryPoint {
   story_day: number;
   price: number;
@@ -78,6 +79,7 @@ export type CampaignPhase =
 
 export interface HeroItem {
   id: string;
+  key?: string;
   name: string;
   /** What the item does; shown on the hero screen. */
   description?: string;
@@ -87,7 +89,7 @@ export interface HeroHistoryEntry {
   campaign_id: string;
   interests: string[];
   total_xp: number;
-  decision?: string;
+  decision?: string | null;
   result_pct?: number | null;
   finished_at?: string;
 }
@@ -104,14 +106,6 @@ export interface Hero {
 export interface CreateHeroRequest {
   name: string;
   class: HeroClass;
-}
-
-export interface HeroResources {
-  hp: number;
-  hp_euros: number;
-  focus: number;
-  rerolls: number;
-  keen_eye: number;
 }
 
 export type DecisionAction = 'invest' | 'dont_invest' | 'wait' | 'spread';
@@ -134,9 +128,16 @@ export interface CommitRequest {
   confidence: Confidence;
 }
 
+/** POST /lock and GET /reveal return the same Outcome (lock is idempotent). */
 export interface LockResponse {
   locked_at: string;
   horizon_days: number;
+  horizon_label?: string;
+  time_skip_label?: string;
+  action?: DecisionAction;
+  amount_eur?: number | null;
+  investment_return_pct?: number;
+  phase?: CampaignPhase;
 }
 
 export interface PortfolioBreakdown {
@@ -161,6 +162,12 @@ export interface OutcomeReveal {
   hp_before: number;
   hp_after: number;
   currency_note: string;
+  horizon_label?: string;
+  time_skip_label?: string;
+  action?: DecisionAction;
+  amount_eur?: number | null;
+  investment_return_pct?: number;
+  phase?: CampaignPhase;
 }
 
 export interface WhatIfRow {
@@ -168,6 +175,7 @@ export interface WhatIfRow {
   label: string;
   final_value: number;
   pct: number;
+  hp_after?: number;
   is_yours: boolean;
 }
 
@@ -198,7 +206,7 @@ export interface FinishResult {
   new_item?: HeroItem | null;
 }
 
-export type ArtStatus = 'pending' | 'ready' | 'failed';
+export type ArtStatus = 'placeholder' | 'pending' | 'ready' | 'failed';
 
 export interface PlayLocation {
   id: string;
@@ -288,6 +296,9 @@ export interface CampaignState {
   id: string;
   scenario_id: string;
   phase: CampaignPhase;
+  status?: 'active' | 'finished';
+  version?: number;
+  checkpoint?: string;
   interests: string[];
   hero: { name: string; class: HeroClass; total_xp: number; items: string[] };
   hp: number;
@@ -312,14 +323,23 @@ export interface CampaignState {
   can_decide: boolean;
   opening_done: boolean;
   /** Suggestions of the latest Campaign Master reply, when the server keeps them for resuming. */
-  suggestions?: string[];
-  scenario?: { title: string; company_name: string; trade: string; horizon_label: string; budget_eur: number };
+  suggestions: string[];
+  characters?: { id: string; name: string; role: string; location: string | null }[];
+  rumours?: string[];
+  outcome?: OutcomeReveal;
+  scenario?: {
+    title: string;
+    company_name: string;
+    trade: string;
+    horizon_label: string;
+    budget_eur: number;
+    currency?: string;
+    spread_available?: boolean;
+  };
   // Fields used by the commit-to-finish screens (spec 003 slice 7).
-  /** @deprecated the flat fields above are the source of truth (the backend sends no `resources`). */
-  resources: HeroResources;
-  budget_eur?: number;
-  horizon_days?: number;
-  offers_spread?: boolean;
+  budget_eur: number;
+  horizon_days: number;
+  offers_spread: boolean;
   commit_draft?: CommitDraft | null;
   xp?: XpResult;
   debrief?: DebriefData;
@@ -336,7 +356,7 @@ export type DmEvent =
   | { event: 'token'; data: { text: string } }
   | { event: 'card'; data: { kind: 'dice' | 'news'; [field: string]: unknown } }
   | { event: 'state'; data: { can_decide?: boolean; art_ready?: string[]; [field: string]: unknown } }
-  | { event: 'done'; data: { text: string; audio_text_id?: string | null; [field: string]: unknown } }
+  | { event: 'done'; data: { text: string; audio_text_id?: number | string | null; [field: string]: unknown } }
   | { event: 'error'; data: { code: string; message: string } };
 
 // ---- Play turn payloads ----
@@ -361,6 +381,8 @@ export interface NewsCard {
   summary: string;
   time_skip_label: string;
   story_day: number;
+  framing?: string;
+  framing_audio_text_id?: number | null;
 }
 
 export interface RollResult {
@@ -389,6 +411,12 @@ export interface TurnExtras {
   location?: { id: string; key: string; name: string };
   first_visit?: boolean;
   news_text?: string;
+  can_decide?: boolean;
+  hint_location?: string | null;
+  roll_id?: string;
+  mood?: string;
+  degraded?: boolean;
+  replayed?: boolean;
 }
 
 export interface JournalEntry {

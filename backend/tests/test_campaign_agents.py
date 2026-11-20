@@ -675,7 +675,7 @@ def test_debrief_sse_streams_parts_and_replays(client: TestClient, enron: str) -
     assert names(ev)[0] == "status" and names(ev)[-1] == "done"
     assert done["sound_reasoning"] and done["overlooked"] and done["luck"]
     assert done["reflection_question"].endswith("?") and done["forecast_line"].startswith("You said 30%")
-    assert [r["key"] for r in done["whatif"]][:3] == ["dont", "half", "all"]
+    assert [r["key"] for r in done["whatif"]][:3] == ["dont_invest", "half", "all"]
     assert done["text"] and done["audio_text_id"] and "Enron" not in done["text"]
     again = post_sse(client, f"/campaigns/{cid}/debrief", h)[1]
     assert again["text"] == done["text"]

@@ -253,5 +253,5 @@ test('new player: hero creation, interests, disclosure note, then play', async (
   await page.getByRole('button', { name: 'Find my quest' }).click();
   await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL(/\/quest\/play$/);
-  await expect(page.getByRole('heading', { name: 'Play' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Quest dock' })).toBeVisible();
 });

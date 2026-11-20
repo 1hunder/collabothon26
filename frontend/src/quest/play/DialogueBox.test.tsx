@@ -42,7 +42,7 @@ describe('DialogueBox', () => {
     expect(live).toHaveTextContent('');
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(live).toHaveTextContent(sentence(30, 'a'));
-    expect(onPageShown).toHaveBeenCalledWith(expect.stringContaining('a0'), 'dm');
+    expect(onPageShown).toHaveBeenCalledWith(expect.stringContaining('a0'), 'dm', null);
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(onPageShown).toHaveBeenCalledTimes(2);
   });

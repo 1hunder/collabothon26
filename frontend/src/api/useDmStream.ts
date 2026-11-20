@@ -20,7 +20,7 @@ export type DmStreamState =
       clientMsgId: string;
       text: string;
       cards: DmCard[];
-      audioTextId: string | null;
+      audioTextId: number | string | null;
       canDecide: boolean | null;
       /** Every field of the `done` event (speaker, suggestions, ...). */
       extras: Record<string, unknown>;

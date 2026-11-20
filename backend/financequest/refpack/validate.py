@@ -13,6 +13,11 @@ PLACEHOLDER = re.compile(r"\{([A-Za-z0-9_-]+)(?::abs)?\}")
 MAGNITUDE_WORDS = re.compile(r"\b(?:million|billion|trillion)s?\b", re.IGNORECASE)
 MONTHS = "January|February|April|June|July|August|September|October|November|December"
 MONTH_WORDS = re.compile(rf"\b(?:{MONTHS})\b")
+REASON_DATE = "Real date found in text"  # spec 2.3.6
+YEAR_WORDS = re.compile(r"(?<!\d)(?:1[5-9]|20)\d\d(?!\d)")
+WEEKDAY_WORDS = re.compile(
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b", re.IGNORECASE
+)
 SHORT_TERM_LEN = 3  # terms this short are matched case-sensitively ("Lay", "ENE", "SEC")
 
 
@@ -107,7 +112,11 @@ def _check_text(m: CampaignManifest, r: ValidationReport) -> None:
         if MAGNITUDE_WORDS.search(text):
             r.errors.append(f"magnitude word (million/billion) in {path}")
         if MONTH_WORDS.search(text):
-            r.errors.append(f"month name in {path}")
+            r.errors.append(f"{REASON_DATE}: month name in {path}")
+        if WEEKDAY_WORDS.search(PLACEHOLDER.sub("", text)):
+            r.errors.append(f"{REASON_DATE}: weekday in {path}")
+        if YEAR_WORDS.search(PLACEHOLDER.sub("", text)):
+            r.errors.append(f"{REASON_DATE}: year in {path}")
         stripped = PLACEHOLDER.sub("", text)
         if re.search(r"\d", stripped):
             r.errors.append(f"raw number in {path}: use a {{figure_id}} placeholder")

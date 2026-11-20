@@ -38,6 +38,7 @@ packages = ["financequest"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["regression: acceptance-level test kept for long-term regression"]
 
 [tool.ruff]
 line-length = 100

@@ -65,7 +65,7 @@ def test_view_is_disguised_and_dateless(client: TestClient, enron: str) -> None:
     assert r.status_code == 200, r.text
     body = r.json()
     assert set(body) == {
-        "invented_name", "industry_shown", "story_today", "beats", "chart", "company_card",
+        "id", "invented_name", "industry_shown", "story_today", "beats", "chart", "company_card",
     }  # fmt: skip
     assert body["beats"] and body["chart"]
     assert set(body["beats"][0]) == {"story_day", "headline", "facts"}

@@ -24,7 +24,9 @@ export interface DialogueBoxProps {
    * VOICE HOOK: called once for every page when it starts to show, with the page text and which
    * voice reads it. The voice module (src/voice) plugs in here; this component stays silent.
    */
-  onPageShown?: (text: string, voice: VoiceKind) => void;
+  onPageShown?: (text: string, voice: VoiceKind, audioTextId?: number | string | null) => void;
+  /** Server audio id of the whole reply; only used when the reply fits one page. */
+  audioTextId?: number | string | null;
   /** Swipe down on the box opens the backlog. */
   onSwipeDown?: () => void;
 }
@@ -40,6 +42,7 @@ export default function DialogueBox({
   instant = false,
   onAdvance,
   onPageShown,
+  audioTextId = null,
   onSwipeDown,
 }: DialogueBoxProps): React.JSX.Element {
   const pages = useMemo(() => splitPages(text), [text]);
@@ -57,8 +60,8 @@ export default function DialogueBox({
   useEffect(() => {
     if (!pageReady || page === '' || spoken.current === index) return;
     spoken.current = index;
-    onPageShown?.(page, voice);
-  }, [index, page, pageReady, voice, onPageShown]);
+    onPageShown?.(page, voice, final && pages.length === 1 ? audioTextId : null);
+  }, [index, page, pageReady, voice, onPageShown, final, pages.length, audioTextId]);
 
   const tap = (): void => {
     if (!done) complete();

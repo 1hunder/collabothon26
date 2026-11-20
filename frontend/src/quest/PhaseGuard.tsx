@@ -36,7 +36,9 @@ export default function PhaseGuard({ screen, children }: PhaseGuardProps): React
   if (here === HERO_NEW) return go('/quest');
   if (campaign.data) {
     const target = phaseToPath(campaign.data.phase);
-    return target === here ? children : go(target);
+    // The server never stores `reflect`: the reflection screen is a client-only step of `debrief`.
+    const reflecting = campaign.data.phase === 'debrief' && here === '/quest/reflect';
+    return target === here || reflecting ? children : go(target);
   }
   return here === '/quest/interests' ? children : go('/quest/interests');
 }

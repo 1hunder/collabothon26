@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { lockDecision, patchCampaignCache, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
+import { lockDecision, patchCampaignCache, resumePlay, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
 import type { CampaignState, CommitDraft, Confidence, DecisionAction } from '../../api/types';
 import {
   actionLabels,
@@ -70,6 +70,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
   const [touched, setTouched] = useState({ amount: false, evidence: false });
   const [stage, setStage] = useState<Stage>('form');
   const [lockedHorizon, setLockedHorizon] = useState<number | null>(null);
+  const [skipLabel, setSkipLabel] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -95,6 +96,11 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
     } catch {
       // sessionStorage already holds the draft
     }
+    try {
+      await resumePlay(campaignId);
+    } catch {
+      // the server stays in commit; a reload would reopen the commit screen
+    }
     patchCampaignCache(qc, campaignId, { phase: 'play' });
     void navigate('/quest/play', { replace: true });
   };
@@ -109,6 +115,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
         new Promise((r) => setTimeout(r, prefersReducedMotion() ? 0 : SEAL_MS)),
       ]);
       setLockedHorizon(res.horizon_days);
+      setSkipLabel(res.time_skip_label ?? null);
       setStage('skip');
     } catch {
       setStage('form');
@@ -129,7 +136,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
       </div>
     );
   }
-  if (stage === 'skip') return <TimeSkip days={lockedHorizon ?? horizon} onDone={proceed} />;
+  if (stage === 'skip') return <TimeSkip label={skipLabel ?? `${lockedHorizon ?? horizon} days later…`} onDone={proceed} />;
 
   return (
     <form
@@ -302,7 +309,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
   );
 }
 
-function TimeSkip({ days, onDone }: { days: number; onDone: () => void }): React.JSX.Element {
+function TimeSkip({ label, onDone }: { label: string; onDone: () => void }): React.JSX.Element {
   useEffect(() => {
     const t = setTimeout(onDone, SKIP_MS);
     return () => clearTimeout(t);
@@ -313,7 +320,7 @@ function TimeSkip({ days, onDone }: { days: number; onDone: () => void }): React
       onClick={onDone}
       className="flex min-h-[60dvh] w-full flex-col items-center justify-center gap-2 text-center"
     >
-      <span className="font-quest-title text-5xl text-quest-gilt">{days} days later…</span>
+      <span className="font-quest-title text-5xl text-quest-gilt">{label}</span>
       <span className="font-quest-sans text-sm text-quest-vellum-dim">Tap to continue</span>
     </button>
   );

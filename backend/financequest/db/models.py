@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, Numeric, Text
+from sqlalchemy import JSON, BigInteger, Column, DateTime, ForeignKey, Integer, Numeric, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -169,7 +169,7 @@ class ScenarioSecret(SQLModel, table=True):  # server-only, reveal only
     price_series_ref: str | None = None
     price_factor: float | None = Field(default=None, sa_column=Column(Numeric(24, 12)))
     amount_factors: Any = _jsonb()
-    seed: int | None = Field(default=None, sa_column=Column(Integer))
+    seed: int | None = Field(default=None, sa_column=Column(BigInteger))
     what_changed: Any = _jsonb()
     n_guessers: int = 0
     leak_terms: Any = _jsonb()

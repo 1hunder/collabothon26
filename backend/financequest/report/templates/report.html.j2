@@ -48,7 +48,7 @@
 {% for c in cases %}
 <details id="case-{{ c.case_id }}">
 <summary>{{ c.company }}{% if c.invented_name %} &rarr; {{ c.invented_name }}{% endif %}
- <span class="badge {{ c.status }}">{{ c.status }}</span></summary>
+ <span class="badge {{ c.status }}">{{ c.status_label }}</span></summary>
 <p>Ticker {{ c.ticker or "n/a" }} &middot; size {{ c.size or "untagged" }} &middot; fame {{ c.fame or "untagged" }}
  &middot; country {{ c.country or "n/a" }} &middot; story year {{ c.story_year or "n/a" }}
 {% if c.skip_reason %}<br>{{ c.skip_reason }}{% endif %}</p>

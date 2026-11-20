@@ -110,6 +110,15 @@ describe('Reflect', () => {
   });
 });
 
+describe('Reflect while the server is still in debrief', () => {
+  it('stays on the reflection screen (the server never stores reflect)', async () => {
+    seedCampaign({ phase: 'debrief', decision: investDecision });
+    const router = renderRoutes(routes, ['/quest/reflect']);
+    expect(await screen.findByRole('button', { name: 'Submit reflection' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/reflect');
+  });
+});
+
 describe('Xp and finish', () => {
   it('lists the rubric categories (25/25/20/15/15), the total, and finishes the quest', async () => {
     const user = userEvent.setup();

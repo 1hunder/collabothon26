@@ -5,6 +5,8 @@ import { patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } 
 import { request } from '../../api/client';
 import type { CampaignState, DiceCard, DiceMode, NewsCard, PlayLocation, RollResult, TurnExtras } from '../../api/types';
 import { useDmStream, type DmDone } from '../../api/useDmStream';
+import { useVoice } from '../../voice';
+import { inertVoice } from '../../voice/context';
 import Backlog from './Backlog';
 import BreakingNewsCard from './BreakingNewsCard';
 import BuddyScene from './BuddyScene';
@@ -26,7 +28,7 @@ export interface PlayScreenProps {
   voiceOn?: boolean;
   onToggleVoice?: () => void;
   /** VOICE HOOK: called once per page when it starts to show. */
-  onPageShown?: (text: string, voice: VoiceKind) => void;
+  onPageShown?: (text: string, voice: VoiceKind, audioTextId?: number | string | null) => void;
 }
 
 interface Scene {
@@ -38,6 +40,7 @@ interface Scene {
   cards: (DiceCard | NewsCard)[];
   newsText: string | null;
   instant: boolean;
+  audioTextId: number | string | null;
 }
 
 type Overlay =
@@ -68,7 +71,17 @@ interface PlayProps extends PlayScreenProps {
   id: string;
 }
 
-function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.JSX.Element {
+function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: PlayProps): React.JSX.Element {
+  const voiceApi = useVoice();
+  const hasProvider = voiceApi !== inertVoice;
+  const { stop: stopVoice, onPageShown: voicePage } = voiceApi;
+  const onPageShown = useCallback(
+    (text: string, voice: VoiceKind, audioTextId?: number | string | null): void => {
+      if (onPageShownProp) onPageShownProp(text, voice, audioTextId);
+      else voicePage(text, voice, audioTextId == null ? null : String(audioTextId));
+    },
+    [onPageShownProp, voicePage],
+  );
   const qc = useQueryClient();
   const navigate = useNavigate();
   const base = `/campaigns/${id}`;
@@ -101,6 +114,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
       cards: done.cards.flatMap((raw) => normalizeCard(raw) ?? []),
       newsText: x.news_text ?? null,
       instant: false,
+      audioTextId: done.extras.audio_text_id as number | string | null | undefined ?? null,
     });
     if (x.location) {
       patchCampaignCache(qc, id, { current_location_id: x.location.id });
@@ -156,21 +170,24 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
       cards: [],
       newsText: null,
       instant: true,
+      audioTextId: null,
     };
   }, [c.backlog, c.suggestions]);
 
   const current = scene ?? (dm.state.phase === 'idle' ? resumed : null);
   const location = c.locations.find((l) => l.id === c.current_location_id);
   const diceOpen = activeOverlay.kind === 'dice' || c.pending !== null;
-  const voice = voiceOn ?? localVoice;
+  const voice = voiceOn ?? (hasProvider ? voiceApi.enabled : localVoice);
   const state = dm.state;
 
   const sendAction = (text: string): void => {
+    stopVoice();
     setAdvancedKey(null);
     dm.send({ text });
   };
 
   const move = (l: PlayLocation): void => {
+    stopVoice();
     setSheet(null);
     setAdvancedKey(null);
     dm.send({ location_id: l.id }, `${base}/move`);
@@ -199,7 +216,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
       [...latest.current.backlog].reverse().find((e) => notYou(e.speaker))?.text ??
       null;
     if (followUp !== null && followUp !== current.text) {
-      setScene({ ...current, key: `${current.key}-news`, text: followUp, cards: [], newsText: null, showDecide: false, instant: false });
+      setScene({ ...current, key: `${current.key}-news`, text: followUp, cards: [], newsText: null, showDecide: false, instant: false, audioTextId: null });
     } else {
       setScene({ ...current, cards: [] });
       setAdvancedKey(current.key);
@@ -226,7 +243,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
     }
   };
 
-  const toggleVoice = (): void => (onToggleVoice ? onToggleVoice() : setLocalVoice((v) => !v));
+  const toggleVoice = (): void => {
+    if (onToggleVoice) onToggleVoice();
+    else if (hasProvider) voiceApi.toggle();
+    else setLocalVoice((v) => !v);
+  };
 
   const dismissTitle = useCallback((): void => setTitle(null), []);
 
@@ -249,6 +270,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
     setOverlay({ kind: 'none' });
     setResumeDone(true);
     setAdvancedKey(null);
+    stopVoice();
     dm.send({ roll_id: final.roll_id }, `${base}/narrate-roll`);
   };
 
@@ -290,7 +312,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
           bonusLeadAvailable={c.bonus_lead_available}
           onSend={sendAction}
           onDecide={() => void decide()}
-          onHint={() => dm.send({}, `${base}/focus/hint`)}
+          onHint={() => {
+            stopVoice();
+            dm.send({}, `${base}/focus/hint`);
+          }}
           onBonusLead={() => void bonusLead()}
         />
       );
@@ -301,6 +326,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
         speaker={current.speaker}
         text={current.text}
         instant={current.instant}
+        audioTextId={current.audioTextId}
         onAdvance={activeOverlay.kind === 'none' ? advance : () => undefined}
         onPageShown={onPageShown}
         onSwipeDown={() => setSheet('backlog')}
@@ -327,7 +353,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
           buddyOpen={buddyOpen}
           onMap={() => setSheet('map')}
           onJournal={() => setSheet('journal')}
-          onBuddy={() => setBuddyOpen((o) => !o)}
+          onBuddy={() => {
+            stopVoice();
+            setBuddyOpen((o) => !o);
+          }}
           onToggleVoice={toggleVoice}
         />
       }
@@ -356,7 +385,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown }: PlayProps): React.
       }
     >
       {buddyOpen ? (
-        <BuddyScene stream={buddy} onClose={() => setBuddyOpen(false)} onPageShown={onPageShown} />
+        <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} />
       ) : (
         dialogue
       )}

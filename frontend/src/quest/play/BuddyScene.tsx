@@ -10,7 +10,7 @@ interface BuddySceneProps {
   stream: DmStream;
   onClose: () => void;
   /** VOICE HOOK, same contract as DialogueBox.onPageShown. */
-  onPageShown?: (text: string, voice: VoiceKind) => void;
+  onPageShown?: (text: string, voice: VoiceKind, audioTextId?: number | string | null) => void;
   onAsked?: () => void;
 }
 
@@ -26,9 +26,9 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked }: Bu
 
   const ask = (): void => {
     if (empty || busy) return;
+    onAsked?.();
     const text = draft.trim();
     setDraft('');
-    onAsked?.();
     stream.send({ text });
   };
 
@@ -55,6 +55,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked }: Bu
           writingLabel="CommerzBuddy is thinking…"
           onAdvance={() => undefined}
           onPageShown={onPageShown}
+          audioTextId={state.phase === 'done' ? state.audioTextId : null}
         />
       )}
       <form

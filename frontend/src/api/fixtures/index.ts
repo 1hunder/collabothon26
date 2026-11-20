@@ -104,6 +104,11 @@ function outcomeFor(budget: number, d: CommitRequest): OutcomeReveal {
   return {
     locked_at: 'Day 84, evening',
     horizon_days: 75,
+    horizon_label: 'about 75 days',
+    time_skip_label: '75 days later…',
+    action: d.action,
+    amount_eur: d.amount_eur ?? null,
+    phase: 'reveal',
     series: Array.from({ length: 160 }, (_, i) => ({
       story_day: i,
       price: Math.round((100 + Math.sin(i / 9) * 12 - Math.max(0, i - 84) * 1.2) * 100) / 100,
@@ -119,6 +124,7 @@ function outcomeFor(budget: number, d: CommitRequest): OutcomeReveal {
       pl_eur: money(finalValue - budget),
       pl_pct: Math.round(((finalValue - budget) / budget) * 1000) / 10,
     },
+    investment_return_pct: Math.round((fixtureRate - 1) * 1000) / 10,
     hp_before: budget / 10,
     hp_after: Math.round(finalValue / 10),
     currency_note: "Prices in the company's original currency; exchange-rate changes are not included.",
@@ -133,6 +139,7 @@ function whatIfFor(budget: number, d: CommitRequest): WhatIfRow[] {
       label,
       final_value: final,
       pct: Math.round(((final - budget) / budget) * 1000) / 10,
+      hp_after: Math.round(final / 10),
       is_yours: false,
     };
   };
@@ -173,7 +180,7 @@ function lock(body: unknown): unknown {
   const d = body as CommitRequest;
   if (!db.campaign || !d?.action || (d.evidence ?? '').trim().length < 20) throw new FixtureHttpError(422);
   writeDb({ ...db, decision: d, campaign: { ...db.campaign, phase: 'reveal' } });
-  return { locked_at: 'Day 84, evening', horizon_days: 75 };
+  return outcomeFor(db.campaign.budget_eur ?? 1000, d);
 }
 
 function finish(): unknown {

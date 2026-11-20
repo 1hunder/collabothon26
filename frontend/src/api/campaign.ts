@@ -88,6 +88,10 @@ export function saveCommitDraft(id: string, draft: Partial<CommitDraft>): Promis
   return request<void>('PUT', `/campaigns/${id}/commit-draft`, draft);
 }
 
+export function resumePlay(id: string): Promise<{ phase: 'play'; commit_draft: CommitDraft | null }> {
+  return request('POST', `/campaigns/${id}/resume-play`);
+}
+
 export function lockDecision(id: string, req: CommitRequest): Promise<LockResponse> {
   return request<LockResponse>('POST', `/campaigns/${id}/lock`, req);
 }

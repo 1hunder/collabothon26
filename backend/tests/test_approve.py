@@ -73,7 +73,7 @@ def test_enron_is_playable_and_clean(approved: tuple[Session, Scenario]) -> None
     assert not re.search(r"(?<![\w.])(?:19|20)\d{2}(?![\w.])", text)
     assert not re.search(r"\b(19|20)\d{2}-\d{2}", blob)
     assert "secret" not in sc.manifest and "Enron" not in blob
-    assert sc.story_days[0] == 0 and sc.story_days == sorted(sc.story_days)
+    assert sc.story_days[0] >= 0 and sc.story_days == sorted(sc.story_days)
     assert all((d - sc.story_days[0]) % 7 == 0 for d in sc.story_days[1:])
     assert "{" not in blob.replace('{"', "").replace("{}", "")  # no unfilled placeholders
 
@@ -129,3 +129,22 @@ def test_tampered_pack_not_playable(test_db_url: str, tmp_path: Path) -> None:
 def test_cli_approve(test_db_url: str) -> None:
     r = CliRunner().invoke(app, ["refpack", "approve", str(PACK)])
     assert r.exit_code == 0 and "status=playable" in r.output
+
+
+def test_story_days_are_never_negative(approved: tuple[Session, Scenario]) -> None:
+    """Player-facing story days start at 0 and every source of days shares one offset."""
+    _, sc = approved
+    chart_days = [p["day"] for p in sc.chart_series]
+    assert min(chart_days) == 0
+    assert all(b["day"] >= 0 for b in sc.beats)
+    assert all(d >= 0 for d in sc.story_days)
+    assert all(c["story_day"] >= 0 for c in sc.manifest["checkpoints"])
+    assert sc.manifest["prices"]["decision_story_day"] >= max(chart_days)
+    with Session(get_engine()) as s:
+        secret = s.get(ScenarioSecret, sc.id)
+        assert secret is not None
+        dm = secret.real_beats["day_map"]
+        assert min(dm.values()) == 0
+        for p in sc.chart_series:
+            assert p["day"] in dm.values()
+        assert all(v >= 0 for v in secret.real_beats["checkpoint_days"].values())

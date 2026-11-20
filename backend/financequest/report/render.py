@@ -17,6 +17,7 @@ from financequest.db.models import (
     Scenario,
     SourceCase,
 )
+from financequest.reid import rules
 from financequest.report.stats import CaseOutcome, FinalStatus, compute_stats
 
 CAVEAT = "Claude-only guessers are a weaker test than mixed providers"
@@ -93,6 +94,7 @@ def build_report_data(session: Session, run_id: int) -> dict[str, Any]:
                 "story_year": case.story_year,
                 "untagged": case.fame is None,
                 "status": res.final_status,
+                "status_label": STATUS_LABELS.get(res.final_status, res.final_status),
                 "skip_reason": case.skip_reason if res.final_status == "skipped" else None,
                 "attempts": rows,
             }
@@ -129,6 +131,14 @@ def build_report_data(session: Session, run_id: int) -> dict[str, Any]:
         "cases": cases,
         "telemetry": (run.config or {}).get("telemetry", {}),
     }
+
+
+STATUS_LABELS = {
+    "approved": "Approved",
+    "rejected": "Rejected: too recognisable",
+    "skipped": rules.SKIP_INCOMPLETE,
+    "error": "Error",
+}
 
 
 def render_html(data: dict[str, Any]) -> str:

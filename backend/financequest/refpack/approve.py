@@ -179,7 +179,13 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
 
     problems: list[str] = []
     cps = {c.id: c for c in m.checkpoints}
-    offset = plan.story_day(_real_day(m.checkpoints[0].cutoff_date))  # intro is story day 0
+    # Re-base so the earliest day a player can see (chart start or first checkpoint) is day 0;
+    # every story day below (checkpoints, beats, chart, day_map) shifts by this one offset.
+    shown_days = [plan.story_day(_real_day(c.cutoff_date)) for c in m.checkpoints]
+    shown_days += [
+        plan.story_day(_real_day(r["date"])) for r in rows if r["date"] <= m.prices.decision_date
+    ]
+    offset = min(shown_days)
 
     def sday(d: date) -> int:
         return plan.story_day(_real_day(d)) - offset
@@ -345,7 +351,7 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
     secret.price_series_ref = str((pack_dir / m.prices.path).resolve())
     secret.price_factor = plan.price_factor  # type: ignore[assignment]
     secret.amount_factors = secret_json["amount_factors"]
-    secret.seed = plan.seed % 2**31  # column is int4; full seed = crc32(case_id) + salt
+    secret.seed = plan.seed  # BIGINT: crc32(case_id) + salt
     secret.what_changed = what_changed
     secret.n_guessers = 0
     secret.leak_terms = terms

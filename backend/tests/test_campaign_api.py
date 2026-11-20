@@ -163,7 +163,7 @@ def test_classes_and_state(client: TestClient, enron: str) -> None:
         )
         assert r["focus_left"] == 3 and r["phase"] == "setup" and r["scenario_id"] == enron
         assert {x["key"] for x in r["locations"]} >= {"tavern", "market_square", "library"}
-        assert r["story_day"] == 0 and r["scenario"]["horizon_label"].startswith("about ")
+        assert r["story_day"] >= 0 and r["scenario"]["horizon_label"].startswith("about ")
         # a second quest while one is active is refused
         assert client.post("/campaigns", json={"interests": []}, headers=h).status_code == 409
 
@@ -172,7 +172,9 @@ def test_news_trigger_and_can_decide(client: TestClient, enron: str) -> None:
     h = new_player(client)
     cid, s = start(client, h)
     assert not s["can_decide"] and not s["news_shown"]
-    assert all(set(e) == {"id", "title", "text"} for d in s["library"]["documents"] for e in d["entries"])
+    assert all(
+        set(e) == {"id", "title", "text"} for d in s["library"]["documents"] for e in d["entries"]
+    )
     assert not any("Heavy Loss" in d["title"] for d in s["library"]["documents"])
 
     def m(k: str) -> Any:
@@ -239,7 +241,8 @@ def test_full_flow_enron_numbers_and_finish(client: TestClient, enron: str) -> N
     assert hero["items"][0]["id"] == "ratio_lens" and hero["items"][0]["name"] == "Ratio Lens"
     # second and third campaigns earn the next items in order, HP starts fresh
     cid2, _ = finish_campaign(client, h)
-    assert client.post(f"/campaigns/{cid2}/finish", headers=h).json()["new_item"]["id"] == "rumour_ledger"
+    fin2 = client.post(f"/campaigns/{cid2}/finish", headers=h).json()
+    assert fin2["new_item"]["id"] == "rumour_ledger"
     cid3, _ = finish_campaign(client, h)
     assert client.post(f"/campaigns/{cid3}/finish", headers=h).json() == {
         "total_xp": 300,

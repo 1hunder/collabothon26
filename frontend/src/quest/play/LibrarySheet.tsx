@@ -7,7 +7,10 @@ interface LibrarySheetProps {
   onClose: () => void;
 }
 
-const show = (v: number | string): string => (typeof v === 'number' ? formatStoryNumber(v) : v);
+const show = (v: number | string): string => {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) ? formatStoryNumber(n) : String(v);
+};
 
 function Figure({ f }: { f: KeyFigure }): React.JSX.Element {
   return (

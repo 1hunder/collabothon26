@@ -438,14 +438,19 @@ async def run_batch(
         s.commit()
 
     async def one(case_id: str) -> None:
+        async with sem:  # take a slot before checking out a connection
+            final = await _run_case(case_id)
+        if final and on_case_done:
+            on_case_done(case_id, final)
+
+    async def _run_case(case_id: str) -> str | None:
+        # Short sessions: read inputs, release the connection, run the gate, then write.
         with session_factory() as s:
             case = s.get(SourceCase, case_id)
             if case is None:
-                return
+                return None
             gate_case: GateCase | None = None
-            state: dict[str, Any] | None = None
             override: str | None = None
-            error: str | None = None
             if reevaluate_skip(s, case) is not None:
                 override = "skipped"
             else:
@@ -454,18 +459,22 @@ async def run_batch(
                     override = "skipped"
                 else:
                     gate_case = built
-                    async with sem:
-                        try:
-                            state = await asyncio.to_thread(
-                                gate_runner, gate_case, salt, llm_factory(case)
-                            )
-                        except Exception as exc:  # noqa: BLE001 - one bad case must not stop the run
-                            log.exception("gate failed for %s", case_id)
-                            error = f"{type(exc).__name__}: {exc}"
+            s.commit()  # persist the skip re-evaluation and free the connection
+            llm = llm_factory(case) if gate_case is not None else None
+        state: dict[str, Any] | None = None
+        error: str | None = None
+        if gate_case is not None and llm is not None:
+            try:
+                state = await asyncio.to_thread(gate_runner, gate_case, salt, llm)
+            except Exception as exc:  # noqa: BLE001 - one bad case must not stop the run
+                log.exception("gate failed for %s", case_id)
+                error = f"{type(exc).__name__}: {exc}"
+        with session_factory() as s:
+            case = s.get(SourceCase, case_id)
+            assert case is not None
             final = record_case(s, run_id, case, gate_case, state, override, error, salt)
-            summary.done[case_id] = final
-        if on_case_done:
-            on_case_done(case_id, final)
+        summary.done[case_id] = final
+        return final
 
     await asyncio.gather(*(one(c) for c in todo))
     with session_factory() as s:

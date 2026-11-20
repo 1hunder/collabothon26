@@ -12,15 +12,30 @@ export type ApiErrorKind =
   | 'Server'
   | 'Network';
 
+interface ApiErrorExtra {
+  code?: string;
+  fields?: Record<string, string>;
+  campaignId?: string;
+}
+
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   readonly status: number;
+  /** Server error code from the `{error: {code}}` envelope. */
+  readonly code?: string;
+  /** 422 field messages. */
+  readonly fields?: Record<string, string>;
+  /** 409 campaign_in_progress: the campaign to resume. */
+  readonly campaignId?: string;
 
-  constructor(kind: ApiErrorKind, status: number, message?: string) {
+  constructor(kind: ApiErrorKind, status: number, message?: string, extra?: ApiErrorExtra) {
     super(message ?? `${kind} (${status})`);
     this.name = 'ApiError';
     this.kind = kind;
     this.status = status;
+    this.code = extra?.code;
+    this.fields = extra?.fields;
+    this.campaignId = extra?.campaignId;
   }
 }
 
@@ -31,6 +46,27 @@ function kindForStatus(status: number): ApiErrorKind {
   if (status === 409) return 'Conflict';
   if (status === 422) return 'Validation';
   return 'Server';
+}
+
+/** Parse the `{error: {code, message, fields?, campaign_id?}}` envelope into an ApiError. */
+export async function errorFromResponse(res: Response): Promise<ApiError> {
+  let extra: ApiErrorExtra = {};
+  let message: string | undefined;
+  try {
+    const body = (await res.json()) as { error?: Record<string, unknown> };
+    const e = body.error;
+    if (e) {
+      extra = {
+        code: typeof e.code === 'string' ? e.code : undefined,
+        fields: e.fields && typeof e.fields === 'object' ? (e.fields as Record<string, string>) : undefined,
+        campaignId: typeof e.campaign_id === 'string' ? e.campaign_id : undefined,
+      };
+      if (typeof e.message === 'string') message = e.message;
+    }
+  } catch {
+    // not JSON
+  }
+  return new ApiError(kindForStatus(res.status), res.status, message, extra);
 }
 
 let memorySession: string | null = null;
@@ -130,15 +166,32 @@ export async function request<T>(method: string, path: string, body?: unknown): 
     }
   }
   const res = await authedFetch(method, path, body);
-  if (!res.ok) throw new ApiError(kindForStatus(res.status), res.status);
+  if (!res.ok) throw await errorFromResponse(res);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
+const num = (v: unknown): number => Number(v);
+
+/** Spec 002 sends prices as decimal strings; the UI works with numbers. */
+export function coerceView(v: ScenarioView): ScenarioView {
+  return { ...v, chart: v.chart.map((p) => ({ ...p, price: num(p.price) })) };
+}
+
+export function coerceReveal(r: RevealData): RevealData {
+  return {
+    ...r,
+    series: r.series.map((p) => ({ ...p, price: num(p.price) })),
+    news_points: r.news_points.map((p) => ({ ...p, real_price: num(p.real_price) })),
+  };
+}
+
 export const api = {
   playable: (): Promise<ScenarioSummary[]> => request('GET', '/scenarios/playable'),
-  view: (id: string): Promise<ScenarioView> => request('GET', `/scenario/${id}/view`),
-  reveal: (id: string): Promise<RevealData> => request('GET', `/scenario/${id}/reveal`),
+  view: async (id: string): Promise<ScenarioView> =>
+    coerceView(await request<ScenarioView>('GET', `/scenario/${id}/view`)),
+  reveal: async (id: string): Promise<RevealData> =>
+    coerceReveal(await request<RevealData>('GET', `/scenario/${id}/reveal`)),
   postEvent: (id: string, type: string): Promise<unknown> =>
     request('POST', `/scenario/${id}/events`, { type }),
 };

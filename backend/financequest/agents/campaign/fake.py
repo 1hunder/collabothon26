@@ -233,10 +233,13 @@ class CampaignFakeLLM:
     def buddy(self, c: dict[str, Any]) -> S.BuddyOut:
         ctx: C.AgentContext = c["ctx"]
         text: str = c["input"]
-        if _has(text, "real company", "which company", "who is", "ticker", "real name", "stock symbol"):
+        if _has(text, "real company", "which company", "what company", "who is", "ticker", "real name",
+                "stock symbol", "is this", "is it ", "what year", "which year", "when is this",
+                "when was", "when did", "real life", "actual company") or re.search(r"\b(1[89]|20)\d\d\b", text):
             return S.BuddyOut(
-                text="The company is revealed after you decide. Until then, the clues are what you "
-                "have: which one would you read again?", intent="identity_request", mood="calm")  # fmt: skip
+                text="I don't know that, and I would not say if I did: the answer is revealed at the "
+                "end, after you decide. Until then, the clues are what you have: which one would "
+                "you read again?", intent="identity_request", mood="calm")  # fmt: skip
         if _has(text, "price will", "will the price", "what will", "end of the quest", "go up", "go down", "next week", "future"):
             return S.BuddyOut(
                 text="Nobody can know that, and neither can I. What I can do is point you to the "

@@ -17,7 +17,10 @@ export default defineConfig({
     { name: `chromium-${name}`, use: { ...devices['Desktop Chrome'], viewport } },
     { name: `webkit-${name}`, use: { ...devices['Desktop Safari'], viewport } },
   ]),
-  webServer: {
+  // Live-API spec (e2e/enron-live.spec.ts): the page is served separately (see that file), no webServer.
+  webServer: process.env.E2E_LIVE_API
+    ? undefined
+    : {
     command: `npm run build && npm run preview`,
     url: `http://localhost:${port}`,
     reuseExistingServer: false,

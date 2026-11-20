@@ -33,7 +33,7 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
         fields = {
-            ".".join(str(p) for p in e["loc"] if p != "body"): str(e["msg"]) for e in exc.errors()
+            ".".join(str(p) for p in e["loc"][1:]): str(e["msg"]) for e in exc.errors()
         }
         body = {"code": "validation_error", "message": "Check your input", "fields": fields}
         return JSONResponse({"error": body}, status_code=422)

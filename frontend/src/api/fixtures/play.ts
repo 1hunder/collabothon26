@@ -112,13 +112,7 @@ export function fixtureNewCampaign(hero: Hero, interests: string[]): CampaignSta
     hero: { name: hero.name, class: hero.class, total_xp: hero.total_xp, items: hero.items.map((i) => i.id) },
     hp,
     hp_eur: hp * 10,
-    resources: {
-      hp,
-      hp_euros: hp * 10,
-      focus: 3,
-      rerolls: hero.class === 'analyst' ? 1 : 0,
-      keen_eye: hero.class === 'investigator' ? 1 : 0,
-    },
+    suggestions: [],
     focus_left: 3,
     rerolls_left: hero.class === 'analyst' ? 1 : 0,
     keen_eye_left: hero.class === 'investigator' ? 1 : 0,
@@ -558,6 +552,14 @@ export function fixturePlayResponse(method: string, path: string, body?: unknown
       x.c.phase = 'commit';
       save(x);
     }
+  }
+  if (m === 'POST' && /^\/campaigns\/[^/]+\/resume-play$/.test(path)) {
+    const x = ctx();
+    if (x.c.phase === 'commit') {
+      x.c.phase = 'play';
+      save(x);
+    }
+    return { phase: 'play', commit_draft: x.c.commit_draft ?? null };
   }
   return undefined;
 }
