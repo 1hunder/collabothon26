@@ -9,6 +9,8 @@ It is NOT a copy-paste implementation guide.
 - **Status:** In Review
 - **Author(s):** Viktor Kulyk (drafted with Claude). Input from the `python-backend`, `langgraph-agents` and `react-frontend` agents and a code exploration.
 
+> **Shared contracts:** this spec is implemented in parallel with spec 002 (disguise + recognition gate). Ownership, the shared package and tables, routes, display rules and the mission order are fixed in [`context/product/shared-contracts-002-003.md`](../../product/shared-contracts-002-003.md). Where this document disagrees with it, the contract wins.
+
 ---
 
 ## 1. High-Level Technical Approach
@@ -18,12 +20,13 @@ This feature creates the **backend** (none exists yet) and turns the spec 001 qu
 1. **Backend: `backend/`, FastAPI on Railway.**
    - **Deterministic engine:** owns every number: dice, difficulty, HP, portfolio math, XP caps, Focus, items, gating, the hidden-future gate.
    - **Agent layer:** LangGraph graphs calling Claude (`claude-opus-5-5`) via `langchain-anthropic`. It narrates, routes actions, plans the campaign, debriefs and scores XP, but never produces numbers.
-   - **Persistence:** **PostgreSQL**, in a container shared with another in-flight spec that owns provisioning it (see §2.3). Our tables live in their own `campaign` schema. An append-only **event log** is the source of truth for the journal, the backlog, resume and the learning history. Art and audio files go on the Railway volume.
+   - **Backend home:** **spec 002's `financequest` package**, which this spec extends with new modules (§2.2). Spec 002 owns the package skeleton, `POST /session`, the database setup and the shared `scenario`, `scenario_secret`, `event` and `decision` tables.
+   - **Persistence:** spec 002's **PostgreSQL**, with **one Alembic history**; this spec's migrations follow spec 002's head. An append-only **event log** is the source of truth for the journal, the backlog, resume and the learning history. Art and audio files go on the Railway volume.
 2. **Content: reference documents.**
    - A campaign is built around a **reference pack**: a Markdown case reference with YAML frontmatter, plus an OHLCV price CSV. Example: `Finance_Quest_Enron_Historical_Case_Reference_CLEAN_v2.md` + `Enron_ENE_Historical_OHLCV_2001-08_to_2001-12.csv`.
    - An **import step** turns the pack into a validated, checkpoint-tagged **campaign manifest** and keeps the raw Markdown server-side only (§2.4).
    - The setup graph uses the manifest's encounters, characters and evidence. It generates only the briefing wording, scene dialogue and any extra campaign locations.
-   - A `ReferenceDocumentSource` interface lets the future reference-document spec plug in. Today a `FixtureSource` returns the imported Enron pack (`FQ-AV-001`).
+   - A `ScenarioSource` reads spec 002's playable list: gate-approved cases (played through `campaign/adapter.py`) and reviewed reference packs such as the Enron pack (`FQ-AV-001`).
 3. **Media.**
    - **Backgrounds:**
      - The fixed locations (Tavern, where every journey starts, plus Market Square and Library) use **constant backgrounds**: static assets, the same in every campaign.
@@ -51,28 +54,28 @@ This feature creates the **backend** (none exists yet) and turns the spec 001 qu
 | Area | Change |
 |---|---|
 | New service | `backend/` FastAPI app (Python 3.12, `uv`, single uvicorn worker), Dockerfile, Railway service with a `/data` volume (art + audio cache) |
-| Database | PostgreSQL. The Postgres container/service is **owned and provisioned by another developer's spec** — this spec only connects via `DATABASE_URL` and owns the `campaign` schema (see §2.3) |
+| Database | Spec 002's PostgreSQL (compose locally, Railway managed Postgres when deployed), default schema, one Alembic history in `backend/financequest/db/migrations`. This spec adds its tables as later migrations |
 | Frontend | New quest routes, API client, TanStack Query, voice module, Lightweight Charts (lazy-loaded) |
 | Identity | Anonymous device session: `POST /session` → `session_id` kept in `localStorage["fq.session.v1"]`, sent as `X-Session-Id`. The hero is tied to this session ("this phone and browser"). Clearing site data loses the hero (accepted) |
 | Streaming | SSE over `POST` + `fetch` ReadableStream (EventSource can't send headers). The client calls Railway directly with CORS allowlisted; heartbeats, `Cache-Control: no-cache`, `X-Accel-Buffering: no` |
 | Guards | The full reply is generated and buffered, guards run, then the server re-streams it word by word. A `status: writing` event is sent immediately (≤1 s) |
 
-### 2.2 Backend layout (`backend/`)
+### 2.2 Backend layout (inside spec 002's `backend/financequest/`)
+
+Spec 002 owns `config.py`, `db/`, `api/main.py`, `api/deps.py` (session), `engine/disguise.py`, `engine/gate.py`, `reid/*`, `cli.py`. This spec adds:
 
 | Path | Responsibility |
 |---|---|
-| `app/main.py`, `config.py`, `deps.py` | App, CORS, settings (`DEMO_MODE`, keys), session dependency, `/healthz` |
-| `app/api/` | Routers: `session`, `hero`, `campaigns`, `locations`, `tts`, health; SSE helper (heartbeat, event names) |
-| `app/models/` | SQLModel tables (server-only; never returned directly) |
-| `app/schemas/` | Outbound DTOs; must not import secret models |
-| `app/engine/` | `gate.py` (GatedView), `clock.py`, `rules.py` (DC table, decide gating, news trigger, turn counting), `dice.py`, `portfolio.py`, `whatif.py`, `xp.py` (clamp, quote check, items), `events.py`, `journal.py` / `views.py` (projections) |
-| `app/guard/` | `numbers.py`, `leaks.py`, `advice.py`, `allowlist.py` |
-| `app/refdoc/` | `ReferenceDocument` model, loader + invariant checks, `ReferenceDocumentSource` protocol, `FixtureSource` |
-| `app/agents/` | LangGraph graphs and nodes (setup, turn, dice-narration, buddy, news/hint, summary, debrief, xp) behind thin Protocols; a fake model factory for tests |
-| `app/media/` | `art.py` (Nano Banana jobs, style template, storage), `tts.py` (Gemini TTS, per-sentence cache) |
-| `app/fixtures/reference/fq-av-001/` | The Enron pack: `case.md`, `prices.csv`, the reviewed `manifest.json`, pre-generated art for its campaign locations. Also the manifest JSON schema and the style-anchor image |
-| `pipeline/import_reference.py` | CLI: Markdown + CSV → draft manifest (LLM-assisted extraction) → validation report for human review |
-| `tests/` | pytest suites (§4) |
+| `campaign/` | `clock.py` (checkpoints and story clock), `rules.py` (DC table, decide gating, news trigger, turn counting), `dice.py`, `portfolio.py`, `whatif.py`, `xp.py` (rubric, clamp, quote check, items), `focus.py`, `events.py`, `journal.py` / `views.py` (projections over the shared `event` table), `adapter.py` (gate scenario → minimal manifest) |
+| `engine/gate.py` *(extend)* | Adds `GatedView(checkpoint, clock)` on top of spec 002's post-story filter |
+| `guard/` | `numbers.py`, `leaks.py` (uses `scenario_secret.leak_terms`), `advice.py`, `allowlist.py` |
+| `refpack/` | Manifest model, importer (Markdown + CSV → draft manifest), validation (incl. spec 002's `reid/scan.py` final scan), `ScenarioSource` that reads the playable list |
+| `agents/campaign/` | LangGraph graphs and nodes (setup, turn, dice narration, buddy, news/hint, summary, debrief, xp) behind thin Protocols; a fake model factory for tests |
+| `media/` | `art.py` (Nano Banana jobs, style template, storage), `tts.py` (Gemini TTS, per-sentence cache) |
+| `api/routers/` | `hero.py`, `campaigns.py`, `locations.py`, `tts.py`; SSE helper (heartbeat, event names) |
+| `db/models_campaign.py` | This spec's tables (§2.3), migrations in spec 002's Alembic history |
+| `cli.py` *(extend)* | `refpack import <case.md> <prices.csv>`, `refpack approve <case_id>` |
+| `fixtures/reference/fq-av-001/` | The Enron pack: `case.md`, `prices.csv`, the reviewed `manifest.json`, pre-generated art for its campaign locations. Also the manifest JSON schema and the style-anchor image |
 
 **Dependencies:**
 
@@ -81,13 +84,10 @@ This feature creates the **backend** (none exists yet) and turns the spec 001 qu
 
 ### 2.3 Data model (PostgreSQL via SQLModel)
 
-**Shared database: be careful.** The PostgreSQL container is in scope of another developer's spec, which provisions it and may create its own tables. This spec must not collide with that work:
+**One database, shared with spec 002** (see the shared contract §2–3):
 
-- **Provisioning:** this spec does not define, start, reset or reconfigure the Postgres service, its Docker/Compose definition, roles or extensions. It reads `DATABASE_URL` only.
-- **Schema:** every table below lives in a dedicated **`campaign` schema**. Nothing is created in `public` or in the other spec's schema.
-- **Migrations:** Alembic, scoped to our schema, with its own version table (`campaign.alembic_version`, `version_table_schema="campaign"`) so it can't clash with the other spec's migration history. There are no destructive or cross-schema migrations, and tables are never auto-created at app start.
-- **Local dev and tests:** tests use a disposable database or schema (e.g. pytest creates and drops a `campaign_test_<uuid>` schema), never the shared dev schema. Local dev points `DATABASE_URL` at the shared container once it exists.
-- **Coordination:** confirm with the other developer: the connection string, the role/permissions to create the `campaign` schema, and the Postgres version. **Open item.**
+- **Migrations:** spec 002 creates the database setup and the base migration, which includes the shared `scenario` (with `source`, `manifest`), `scenario_secret` (with `leak_terms`), `event` and `decision` tables with their full columns. This spec adds only its own tables, as later migrations in the same Alembic history. It never alters spec 002's tables beyond the contract.
+- **Tests:** tests run against the CI/local Postgres from spec 002, using a throwaway database per test session.
 
 Ids are UUIDs. JSON columns use `JSONB`.
 
@@ -96,14 +96,14 @@ Ids are UUIDs. JSON columns use `JSONB`.
 | `player` | id (= session id), created_at, active_campaign_id | |
 | `hero` | player_id (unique), name, class (`guardian`/`analyst`/`investigator`), total_xp | Name rules mirror functional spec 2.1 |
 | `hero_item` | hero_id, item_key (`ratio_lens`/`rumour_ledger`/`calm_compass`), earned_campaign_id | unique(hero_id, item_key) |
-| `reference_document` | id (case_id), version, content_hash, manifest (JSONB), prices (JSONB rows) | Public manifest only; read raw **only** inside `engine/` |
-| `reference_secret` | doc_id, real_name, ticker, real dates, price_scale, date_shift, alias_map, source_note | Read only by the company-reveal endpoint and the leak guard |
+| `scenario` *(spec 002, shared)* | 002's columns + `source` (`gate`/`reference_pack`) + `manifest` (JSONB) | Reference packs are imported here with `source = reference_pack`. Price rows come from `scenario_secret.price_series_ref` (the pack CSV) and are read raw **only** inside `campaign/` and `engine/` |
+| `scenario_secret` *(spec 002, shared)* | 002's columns + `leak_terms` | Read only by spec 002's reveal endpoint and this spec's leak guard |
 | `campaign_run` | id, player_id, hero_id, doc_id/version, interests, phase, status, checkpoint (G0/G1/G2…), clock_date, turn_count, current_location_id, focus_left, rerolls_left, keen_eye_left, bonus_lead_used, news_shown, hp_start, rng_seed (server-only), pending (open roll / pending narration), commit_draft, version | `phase` ∈ setup, play, commit, timeskip, reveal, debrief, reflect, company, xp, done |
 | `location` | campaign_id, key, fixed, name, description, art_status (placeholder/pending/ready/failed), art_path | Fixed: tavern (start), market_square, library. Fixed rows point to the constant background key; only campaign rows have generation jobs |
 | `challenge` | campaign_id, kind, dc, clue_id, alt_source, location_id, optional, state (open/rolling/final), dice[], total, result, rerolled | `dc` is always looked up from the rule table |
 | `clue_state` | campaign_id, clue_id, found_at_seq, source | |
-| `event` | campaign_id, seq, type, payload, ts, client_msg_id | unique(campaign_id, seq) and unique(client_msg_id) when present. Types: action, dm_reply, buddy_q, buddy_a, move, dice_roll, reroll, keen_eye, clue_found, news, focus_spend, summary, commit_draft, lock, time_skip, reveal, debrief, reflection, company_reveal, xp, finish |
-| `decision` | campaign_id (unique), action, amount_cents, evidence, forecast_pct, confidence, locked_at | Immutable after insert |
+| `event` *(spec 002, shared)* | id, session_id, scenario_id, campaign_id, seq, type, payload, client_msg_id, ts | unique(campaign_id, seq) and unique(client_msg_id). This spec's types: action, dm_reply, buddy_q, buddy_a, move, dice_roll, reroll, keen_eye, clue_found, news, focus_spend, summary, commit_draft, lock, time_skip, reveal, debrief, reflection, **debrief_complete** (unlocks spec 002's reveal), xp, finish |
+| `decision` *(spec 002, shared)* | id, session_id, scenario_id, campaign_id (unique), action, amount_cents, evidence, forecast_pct, confidence, locked_at | Immutable after insert; spec 002's reveal checks it exists |
 | `outcome` | campaign_id, prices used, cash, invested, value_now, fees, final, pnl, pnl_pct, hp_before, hp_after (Decimals as strings) | |
 | `debrief` | campaign_id, narrative, overlooked clue_ids, forecast_line, whatif, reflection_text | |
 | `xp_award` | campaign_id, per-category score + rationale + quote, total, finished_at | |
@@ -128,6 +128,7 @@ The journal, the backlog and the learning history are **projections of `event`**
 3. Deterministic validation runs.
 4. A human reviews the draft, using a validation report that lists each evidence item with its checkpoint and source section.
 5. The reviewed `manifest.json` is committed next to the pack.
+6. `refpack approve` writes the pack into spec 002's `scenario` (`source = reference_pack`, disguised fields plus `manifest`) and `scenario_secret` (`n_guessers = 0`). Packs do **not** go through spec 002's guessers, but every player-visible field must pass spec 002's final scan (`reid/scan.py`) before the status becomes `playable`.
 
 The game loads only reviewed manifests.
 
@@ -143,14 +144,14 @@ The game loads only reviewed manifests.
 | `documents[]` | Library items `{id, checkpoint, title, evidence_ids[]}` (annual ledger, quarterly ledger, proclamations) |
 | `characters[]` | `{id, name, role, location, may_reveal{G0: evidence_ids[], G1: [...]}, never[]}` (e.g. Treasurer Elian Voss, Scholar Mira Fen, Broker Ren Tal) |
 | `encounters[]` | `{id, title, checkpoint, location, dc, skill_flavor, evidence_ids[], success_clue_id, failure_forward, teaching_target}` (Enron: four encounters, DC 12 / 14 / 14 / 12) |
-| `news` | `{checkpoint: G1, time_skip_label ("Two months later…"), headline, summary, evidence_ids[]}` |
+| `news` | `{checkpoint: G1, time_skip_label (story days, e.g. "60 days later…"), headline, summary, evidence_ids[]}` |
 | `prices` | Path + row range; `decision_date`, `horizon_end` (default: the last CSV date) |
 | `fund` | Optional fund series for Spread (absent in the Enron pack, so Spread is hidden) |
 | `rubric` | Optional `[{category, max}]` totalling 100 with a reflection category (Enron: 25/25/20/15/15). Default rubric when absent |
 | `campaign_location_seeds[]` | Optional extra places with art subjects (e.g. the Golden Guild Hall) |
 | `debrief` | Debrief questions and post-reveal facts (G3/G4 only) |
 
-**Secret part** (`reference_secret`, never sent to agents before reveal):
+**Secret part** (`scenario_secret`, never sent to agents before the reveal):
 
 - the raw `case.md`
 - real entity, ticker, actors, city and real dates
@@ -177,7 +178,7 @@ The game loads only reviewed manifests.
 
 | Method & path | Request | Response |
 |---|---|---|
-| `POST /session` | — | `{session_id}` |
+| `POST /session` | — | `{session_id}` (owned by spec 002) |
 | `GET /hero` | — | `{name, class, total_xp, items[], history[], active_campaign_id}` or 404 |
 | `POST /hero` | `{name, class}` | hero; 409 if it exists; 422 on name rules |
 | `POST /campaigns` | `{interests[]}` | full campaign state (phase `setup`) |
@@ -194,7 +195,7 @@ The game loads only reviewed manifests.
 | `POST /campaigns/{id}/lock` | full commit | Outcome summary; idempotent |
 | `GET /campaigns/{id}/reveal` | — | Locked-at, horizon, extended chart series, portfolio breakdown, HP change. No identity |
 | `POST /campaigns/{id}/debrief` | — | **SSE** debrief (sound reasoning / overlooked / luck / forecast line / reflection question) + `whatif[]` |
-| `POST /campaigns/{id}/reflection` | `{text}` (≥10 chars) | `{company: {real_name, real_dates, source_note}}` |
+| `POST /campaigns/{id}/reflection` | `{text}` (≥10 chars) | `{scenario_id}`. Writes `debrief_complete`; the frontend then calls spec 002's `GET /scenario/{id}/reveal` for the company reveal |
 | `POST /campaigns/{id}/xp` | — | `{categories[5]{name, score, max, rationale, quote}, total}` |
 | `POST /campaigns/{id}/finish` | — | `{total_xp, new_item?}`; idempotent |
 | `GET /campaigns/{id}/journal` | — | Journal entries (also for finished campaigns) |
@@ -210,8 +211,8 @@ The game loads only reviewed manifests.
     - the news, only once shown
     - **never** the secret part or the debrief facts
   - **Anonymized presentation:**
-    - **Prices:** the board shows prices multiplied by a per-campaign `price_scale`, so percentage moves are preserved while real levels are hidden.
-    - **Dates:** shown as fantasy-calendar labels derived by a per-campaign `date_shift` and naming scheme, for example "the 15th of Harvestmoon".
+    - **Numbers:** spec 002's `NumberPlan` (`engine/disguise.py`) supplies the price factor and the **shared money factor**. All shown values are ≤ 10,000 and never in millions or billions. Ledger, company-card and evidence figures use the money factor, so money-to-money comparisons stay true.
+    - **Time:** shown only as **story days** ("Day 84", "60 days later…", horizon "about 75 days"), with spec 002's ±30% gap jitter applied to checkpoint gaps. There are no fantasy-calendar dates.
     - Real values appear only after the company reveal.
   - A static test ensures only `engine/` imports the raw document.
   - After lock, only `/reveal` may extend to horizon_end.
@@ -325,10 +326,10 @@ The game loads only reviewed manifests.
 | `/quest/interests` | What are you into? (replaces the stub; drop its `saveProgress(path, null)`) |
 | `/quest/play` | Scene (+ dice card, Buddy panel, journal sheet, news card overlays) |
 | `/quest/commit` | Commit form |
-| `/quest/reveal` | Time skip → reveal (chart) |
+| `/quest/outcome` | Time skip → outcome reveal (chart, portfolio, HP) |
 | `/quest/debrief` | Debrief + What if… |
 | `/quest/reflect` | Reflection |
-| `/quest/company` | Company reveal |
+| `/quest/reveal` | Company reveal: **spec 002's `Reveal.tsx`**, styled with this spec's quest tokens |
 | `/quest/xp` | XP + Finish quest |
 | `/quest/hero` | Hero screen (pushed) |
 | `/quest/journal/:campaignId?` | Journal of a finished campaign |
@@ -338,11 +339,11 @@ The game loads only reviewed manifests.
   - A `PhaseGuard` redirects every screen to the server phase's route, so the server wins over a stale `lastPath`.
   - `QuestCard` behaviour is unchanged (Start → `/quest`; Continue → `resumePath`, then reconciled by `PhaseGuard`).
 - **Local storage:**
-  - `fq.quest.v2` = `{v: 2, status, lastPath, campaignId, savedAt}`. A v1 record is migrated: status and lastPath are kept and `campaignId` is set to null, then resolved via `GET /hero`. Any other version is discarded.
+  - `fq.quest.v2` = `{v: 2, status, lastPath, campaignId, scenarioId, disclosureSeen, savedAt}` (shared contract §6). This spec owns the store; spec 002 reads `scenarioId` and `disclosureSeen`. A v1 record is migrated: status and lastPath are kept and `campaignId` is set to null, then resolved via `GET /hero`. Any other version is discarded.
   - `fq.session.v1` holds the session id; `fq.voice.v1` holds the voice preference.
   - The input and Buddy drafts live in `sessionStorage`.
 - **API client** (`src/api/`):
-  - A `fetch` wrapper adds `X-Session-Id`, bootstraps the session, re-bootstraps once on 401, and returns a typed `ApiError`.
+  - **Spec 002's `src/api/client.ts`** is the single `fetch` wrapper (session, typed errors, fixture mode). This spec adds a session bootstrap (`fq.session.v1`, re-bootstrap once on 401) if spec 002 hasn't yet.
   - TanStack Query handles hero, campaign, journal, reveal and XP. A `useDmStream` reducer (idle / sending / streaming / lost / done) handles SSE, with a 15 s first-event timeout and `client_msg_id` retry.
   - Hand-written DTOs live in `src/api/types.ts`; types are generated from the backend's OpenAPI later.
   - The client never computes game numbers.
@@ -371,7 +372,8 @@ The game loads only reviewed manifests.
     - `JournalSheet` and `BreakingNewsCard` (a pinned broadsheet notice).
     - `SealScroll` for the commit, with a wax-seal press on lock.
     - `TimeSkipCard`.
-    - `RevealChart`: TradingView Lightweight Charts, lazy-loaded, styled as an ink line on vellum.
+    - Outcome chart and Market Square board: **spec 002's `StoryChart`** (story-day axis, news markers, lazy-loaded Lightweight Charts), styled as an ink line on vellum.
+    - **Disclosure note:** spec 002's `DisclosureNote` is shown after "Find my quest" and before the Tavern briefing (`disclosureSeen` per campaign).
     - `WhatIfPanel`, `XpScreen` and `HeroScreen`, presented as ledger pages.
   - QuestLayout's absolute ✕ gets a reserved header row so it doesn't overlap the status bar.
 - **Voice** (`src/voice/`):
@@ -409,7 +411,6 @@ The game loads only reviewed manifests.
 | `GOOGLE_GENAI_API_KEY` | Railway | Nano Banana art + Gemini TTS |
 | `ART_MODEL`, `TTS_MODEL`, `TTS_VOICE_DM`, `TTS_VOICE_BUDDY` | Railway | Model and voice ids (config, not code) |
 | `DATABASE_URL` | Railway | Connection to the shared PostgreSQL (provided by the other spec's setup) |
-| `DB_SCHEMA` | Railway | `campaign` (our tables only) |
 | `DATA_DIR` | Railway | `/data` volume (art, audio) |
 | `CORS_ORIGINS` | Railway | Vercel production + preview + localhost |
 | `DEMO_MODE` | Railway | Use the prepared setup and pre-generated art for the sample doc |
@@ -423,9 +424,9 @@ The game loads only reviewed manifests.
 **System dependencies:**
 
 - **Spec 001 shell:** this spec relies on `QuestLayout` (blocker, ✕), `QuestCard` Start/Continue and the session unlock. Spec 001 needs an amendment so that Start goes to hero creation for new players.
-- **Future specs:** the reference-document spec plugs into `ReferenceDocumentSource`. The end-of-quest savings-plan spec follows `finish`.
-- **Architecture doc:** update for PostgreSQL (replacing SQLite), the `campaign` schema, the new tables, the company-reveal endpoint, TTS and `/data`.
-- **Other developer's spec (PostgreSQL owner):** we depend on their container. We own only the `campaign` schema and its migrations.
+- **Future specs:** new scenarios arrive through spec 002's playable list (gate-approved cases and reviewed reference packs). The end-of-quest savings-plan spec follows `finish`.
+- **Architecture doc:** update for PostgreSQL (replacing SQLite), the new tables, the company-reveal step, TTS and `/data`.
+- **Spec 002:** we build on its package, database, session, tables, final scan, `NumberPlan`, reveal endpoint and frontend components, per the shared contract.
 
 **Potential risks and mitigations:**
 
@@ -438,7 +439,7 @@ The game loads only reviewed manifests.
 | Guard buffering adds latency | Immediate `writing` status; DM turn at medium effort (drop to low if p95 > 6 s); deadline-aware retry; 15 s `lost_thread` + idempotent Try again |
 | Setup graph slow or failing on stage | 40 s cap, fallback to the prepared setup; `DEMO_MODE`; warm the API with `POST /session` early |
 | SSE buffering or backgrounded tabs on mobile | Heartbeats and no-buffer headers; client recovers via `GET /campaigns/{id}` (pending narration stored) |
-| Collision with the other spec's PostgreSQL work | Own `campaign` schema and Alembic version table; never touch provisioning or other schemas; disposable test schemas; coordinate connection details before implementation |
+| Parallel work on one package and one migration history | The shared contract fixes ownership; spec 002 lands the skeleton and base migration first; this spec rebases its `down_revision` before merging; both sides run the contract tests |
 | Shared-DB connection limits / contention | Small pool, short transactions, row locks on `campaign_run`, no transactions across LLM calls |
 | Art off-style or showing logos | Fixed template + reference image + scrubbed subject + negative block; placeholder on failure; pre-generated art for the demo |
 | TTS latency, cost or iOS autoplay | Per-sentence synthesis with cache; silent unlock on tap; Web Speech fallback; text always shown |
@@ -457,7 +458,12 @@ The game loads only reviewed manifests.
 - **Currency:** FX is ignored and labelled on the reveal.
 
 - **Voice:** Gemini TTS with a browser (Web Speech) fallback.
-- **Storage:** server-side in PostgreSQL. The Postgres container is owned by another developer's spec; this spec uses its own `campaign` schema and never touches provisioning.
+- **Storage:** server-side in spec 002's PostgreSQL, one Alembic history, shared tables per the contract.
+- **Alignment with spec 002 (team decision):**
+  - all money amounts share one factor
+  - reference packs skip the guessers but must pass the final scan and a review
+  - no disclaimer anywhere
+  - story days only
 - **Replies:** checked first, then shown. "The Dungeon Master is writing…" appears at once; first words arrive in ~5–6 s.
 - **Rule defaults:** the bonus lead is a 5th optional challenge; the Focus hint is not a turn; What-if adds a "Your choice" row when the player's amount matches no preset.
 
@@ -466,7 +472,7 @@ The game loads only reviewed manifests.
 ## 4. Testing Strategy
 
 - **Backend unit and integration** (pytest; a fake LLM via the model factory):
-  - Gate: hypothesis property test that no response or agent input contains data after the clock; static import test; tripwire test that no response schema field matches a `reference_secret` column.
+  - Gate: hypothesis property test that no response or agent input contains data after the clock; static import test; tripwire test that no response schema field matches a `scenario_secret` column.
   - Math: table tests, including the 400 / 600 / −25% → €900.00, −10.0%, 90 HP case; Spread, Don't invest and Wait; rounding at .5; Guardian vs Analyst giving the same %.
   - Dice: seed determinism; natural 20 and 1 against each difficulty; advantage; single roll per challenge; reroll sequence with no narration of the first result.
   - Flow: news trigger; `can_decide` gating; lock idempotency and the commit draft after lock (409); resume state equals the projection; finish idempotency and the item order.
@@ -482,7 +488,8 @@ The game loads only reviewed manifests.
     - €400 invested and €600 kept ends at €607.51.
     - The G1 documents appear only after the news.
     - No later-event text (restatement, inquiry, bankruptcy) is reachable before lock.
-  - Database: each test run creates and drops its own `campaign_test_<uuid>` schema in the configured PostgreSQL; a check that migrations touch only that schema.
+  - Database: spec 002's Postgres service (CI and local), a throwaway database per test session; `alembic upgrade head` on an empty database includes both specs' migrations.
+  - Contract: an adapted gate scenario and the Enron pack both load and play to the company reveal; the reveal returns 403 until `decision` and `debrief_complete` exist.
 - **Live LLM evals** (`pytest -m live_llm`, not in CI):
   - The five safeguard prompts from functional spec 2.16, plus prompt injection, "spell the ticker" and "give me 100 XP", × DM and Buddy, 5 runs each.
   - Post-guard failures must be **0**; raw-model failures are reported separately.

@@ -254,7 +254,7 @@ NOT CONFIGURED — the user declined knowledge-source discovery on 2026-11-20.
 
 ## Known inconsistencies with spec 002-anonymization-reid-gate (teammate's branch, commit c4e2d1e), 2026-11-20
 
-To be resolved with Davyd before implementation:
+**RESOLVED 2026-11-20** by `context/product/shared-contracts-002-003.md` and matching edits to both specs. The team decided: one shared money factor; reference packs skip the guessers but pass the final scan and a review; no disclaimer anywhere; story days only; the backend, database and shared tables come from spec 002. Original list kept for history:
 
 1. **Spec number:** this spec was renumbered 002 → 003 to avoid the collision.
 2. **Backend layout:**
