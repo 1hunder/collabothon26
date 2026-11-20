@@ -1,4 +1,6 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { queryClient } from './api/queryClient';
 import AppFrame from './shell/AppFrame';
 import ShellGuard from './shell/ShellGuard';
 import ShellLayout from './shell/ShellLayout';
@@ -8,7 +10,32 @@ import Placeholder from './shell/screens/Placeholder';
 import StartDepot from './shell/screens/StartDepot';
 import Welcome from './shell/screens/Welcome';
 import QuestLayout from './quest/QuestLayout';
+import { VoiceProvider } from './voice';
+import PhaseGuard from './quest/PhaseGuard';
+import QuestEntry from './quest/QuestEntry';
+import HeroCreate from './quest/screens/HeroCreate';
+import Commit from './quest/screens/Commit';
+import Debrief from './quest/screens/Debrief';
+import HeroScreen from './quest/screens/HeroScreen';
+import Outcome from './quest/screens/Outcome';
+import Reflect from './quest/screens/Reflect';
+import Xp from './quest/screens/Xp';
+import PlayScreen from './quest/play/PlayScreen';
+import QuestPlaceholder from './quest/screens/QuestPlaceholder';
+import RevealRoute from './quest/screens/RevealRoute';
 import WhatAreYouInto from './quest/screens/WhatAreYouInto';
+
+// Screens whose task has not landed yet render a titled placeholder under the phase guard.
+const phaseScreens = [
+  {
+    path: 'play',
+    element: (
+      <PhaseGuard screen="/quest/play">
+        <PlayScreen />
+      </PhaseGuard>
+    ),
+  },
+];
 
 export const routes = [
   {
@@ -38,10 +65,53 @@ export const routes = [
         path: '/quest',
         element: (
           <ShellGuard>
-            <QuestLayout />
+            <QueryClientProvider client={queryClient}>
+              <VoiceProvider>
+                <QuestLayout />
+              </VoiceProvider>
+            </QueryClientProvider>
           </ShellGuard>
         ),
-        children: [{ index: true, element: <WhatAreYouInto /> }],
+        children: [
+          { index: true, element: <QuestEntry /> },
+          {
+            path: 'hero/new',
+            element: (
+              <PhaseGuard screen="hero-new">
+                <HeroCreate />
+              </PhaseGuard>
+            ),
+          },
+          {
+            path: 'interests',
+            element: (
+              <PhaseGuard screen="/quest/interests">
+                <WhatAreYouInto />
+              </PhaseGuard>
+            ),
+          },
+          ...phaseScreens,
+          ...[
+            ['commit', <Commit key="c" />],
+            ['outcome', <Outcome key="o" />],
+            ['debrief', <Debrief key="d" />],
+            ['reflect', <Reflect key="r" />],
+            ['xp', <Xp key="x" />],
+          ].map(([path, el]) => ({
+            path: path as string,
+            element: <PhaseGuard screen={`/quest/${path as string}`}>{el as React.ReactNode}</PhaseGuard>,
+          })),
+          {
+            path: 'reveal',
+            element: (
+              <PhaseGuard screen="/quest/reveal">
+                <RevealRoute />
+              </PhaseGuard>
+            ),
+          },
+          { path: 'hero', element: <HeroScreen /> },
+          { path: 'journal/:campaignId?', element: <QuestPlaceholder title="Journal" /> },
+        ],
       },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

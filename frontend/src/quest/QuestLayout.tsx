@@ -1,6 +1,9 @@
 import { X } from 'lucide-react';
 import { Outlet, useBlocker, useLocation, useNavigate } from 'react-router-dom';
+import './fonts';
+import { VoiceToggle } from '../voice';
 import LeaveDialog from './LeaveDialog';
+import { isQuestFinished } from './questStore';
 
 function isQuestPath(pathname: string): boolean {
   return pathname === '/quest' || pathname.startsWith('/quest/');
@@ -15,7 +18,7 @@ export default function QuestLayout(): React.JSX.Element {
   const navigate = useNavigate();
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      isQuestPath(currentLocation.pathname) && !isQuestPath(nextLocation.pathname),
+      !isQuestFinished() && isQuestPath(currentLocation.pathname) && !isQuestPath(nextLocation.pathname),
   );
 
   const close = (): void => {
@@ -28,12 +31,15 @@ export default function QuestLayout(): React.JSX.Element {
   };
 
   return (
-    <div className="relative min-h-dvh bg-warm px-4 pb-[env(safe-area-inset-bottom)] pt-[calc(1rem+env(safe-area-inset-top))]">
+    <div className="relative min-h-dvh bg-quest-lapis-deep px-4 font-quest text-quest-vellum pb-[env(safe-area-inset-bottom)] pt-[calc(1rem+env(safe-area-inset-top))]">
+      <div className="absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top))]">
+        <VoiceToggle />
+      </div>
       <button
         type="button"
         aria-label="Close quest"
         onClick={close}
-        className="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-full"
+        className="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex h-11 w-11 items-center justify-center rounded-full text-quest-vellum"
       >
         <X aria-hidden="true" size={24} />
       </button>

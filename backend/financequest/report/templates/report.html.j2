@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Recognition check report: {{ run.label }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 62rem; padding: 0 1rem; color: #1b1b1b; }
+  h1 { font-size: 1.5rem; margin: 0 0 1rem; }
+  h2 { font-size: 1.15rem; margin: 2rem 0 .5rem; border-bottom: 1px solid #ccc; padding-bottom: .2rem; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0; }
+  th, td { border: 1px solid #ddd; padding: .3rem .5rem; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  .badge { padding: .1rem .5rem; border-radius: .6rem; font-size: .85rem; }
+  .approved { background: #d7f2d7; } .rejected { background: #f7d7d7; }
+  .skipped { background: #eee; } .error { background: #ffe9b8; }
+  .caveat { font-style: italic; color: #555; }
+  details { margin: .6rem 0; } summary { cursor: pointer; font-weight: 600; }
+  .attempt { margin: .5rem 0 .5rem 1rem; }
+  footer { margin-top: 2rem; color: #555; font-size: .9rem; }
+</style>
+</head>
+<body>
+<h1 id="summary">{{ header }}</h1>
+<p>Run {{ run.id }} ({{ run.label }}). {{ skipped_count }} skipped, counted separately.</p>
+
+<h2>Approval share by fame</h2>
+<table><tr><th>Fame</th><th>Approved</th><th>Checked</th><th>Share</th></tr>
+{% for r in approval_by_fame %}<tr><td>{{ r.label }}</td><td>{{ r.count }}</td><td>{{ r.total }}</td><td>{{ r.pct }}%</td></tr>
+{% else %}<tr><td colspan="4">No tagged cases</td></tr>{% endfor %}</table>
+
+<h2>Approval share by size</h2>
+<table><tr><th>Size</th><th>Approved</th><th>Checked</th><th>Share</th></tr>
+{% for r in approval_by_size %}<tr><td>{{ r.label }}</td><td>{{ r.count }}</td><td>{{ r.total }}</td><td>{{ r.pct }}%</td></tr>
+{% else %}<tr><td colspan="4">No tagged cases</td></tr>{% endfor %}</table>
+
+<h2>Playable scenarios</h2>
+<ul>{% for p in playable %}<li>{{ p.invented_name }} ({{ p.industry }}) &ndash; case {{ p.case_id }}</li>
+{% else %}<li>None</li>{% endfor %}</ul>
+
+<h2>Skipped</h2>
+<ul>{% for s in skipped %}<li>{{ s.company }} ({{ s.case_id }}): {{ s.reason }}</li>
+{% else %}<li>None</li>{% endfor %}</ul>
+
+<p class="caveat">{{ caveat }}</p>
+
+<h2>Cases</h2>
+{% for c in cases %}
+<details id="case-{{ c.case_id }}">
+<summary>{{ c.company }}{% if c.invented_name %} &rarr; {{ c.invented_name }}{% endif %}
+ <span class="badge {{ c.status }}">{{ c.status }}</span></summary>
+<p>Ticker {{ c.ticker or "n/a" }} &middot; size {{ c.size or "untagged" }} &middot; fame {{ c.fame or "untagged" }}
+ &middot; country {{ c.country or "n/a" }} &middot; story year {{ c.story_year or "n/a" }}
+{% if c.skip_reason %}<br>{{ c.skip_reason }}{% endif %}</p>
+{% for a in c.attempts %}
+<div class="attempt"><strong>Attempt {{ a.n }}</strong>: {{ a.verdict }}
+{% if a.fail_reason %}({{ a.fail_reason }}){% endif %}
+&middot; average readability {{ a.avg_readability if a.avg_readability is not none else "n/a" }}
+{% if a.scan_reasons %}<br>Scan: {{ a.scan_reasons | join("; ") }}{% endif %}
+{% if a.guesses %}
+<table><tr><th>Guesser</th><th>Round</th><th>Top 3 (confidence)</th><th>Start guess</th><th>Clues</th><th>Readability</th></tr>
+{% for g in a.guesses %}<tr>
+<td>{{ g.guesser }}</td><td>{{ g.round }}</td>
+<td>{% for t in g.top3 %}{{ t.company }} ({{ t.confidence }}){% if not loop.last %}, {% endif %}{% endfor %}</td>
+<td>{{ g.start_guess or "n/a" }}{% if g.start_conf is not none %} ({{ g.start_conf }}){% endif %}</td>
+<td>{% for cl in g.clues %}{{ cl.category }}: {{ cl.text }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
+<td>{{ g.readability if g.readability is not none else "n/a" }}</td></tr>
+{% endfor %}</table>{% endif %}
+</div>
+{% endfor %}
+</details>
+{% endfor %}
+
+<footer>
+Telemetry: {{ telemetry.get("calls", 0) }} calls &middot; {{ telemetry.get("input_tokens", 0) }} input tokens
+&middot; {{ telemetry.get("output_tokens", 0) }} output tokens
+&middot; {{ telemetry.get("cache_read_tokens", 0) }} cache reads / {{ telemetry.get("cache_creation_tokens", 0) }} cache writes
+&middot; {{ telemetry.get("web_searches", 0) }} web searches &middot; {{ telemetry.get("retries", 0) }} retries
+&middot; {{ telemetry.get("errors", 0) }} errors &middot; {{ telemetry.get("latency_s", 0) }} s of model time
+</footer>
+</body>
+</html>

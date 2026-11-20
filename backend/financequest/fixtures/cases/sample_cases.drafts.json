@@ -1,0 +1,43 @@
+{
+  "Boeing 2024": {
+    "company": "Boeing", "ticker": "BA", "exchange": "NYSE", "country": "US", "currency": "USD",
+    "industry": "Aircraft manufacturing",
+    "lesson": "A safety crisis at a famous manufacturer can erase years of margin and trust at once.",
+    "story_year": 2024, "market_cap_eur": 95000000000.0, "is_us_listed": true,
+    "identifying_terms": ["Boeing", "737 MAX", "door panel", "Seattle"],
+    "executives": ["Dave Calhoun"],
+    "beats": [
+      {"real_date": "2024-01-05", "headline": "Door panel detaches in flight; model grounded",
+       "facts": ["Regulators ground the model.", "The maker will review quality control."]},
+      {"real_date": "2024-03-25", "headline": "Chief executive to step down",
+       "facts": ["Cash burn guided to $4 billion for the year."]},
+      {"real_date": "2024-07-31", "headline": "Second-quarter loss",
+       "facts": ["A workforce reduction of 10% is planned."]}
+    ]
+  },
+  "Marrow Bay Brewing": {
+    "company": "Marrow Bay Brewing", "ticker": "FQBB", "exchange": "AIM", "country": "UK",
+    "currency": "GBP", "industry": "Craft brewing",
+    "lesson": "A small brewer that grows faster than its cash flow can finance ends up selling equity at a low price.",
+    "story_year": 2021, "market_cap_eur": 150000000.0, "is_us_listed": false,
+    "identifying_terms": ["Marrow Bay", "Marrow Bay Brewing"],
+    "beats": [
+      {"real_date": "2021-03-02", "headline": "Second plant opens",
+       "facts": ["The plant cost $4.2 million, funded by short-term bank debt."]},
+      {"real_date": "2021-06-15", "headline": "Sales up, cash flow negative",
+       "facts": ["Sales rise 35% but operating cash flow stays negative."]},
+      {"real_date": "2021-10-04", "headline": "Discounted share sale",
+       "facts": ["New shares are sold at a 20% discount to repay the credit line."]}
+    ]
+  },
+  "Tidewell Ferries": {
+    "company": "Tidewell Ferries", "ticker": "FQTF", "exchange": "OSE", "country": "NO",
+    "currency": "NOK", "industry": "Ferry transport",
+    "lesson": "A ferry operator with one reported event cannot teach a sequence.",
+    "story_year": 2022, "market_cap_eur": 300000000.0, "is_us_listed": false,
+    "identifying_terms": ["Tidewell"],
+    "beats": [
+      {"real_date": "2022-05-10", "headline": "Main route contract lost", "facts": []}
+    ]
+  }
+}

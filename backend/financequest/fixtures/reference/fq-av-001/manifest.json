@@ -1,0 +1,970 @@
+{
+  "meta": {
+    "case_id": "FQ-AV-001",
+    "version": "2.2",
+    "campaign_title": "The Golden Guild's Secret",
+    "currency": "USD",
+    "learning_objectives": [
+      "Tell published guild claims, observable data, open allegations and later-established facts apart.",
+      "Read a few ledger lines without confusing sales, earnings, coin flow, debt and net owners' claim.",
+      "Explain concentration risk and how uncertainty should affect how much you commit.",
+      "See why a leadership change and unusual bookkeeping call for inquiry, without treating them as proof of wrongdoing.",
+      "State a decision, your evidence, the downside and a testable forecast before the future is shown.",
+      "Judge the quality of a decision separately from its result."
+    ]
+  },
+  "world": {
+    "setting_name": "Aster Vale",
+    "company_name": "Golden Guild Trading Consortium",
+    "shares_name": "ownership certificates",
+    "market_name": "Grand Exchange of Aster Vale",
+    "annual_report_name": "annual guild ledger",
+    "quarterly_report_name": "quarterly guild ledger",
+    "tone_notes": "Rain on stained glass, gilded banners, a mystery to investigate. Income is not cash; a write-down is not a monster attack."
+  },
+  "checkpoints": [
+    {
+      "id": "G0",
+      "role": "intro",
+      "cutoff_date": "2001-08-14",
+      "label": "The opening scene"
+    },
+    {
+      "id": "G1",
+      "role": "disclosure",
+      "cutoff_date": "2001-10-16",
+      "label": "The new proclamation"
+    },
+    {
+      "id": "G2",
+      "role": "decision",
+      "cutoff_date": "2001-10-17",
+      "label": "The day of decision"
+    }
+  ],
+  "company_card": {
+    "name": "Golden Guild Trading Consortium",
+    "trade": "A trading and services consortium dealing in energy and signal-tower networks",
+    "size": "Among the largest houses of the Grand Exchange",
+    "key_figures": [
+      {
+        "id": "FIG-REV-FY00",
+        "label": "Sales in the last annual ledger",
+        "value": "100789",
+        "family": "money",
+        "period": "the last annual ledger year",
+        "checkpoint": "G0",
+        "explain": "Sales are not earnings and not coin."
+      },
+      {
+        "id": "FIG-NI-FY00",
+        "label": "Earnings in the last annual ledger",
+        "value": "979",
+        "family": "money",
+        "period": "the last annual ledger year",
+        "checkpoint": "G0",
+        "explain": "Distinct from sales and from coin flow."
+      },
+      {
+        "id": "FIG-EQ-FY00",
+        "label": "Net owners' claim at year end",
+        "value": "11470",
+        "family": "money",
+        "period": "the last annual ledger year",
+        "checkpoint": "G0",
+        "explain": "Not spendable coin."
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "F-CEO-RESIGN-001",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "announcement",
+      "title": "A High Master Steps Down",
+      "player_text": "A proclamation is nailed to the Grand Exchange board. The high master of the Golden Guild Trading Consortium is stepping down. The council states the reason is personal, and the guild council chair will take over his duties.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Separate the observed event, a resignation, from the explanation offered by the guild. The stated reason is the guild's own words, not an established cause."
+    },
+    {
+      "id": "F-MGMT-CLAIM-001",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "opinion",
+      "title": "The Chair Speaks of Strength",
+      "player_text": "In the tavern the talk turns to the council chair's words: he says the consortium is strong and its growth is bright. That is the chair's opinion of the guild, offered by the guild itself.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Management confidence is an opinion, not evidence of future results."
+    },
+    {
+      "id": "F-RESIGN-PROMPT-001",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "figure",
+      "title": "Questions Worth Asking",
+      "player_text": "A well-worn checklist is passed around the tavern. Which part of the proclamation is an event that happened? Which part is an explanation given by the guild? What would an independent witness be able to confirm?",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Source-comparison checklist unlocked by the Insight check; the same comparison is available freely by asking the scholar."
+    },
+    {
+      "id": "F-ANNUAL-001",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "title": "The Annual Ledger: Three Years",
+      "player_text": "The Guild Archive holds the annual ledger. Sales were {FIG-REV-FY98} two years before the last report, {FIG-REV-FY99} a year later, and {FIG-REV-FY00} in the last reported year. Earnings were {FIG-NI-FY98}, {FIG-NI-FY99} and {FIG-NI-FY00}. Coin through the treasury movement register was {FIG-CFO-FY98}, {FIG-CFO-FY99} and {FIG-CFO-FY00}. Total holdings were {FIG-TA-FY98}, {FIG-TA-FY99} and {FIG-TA-FY00}.",
+      "figures": [
+        {
+          "id": "FIG-REV-FY98",
+          "label": "Annual sales recorded in the earnings ledger",
+          "value": "31260",
+          "family": "money",
+          "period": "two years before the last annual ledger"
+        },
+        {
+          "id": "FIG-NI-FY98",
+          "label": "Annual earnings recorded in the earnings ledger",
+          "value": "703",
+          "family": "money",
+          "period": "two years before the last annual ledger"
+        },
+        {
+          "id": "FIG-CFO-FY98",
+          "label": "Annual coin flowing through the treasury movement register",
+          "value": "1640",
+          "family": "money",
+          "period": "two years before the last annual ledger"
+        },
+        {
+          "id": "FIG-TA-FY98",
+          "label": "Everything the guild owns, by its own count",
+          "value": "29350",
+          "family": "money",
+          "period": "two years before the last annual ledger"
+        },
+        {
+          "id": "FIG-REV-FY99",
+          "label": "Annual sales recorded in the earnings ledger",
+          "value": "40112",
+          "family": "money",
+          "period": "the year before the last annual ledger"
+        },
+        {
+          "id": "FIG-NI-FY99",
+          "label": "Annual earnings recorded in the earnings ledger",
+          "value": "893",
+          "family": "money",
+          "period": "the year before the last annual ledger"
+        },
+        {
+          "id": "FIG-CFO-FY99",
+          "label": "Annual coin flowing through the treasury movement register",
+          "value": "1228",
+          "family": "money",
+          "period": "the year before the last annual ledger"
+        },
+        {
+          "id": "FIG-TA-FY99",
+          "label": "Everything the guild owns, by its own count",
+          "value": "33381",
+          "family": "money",
+          "period": "the year before the last annual ledger"
+        },
+        {
+          "id": "FIG-REV-FY00",
+          "label": "Annual sales recorded in the earnings ledger",
+          "value": "100789",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-NI-FY00",
+          "label": "Annual earnings recorded in the earnings ledger",
+          "value": "979",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-CFO-FY00",
+          "label": "Annual coin flowing through the treasury movement register",
+          "value": "4779",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-TA-FY00",
+          "label": "Everything the guild owns, by its own count",
+          "value": "65503",
+          "family": "money",
+          "period": "the last annual ledger year"
+        }
+      ],
+      "key": false,
+      "teaching_note": "Sales, earnings, cash flow and total assets are four different things. Rapid sales growth alone cannot certify business quality."
+    },
+    {
+      "id": "F-ANNUAL-002",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "title": "The Annual Ledger: Year-End Position",
+      "player_text": "At the end of the last reported year the guild held {FIG-CASH-FY00} in ready coin, owed {FIG-STD-FY00} due soon and {FIG-LTD-FY00} due later, and its net owners' claim stood at {FIG-EQ-FY00}. Earnings per ownership certificate were {FIG-EPS-FY00}. Dealings with related parties and complex risk contracts are described in the ledger notes.",
+      "figures": [
+        {
+          "id": "FIG-CASH-FY00",
+          "label": "Ready coin at year end",
+          "value": "1374",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-STD-FY00",
+          "label": "Debt due soon",
+          "value": "1679",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-LTD-FY00",
+          "label": "Debt due later",
+          "value": "8550",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-EQ-FY00",
+          "label": "Net owners' claim",
+          "value": "11470",
+          "family": "money",
+          "period": "the last annual ledger year"
+        },
+        {
+          "id": "FIG-EPS-FY00",
+          "label": "Earnings per ownership certificate",
+          "value": "1.12",
+          "family": "per_share",
+          "period": "the last annual ledger year"
+        }
+      ],
+      "key": false,
+      "teaching_note": "Equity is not spendable cash. Disclosure of a complex arrangement does not mean every later problem was obvious."
+    },
+    {
+      "id": "F-Q2-REV-001",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "title": "The Quarterly Ledger: Sales and Earnings",
+      "player_text": "The newest quarterly ledger covers the first half of the current guild year. Recorded sales were {FIG-Q2-REV}. Earnings were {FIG-Q2-NI}, of which {FIG-Q2-NI-PRE} came before a one-time change in bookkeeping rules.",
+      "figures": [
+        {
+          "id": "FIG-Q2-REV",
+          "label": "Sales in the half-year",
+          "value": "100189",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-NI",
+          "label": "Reported earnings in the half-year",
+          "value": "829",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-NI-PRE",
+          "label": "Earnings before the bookkeeping change",
+          "value": "810",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        }
+      ],
+      "key": false,
+      "teaching_note": "Reported earnings are an accounting result, distinct from coin movement."
+    },
+    {
+      "id": "F-Q2-CFO-001",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "title": "The Quarterly Ledger: Treasury Movement",
+      "player_text": "The treasury movement register shows a net drain of {FIG-Q2-CFO:abs} in the half-year, even though the earnings ledger shows a gain. The guild raised {FIG-Q2-FIN} from financing over the same stretch.",
+      "figures": [
+        {
+          "id": "FIG-Q2-CFO",
+          "label": "Net coin from operations in the half-year",
+          "value": "-1337",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-FIN",
+          "label": "Net coin from financing in the half-year",
+          "value": "1971",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        }
+      ],
+      "key": true,
+      "teaching_note": "How can positive earnings coexist with negative operating cash flow? A real reported line, but not proof of anything alone."
+    },
+    {
+      "id": "F-Q2-MARGIN-001",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "title": "The Quarterly Ledger: Margin Deposits",
+      "player_text": "The ledger's own reconciliation lists a deposit effect of {FIG-Q2-MARGIN:abs} outflow from collateral placed with trading partners. Without it, the guild states coin from operations would have been {FIG-Q2-CFO-X}.",
+      "figures": [
+        {
+          "id": "FIG-Q2-MARGIN",
+          "label": "Net deposit activity in the reconciliation",
+          "value": "-2342",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-CFO-X",
+          "label": "Management's coin from operations excluding deposits",
+          "value": "1005",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        }
+      ],
+      "key": true,
+      "teaching_note": "Read the reconciliation: negative cash flow here is largely attributed to collateral deposits, so it does not by itself prove misconduct."
+    },
+    {
+      "id": "F-Q2-BAL-001",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "title": "The Quarterly Ledger: Position at Period End",
+      "player_text": "At the close of the half-year the guild held {FIG-Q2-CASH} in ready coin, owed {FIG-Q2-STD} due soon and {FIG-Q2-LTD} due later. Total holdings were {FIG-Q2-TA} and the net owners' claim was {FIG-Q2-EQ}.",
+      "figures": [
+        {
+          "id": "FIG-Q2-CASH",
+          "label": "Ready coin",
+          "value": "847",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-STD",
+          "label": "Debt due soon",
+          "value": "3457",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-LTD",
+          "label": "Debt due later",
+          "value": "9355",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-TA",
+          "label": "Total holdings",
+          "value": "63392",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        },
+        {
+          "id": "FIG-Q2-EQ",
+          "label": "Net owners' claim",
+          "value": "11740",
+          "family": "money",
+          "period": "the first half of the current guild year"
+        }
+      ],
+      "key": false,
+      "teaching_note": "Rising short-term debt can signal funding needs, but does not prove trouble."
+    },
+    {
+      "id": "F-Q2-NOTE-001",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "figure",
+      "title": "A Scribe's Margin Note on Deposits",
+      "player_text": "A scribe's note beside the ledger explains that collateral placed with trading partners is counted inside the treasury movement register, so a drain there can reverse when the collateral returns.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Pre-authored explanation unlocked by the Investigation check; the side-by-side reconciliation is available freely in the quarterly ledger."
+    },
+    {
+      "id": "F-CROWD-NOTE-001",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "opinion",
+      "title": "A Handbill from the Crowd",
+      "player_text": "A handbill passed around the Grand Exchange says: everyone is buying ownership certificates of the Golden Guild, so how could it be wrong? Ren Tal calls this a mood, not a measurement.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Popularity is not evidence. Would you choose the same if this were your entire savings?"
+    },
+    {
+      "id": "F-MOOD-001",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "opinion",
+      "title": "Mood at the Exchange",
+      "player_text": "Broker Ren Tal says traders at the Grand Exchange feel uneasy about the high master's exit but still hopeful about the guild. He labels this his opinion of the crowd's mood, and promises nothing about prices.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Sentiment is an opinion about behavior, not a forecast or proof."
+    },
+    {
+      "id": "F-Q3-LOSS-001",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "announcement",
+      "title": "A New Proclamation: A Heavy Loss",
+      "player_text": "A new proclamation announces that the guild recorded a net loss of {FIG-Q3-LOSS} for the latest quarter, a loss of {FIG-Q3-EPS:abs} per ownership certificate.",
+      "figures": [
+        {
+          "id": "FIG-Q3-LOSS",
+          "label": "Net loss for the quarter",
+          "value": "618",
+          "family": "money",
+          "period": "the latest guild quarter"
+        },
+        {
+          "id": "FIG-Q3-EPS",
+          "label": "Loss per ownership certificate",
+          "value": "0.84",
+          "family": "per_share",
+          "period": "the latest guild quarter"
+        }
+      ],
+      "key": true,
+      "teaching_note": "A reported result, distinct from the individual charges inside it."
+    },
+    {
+      "id": "F-Q3-CHARGE-001",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "announcement",
+      "title": "A New Proclamation: The Valuation Corrections",
+      "player_text": "The guild also announces valuation corrections to its assets worth {FIG-Q3-CHARGE} after tax. By its own account these include {FIG-Q3-C1} at a far-off waterworks venture, {FIG-Q3-C2} restructuring a signal-tower venture, and {FIG-Q3-C3} in losses on other investments and structured dealings.",
+      "figures": [
+        {
+          "id": "FIG-Q3-CHARGE",
+          "label": "After-tax valuation corrections",
+          "value": "1010",
+          "family": "money",
+          "period": "the latest guild quarter"
+        },
+        {
+          "id": "FIG-Q3-C1",
+          "label": "Correction at the waterworks venture",
+          "value": "287",
+          "family": "money",
+          "period": "the latest guild quarter"
+        },
+        {
+          "id": "FIG-Q3-C2",
+          "label": "Signal-tower restructuring",
+          "value": "180",
+          "family": "money",
+          "period": "the latest guild quarter"
+        },
+        {
+          "id": "FIG-Q3-C3",
+          "label": "Other investment and structured losses",
+          "value": "544",
+          "family": "money",
+          "period": "the latest guild quarter"
+        }
+      ],
+      "key": true,
+      "teaching_note": "The corrections are contained within the quarterly loss, not added on top. They are the guild's own classifications, not proof that the accounts are fully explained."
+    },
+    {
+      "id": "F-Q3-EQUITY-001",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "announcement",
+      "title": "A New Proclamation: The Owners' Claim Shrinks",
+      "player_text": "On the guild's results call it was said that the net owners' claim will be reduced by {FIG-Q3-EQ-CUT}.",
+      "figures": [
+        {
+          "id": "FIG-Q3-EQ-CUT",
+          "label": "Reduction to the net owners' claim",
+          "value": "1200",
+          "family": "money",
+          "period": "the latest guild quarter"
+        }
+      ],
+      "key": true,
+      "teaching_note": "A balance-sheet adjustment. It is not a coin payment and not a separate profit-and-loss charge."
+    },
+    {
+      "id": "F-Q3-RECUR-001",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "announcement",
+      "title": "The Guild Stresses Its Recurring Earnings",
+      "player_text": "In the same proclamation the guild highlights {FIG-Q3-RECUR} of recurring earnings, or {FIG-Q3-RECUR-EPS} per ownership certificate, set against the overall loss.",
+      "figures": [
+        {
+          "id": "FIG-Q3-RECUR",
+          "label": "Recurring earnings",
+          "value": "393",
+          "family": "money",
+          "period": "the latest guild quarter"
+        },
+        {
+          "id": "FIG-Q3-RECUR-EPS",
+          "label": "Recurring earnings per ownership certificate",
+          "value": "0.43",
+          "family": "per_share",
+          "period": "the latest guild quarter"
+        }
+      ],
+      "key": true,
+      "teaching_note": "Reported recurring earnings do not erase the actual net loss. Compare what is emphasized with what is reported overall."
+    },
+    {
+      "id": "F-Q3-NOTE-001",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "figure",
+      "title": "A Scholar's Gloss on Write-Downs",
+      "player_text": "A scholar's gloss explains that a valuation correction lowers the recorded worth of an asset; it is an accounting entry, not a purse of coin leaving the treasury. Whether the underlying accounts are right is a separate question.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Approved explanation unlocked by the Investigation check; Buddy and the scholar offer the same lesson freely."
+    },
+    {
+      "id": "F-MOOD-002",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "opinion",
+      "title": "The Exchange Reacts",
+      "player_text": "Broker Ren Tal says the Grand Exchange is rattled by the heavy loss and the shrinking owners' claim. He calls this his reading of the crowd, and guarantees nothing about where prices go next.",
+      "figures": [],
+      "key": false,
+      "teaching_note": "Reactions are opinions, not proof."
+    }
+  ],
+  "documents": [
+    {
+      "id": "DOC-PROCLAMATION-1",
+      "checkpoint": "G0",
+      "title": "Proclamation of the Stepping Down",
+      "evidence_ids": [
+        "F-CEO-RESIGN-001",
+        "F-MGMT-CLAIM-001"
+      ]
+    },
+    {
+      "id": "DOC-ANNUAL",
+      "checkpoint": "G0",
+      "title": "The Guild's Annual Ledger",
+      "evidence_ids": [
+        "F-ANNUAL-001",
+        "F-ANNUAL-002"
+      ]
+    },
+    {
+      "id": "DOC-QUARTERLY",
+      "checkpoint": "G0",
+      "title": "The Guild's Quarterly Ledger",
+      "evidence_ids": [
+        "F-Q2-REV-001",
+        "F-Q2-CFO-001",
+        "F-Q2-MARGIN-001",
+        "F-Q2-BAL-001"
+      ]
+    },
+    {
+      "id": "DOC-PROCLAMATION-2",
+      "checkpoint": "G1",
+      "title": "Proclamation of the Heavy Loss",
+      "evidence_ids": [
+        "F-Q3-LOSS-001",
+        "F-Q3-CHARGE-001",
+        "F-Q3-EQUITY-001",
+        "F-Q3-RECUR-001"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "elian-voss",
+      "name": "Elian Voss",
+      "role": "Treasurer of the Golden Guild; voice of its management",
+      "location": "campaign:golden_guild_hall",
+      "may_reveal": {
+        "G0": [
+          "F-MGMT-CLAIM-001",
+          "F-CEO-RESIGN-001",
+          "F-ANNUAL-001",
+          "F-ANNUAL-002",
+          "F-Q2-REV-001",
+          "F-Q2-BAL-001"
+        ],
+        "G1": [
+          "F-Q3-LOSS-001",
+          "F-Q3-CHARGE-001",
+          "F-Q3-EQUITY-001",
+          "F-Q3-RECUR-001"
+        ]
+      },
+      "never": [
+        "Certain future outcomes",
+        "Invented accounting facts"
+      ]
+    },
+    {
+      "id": "mira-fen",
+      "name": "Mira Fen",
+      "role": "Independent scholar who reads primary ledgers critically",
+      "location": "library",
+      "may_reveal": {
+        "G0": [
+          "F-Q2-CFO-001",
+          "F-Q2-MARGIN-001",
+          "F-Q2-BAL-001",
+          "F-RESIGN-PROMPT-001"
+        ],
+        "G1": [
+          "F-Q3-LOSS-001",
+          "F-Q3-CHARGE-001",
+          "F-Q3-EQUITY-001",
+          "F-Q3-RECUR-001",
+          "F-Q3-NOTE-001"
+        ]
+      },
+      "never": [
+        "Claiming proven wrongdoing from undisclosed future evidence"
+      ]
+    },
+    {
+      "id": "ren-tal",
+      "name": "Ren Tal",
+      "role": "Exchange broker who reads the mood of the crowd",
+      "location": "market_square",
+      "may_reveal": {
+        "G0": [
+          "F-MOOD-001",
+          "F-CROWD-NOTE-001"
+        ],
+        "G1": [
+          "F-MOOD-002",
+          "F-Q3-RECUR-001"
+        ]
+      },
+      "never": [
+        "Guaranteeing any price path",
+        "Treating sentiment as proof"
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "id": "ENC-RESIGNATION",
+      "title": "The Resignation",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "dc": 12,
+      "skill_flavor": "Insight",
+      "evidence_ids": [
+        "F-CEO-RESIGN-001",
+        "F-MGMT-CLAIM-001"
+      ],
+      "success_clue_id": "F-RESIGN-PROMPT-001",
+      "failure_forward": "Compare the two passages of the proclamation side by side, or ask the scholar; no essential evidence is lost.",
+      "teaching_target": "The difference between an observed event and an explanation offered by the guild."
+    },
+    {
+      "id": "ENC-QUARTERLY",
+      "title": "The Quarterly Ledger",
+      "checkpoint": "G0",
+      "location": "library",
+      "dc": 14,
+      "skill_flavor": "Investigation",
+      "evidence_ids": [
+        "F-Q2-REV-001",
+        "F-Q2-CFO-001",
+        "F-Q2-MARGIN-001"
+      ],
+      "success_clue_id": "F-Q2-NOTE-001",
+      "failure_forward": "The statement reconciliation is placed side by side with the earnings ledger; nothing is hidden behind the dice.",
+      "teaching_target": "Separating reported earnings from coin movement and borrowed funds."
+    },
+    {
+      "id": "ENC-LOSS-REPORT",
+      "title": "The New Loss Report",
+      "checkpoint": "G1",
+      "location": "library",
+      "dc": 14,
+      "skill_flavor": "Investigation",
+      "evidence_ids": [
+        "F-Q3-LOSS-001",
+        "F-Q3-CHARGE-001",
+        "F-Q3-EQUITY-001"
+      ],
+      "success_clue_id": "F-Q3-NOTE-001",
+      "failure_forward": "Buddy walks through the terms, and the treasurer and scholar can be asked further questions.",
+      "teaching_target": "How genuinely new public evidence should update beliefs and capital allocation."
+    },
+    {
+      "id": "ENC-CROWD",
+      "title": "The Crowd at the Exchange",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "dc": 12,
+      "skill_flavor": "Persuasion or Insight",
+      "evidence_ids": [
+        "F-MOOD-001"
+      ],
+      "success_clue_id": "F-CROWD-NOTE-001",
+      "failure_forward": "A shorter, plainer exchange with the broker; the roll cannot create a new financial fact.",
+      "teaching_target": "Distinguishing evidence from popularity, and managing concentration risk."
+    }
+  ],
+  "news": {
+    "checkpoint": "G1",
+    "time_skip_days": 62,
+    "headline": "The Golden Guild Reports a Heavy Loss",
+    "summary": "A new proclamation tells of a net loss of {FIG-Q3-LOSS}, valuation corrections of {FIG-Q3-CHARGE} after tax, and a smaller net owners' claim. The guild stresses {FIG-Q3-RECUR} of recurring earnings alongside it.",
+    "evidence_ids": [
+      "F-Q3-LOSS-001",
+      "F-Q3-CHARGE-001",
+      "F-Q3-EQUITY-001",
+      "F-Q3-RECUR-001"
+    ]
+  },
+  "prices": {
+    "path": "prices.csv",
+    "decision_date": "2001-10-17",
+    "horizon_end": "2001-12-31"
+  },
+  "fund": null,
+  "rubric": [
+    {
+      "category": "Evidence literacy",
+      "max": 25
+    },
+    {
+      "category": "Risk awareness",
+      "max": 25
+    },
+    {
+      "category": "Decision consistency",
+      "max": 20
+    },
+    {
+      "category": "Forecast clarity",
+      "max": 15
+    },
+    {
+      "category": "Post-reveal reflection",
+      "max": 15
+    }
+  ],
+  "campaign_location_seeds": [
+    {
+      "key": "golden_guild_hall",
+      "name": "The Golden Guild Hall",
+      "description": "The marble hall where the guild council meets and the treasurer keeps his seat.",
+      "art_subject": "A grand marble guild hall with gilded banners, tall arched windows and long ledger desks, empty of people, no lettering or emblems"
+    },
+    {
+      "key": "exchange_steps",
+      "name": "Steps of the Grand Exchange",
+      "description": "Rain-slick steps where traders cluster beneath a gilded banner.",
+      "art_subject": "Wet stone steps and columns of a grand exchange building at dusk, gilded banners, lanterns, no people, no lettering or logos"
+    }
+  ],
+  "debrief": {
+    "questions": [
+      "What was knowable when you committed?",
+      "Which concerns were evident then, and which only became public afterward?",
+      "Did your analysis distinguish managerial claims from independent evidence?",
+      "Would diversifying or holding some cash have changed your exposure?",
+      "Did you succeed because of the process, luck, or both?",
+      "What rule of thumb will you carry into the next mission?"
+    ],
+    "post_reveal_facts": [
+      {
+        "checkpoint": "G3",
+        "text": "The guild's own earlier reports were later said to need correcting, and the guild's standing collapsed within weeks."
+      },
+      {
+        "checkpoint": "G3",
+        "text": "A royal commercial authority opened an inquiry after the decision day, not before it."
+      },
+      {
+        "checkpoint": "G4",
+        "text": "Later investigations attributed the troubles to hidden obligations and misleading statements; none of that was public when you committed."
+      }
+    ]
+  },
+  "secret": {
+    "real_entity": "Enron Corporation",
+    "ticker": "ENE",
+    "actors": [
+      "Jeffrey Skilling",
+      "Kenneth Lay",
+      "Andrew Fastow",
+      "Arthur Andersen"
+    ],
+    "city": "Houston, Texas",
+    "real_dates": {
+      "G0_cutoff": "2001-08-14",
+      "G0_opening": "2001-08-15",
+      "G1_cutoff": "2001-10-16",
+      "G2_decision": "2001-10-17",
+      "horizon_end": "2001-12-31",
+      "10K_filed": "2001-04-02",
+      "10Q_filed": "2001-08-14",
+      "bankruptcy_filing": "2001-12-02"
+    },
+    "alias_map": {
+      "Enron Corporation": "Golden Guild Trading Consortium",
+      "Enron common shares": "ownership certificates",
+      "NYSE": "Grand Exchange of Aster Vale",
+      "Jeffrey Skilling": "the high master",
+      "Kenneth Lay": "the guild council chair",
+      "Andrew Fastow": "(unnamed treasurer-side figure)",
+      "Arthur Andersen": "the guild's auditor",
+      "Azurix": "the far-off waterworks venture",
+      "broadband": "the signal-tower venture",
+      "Form 10-K": "annual guild ledger",
+      "Form 10-Q": "quarterly guild ledger",
+      "Houston": "Aster Vale"
+    },
+    "leak_terms": [
+      "Enron",
+      "Enron Corp",
+      "Enron Corporation",
+      "ENE",
+      "Skilling",
+      "Jeffrey Skilling",
+      "Jeffrey",
+      "Kenneth Lay",
+      "Kenneth",
+      "Lay",
+      "Fastow",
+      "Andrew Fastow",
+      "Andrew",
+      "Causey",
+      "Richard Causey",
+      "Arthur Andersen",
+      "Andersen",
+      "Houston",
+      "Texas",
+      "Dynegy",
+      "Azurix",
+      "JEDI",
+      "Chewco",
+      "LJM",
+      "LJM1",
+      "NYSE",
+      "SEC",
+      "Securities and Exchange Commission",
+      "EDGAR",
+      "10-K",
+      "10-Q",
+      "8-K",
+      "Form 10-K",
+      "Form 10-Q",
+      "Chapter 11",
+      "broadband",
+      "Portland General",
+      "pipeline",
+      "Northern Natural Gas",
+      "UMKC",
+      "Department of Justice",
+      "CRSP",
+      "2001",
+      "2000",
+      "1999",
+      "1998",
+      "1997",
+      "August 14, 2001",
+      "August 15, 2001",
+      "October 16, 2001",
+      "October 17, 2001",
+      "November 8, 2001",
+      "December 2, 2001",
+      "2001-08-14",
+      "2001-08-15",
+      "2001-10-16",
+      "2001-10-17",
+      "2001-12-31",
+      "1024401",
+      "United States",
+      "U.S."
+    ],
+    "later_events": [
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-10-22",
+        "text": "The company acknowledged an SEC inquiry."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-10-31",
+        "text": "The company announced a formal SEC investigation."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-11-08",
+        "text": "The company said earlier reports would be restated, citing consolidation issues involving JEDI/Chewco and LJM1."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-11-09",
+        "text": "A merger with Dynegy was announced."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-11-19",
+        "text": "The company filed its third-quarter Form 10-Q."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-11-28",
+        "text": "Credit ratings fell below investment grade and Dynegy terminated the merger."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2001-12-02",
+        "text": "The company and certain subsidiaries sought Chapter 11 protection."
+      },
+      {
+        "checkpoint": "G4",
+        "real_date": "2002-2004",
+        "text": "Investigations and enforcement actions described accounting manipulation, related-party arrangements and misleading disclosures."
+      }
+    ],
+    "evidence_sources": {
+      "F-CEO-RESIGN-001": "6 / S03",
+      "F-MGMT-CLAIM-001": "6 / S03",
+      "F-RESIGN-PROMPT-001": "11 Encounter 1",
+      "F-ANNUAL-001": "4 / S01",
+      "F-ANNUAL-002": "4 / S01",
+      "F-Q2-REV-001": "5 / S02",
+      "F-Q2-CFO-001": "5 / S02",
+      "F-Q2-MARGIN-001": "5 / S02",
+      "F-Q2-BAL-001": "5 / S02",
+      "F-Q2-NOTE-001": "11 Encounter 2",
+      "F-CROWD-NOTE-001": "11 Encounter 4",
+      "F-MOOD-001": "11 NPCs",
+      "F-Q3-LOSS-001": "7 / S20",
+      "F-Q3-CHARGE-001": "7 / S20",
+      "F-Q3-EQUITY-001": "7 / S20, S05",
+      "F-Q3-RECUR-001": "7 / S20",
+      "F-Q3-NOTE-001": "11 Encounter 3",
+      "F-MOOD-002": "11 NPCs"
+    }
+  }
+}

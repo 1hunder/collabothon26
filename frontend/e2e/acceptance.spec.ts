@@ -129,7 +129,7 @@ test.describe('2.2 Demo labelling', () => {
     await goToScreen(page, 'StartDepot');
     await expect(strip).toHaveCount(0);
     await page.getByRole('button', { name: 'Start your first quest' }).click();
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
     await expect(strip).toHaveCount(0);
   });
 });
@@ -333,7 +333,7 @@ test.describe('2.6 Investments and StartDepot', () => {
   test('2.6-AC6 After leaving a quest StartDepot is unchanged and its card says Continue', tag, async ({ page }) => {
     await openStartDepotFromOverview(page);
     await page.getByRole('button', { name: 'Start your first quest' }).click();
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
     await leaveQuest(page);
     await expect(page).toHaveURL(/\/investments\/startdepot$/);
     await expect(page.getByRole('main').getByText('€0.00')).toBeVisible();
@@ -346,7 +346,7 @@ test.describe('2.7 Entering and leaving Finance Quest', () => {
   test('2.7-AC1 Overview Start opens the quest without top bar or tab bar', tag, async ({ page }) => {
     await unlock(page);
     await startBtn(page).click();
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
     await expect(page.getByRole('banner')).toHaveCount(0);
     await expect(tabBar(page)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Close quest' })).toBeVisible();
@@ -354,10 +354,10 @@ test.describe('2.7 Entering and leaving Finance Quest', () => {
     expect(close.x + close.width / 2).toBeGreaterThan(((page.viewportSize()?.width ?? 0) >= 430 ? 430 : (page.viewportSize()?.width ?? 0)) / 2);
   });
 
-  test('2.7-AC2 StartDepot Start your first quest opens What are you into?', tag, async ({ page }) => {
+  test('2.7-AC2 StartDepot Start your first quest opens Create your hero for a new player', tag, async ({ page }) => {
     await openStartDepotFromOverview(page);
     await page.getByRole('button', { name: 'Start your first quest' }).click();
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   });
 
   test('2.7-AC3 Close shows the leave confirmation with Leave and Stay', tag, async ({ page }) => {
@@ -372,7 +372,7 @@ test.describe('2.7 Entering and leaving Finance Quest', () => {
   test('2.7-AC4 Browser back inside the quest shows the same confirmation', tag, async ({ page }) => {
     await unlock(page);
     await startBtn(page).click();
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
     // The router registers its blocker after first paint; let two frames pass before going back.
     await page.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
     await page.goBack();
@@ -396,8 +396,8 @@ test.describe('2.7 Entering and leaving Finance Quest', () => {
     await page.getByRole('button', { name: 'Close quest' }).click();
     await page.getByRole('button', { name: 'Stay' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page).toHaveURL(/\/quest$/);
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page).toHaveURL(/\/quest\/hero\/new$/);
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   });
 
   test('2.7-AC7 After leaving unfinished the Overview card shows Quest in progress and Continue', tag, async ({ page }) => {
@@ -415,8 +415,8 @@ test.describe('2.7 Entering and leaving Finance Quest', () => {
     await startBtn(page).click();
     await leaveQuest(page);
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page).toHaveURL(/\/quest$/);
-    await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+    await expect(page).toHaveURL(/\/quest\/hero\/new$/);
+    await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   });
 
   test('2.7-AC9 Unfinished quest survives reload and unlock', tag, async ({ page }) => {

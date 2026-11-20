@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+backend/data/
+backend/.cache/
+docs/screenshots/
+*.parquet.tmp

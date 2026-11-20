@@ -32,7 +32,15 @@ test('no horizontal overflow on any shell screen at 360 px', async ({ page }) =>
   await expect(page).toHaveURL(/\/investments\/startdepot$/);
   await expectNoHorizontalOverflow(page);
   await page.getByRole('button', { name: 'Start your first quest' }).click();
+  await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.getByRole('radio', { name: /Guardian/ }).click();
+  await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.getByRole('button', { name: 'Gaming' }).click();
+  await page.getByRole('button', { name: 'Find my quest' }).click();
+  await expect(page.getByText(/This story is real market history/)).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 

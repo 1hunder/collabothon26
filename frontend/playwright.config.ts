@@ -21,6 +21,8 @@ export default defineConfig({
     command: `npm run build && npm run preview`,
     url: `http://localhost:${port}`,
     reuseExistingServer: false,
+    // Fixture mode: a new player has no hero, so Start opens "Create your hero" without a backend.
+    env: { VITE_API_MODE: 'fixture' },
     timeout: 120_000,
   },
 });

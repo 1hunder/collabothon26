@@ -24,7 +24,7 @@ describe('QuestCard', () => {
     });
 
     it(`${variant}: in progress shows the line and Continue, which resumes`, () => {
-      saveProgress('/quest/next', null);
+      saveProgress('/quest/next');
       const onStart = vi.fn();
       const onContinue = vi.fn();
       render(<QuestCard variant={variant} onStart={onStart} onContinue={onContinue} />);

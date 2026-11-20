@@ -2,13 +2,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import QuestLayout from './QuestLayout';
-import WhatAreYouInto from './screens/WhatAreYouInto';
 
 function setup() {
   const router = createMemoryRouter(
     [
       { path: '/overview', element: <div>Overview page</div> },
-      { path: '/quest', element: <QuestLayout />, children: [{ index: true, element: <WhatAreYouInto /> }] },
+      { path: '/quest', element: <QuestLayout />, children: [{ index: true, element: <h1>Quest screen</h1> }] },
     ],
     { initialEntries: ['/overview', { pathname: '/quest', state: { origin: '/overview' } }], initialIndex: 1 },
   );
@@ -31,7 +30,7 @@ describe('QuestLayout', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Stay' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/quest');
-    expect(screen.getByText('What are you into?')).toBeInTheDocument();
+    expect(screen.getByText('Quest screen')).toBeInTheDocument();
   });
 
   it('Leave navigates to the origin', async () => {

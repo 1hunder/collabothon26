@@ -1,4 +1,5 @@
 import { startQuest, useQuestMeta } from '../../quest/questStore';
+import { unlockVoice } from '../../voice';
 
 interface QuestCardProps {
   variant: 'overview' | 'depot';
@@ -10,6 +11,7 @@ export default function QuestCard({ variant, onStart, onContinue }: QuestCardPro
   const { inProgress, resumePath } = useQuestMeta();
   const handleClick = (): void => {
     if (inProgress) {
+      unlockVoice();
       onContinue(resumePath);
       return;
     }
