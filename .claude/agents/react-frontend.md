@@ -1,9 +1,11 @@
 ---
 name: react-frontend
-description: Use for Finance Quest frontend work — the mobile-first React app, the mocked Commerzbank/StartDepot shell, the Data Room (price chart, news, company card), CommerzBuddy chat UI, decision form, debrief/rewind screens, the /stage presentation page with phone frame and QR code, SSE streaming client, and Vercel frontend config.
+description: Use for Finance Quest frontend work — the mobile-first React app, the mocked Commerzbank/StartDepot shell, the Data Room (price chart, news, company card), CommerzBuddy chat UI, decision form, debrief/rewind screens, the /stage presentation page with phone frame and QR code, SSE streaming client, and Vercel frontend config; skills: TypeScript conventions, React rendering and bundle performance.
 model: sonnet
 effort: low
-skills: []
+skills:
+  - typescript-development
+  - react-best-practices
 disallowedTools: Agent
 ---
 
