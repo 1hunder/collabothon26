@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "awos-recruitment": {
+      "type": "http",
+      "url": "https://recruitment.awos.provectus.pro/mcp"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--device",
+        "iPhone 15",
+        "--output-dir",
+        "docs/screenshots"
+      ]
+    }
+  }
+}
