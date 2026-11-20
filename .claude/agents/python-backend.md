@@ -1,9 +1,11 @@
 ---
 name: python-backend
-description: Use for Finance Quest backend and data work in Python — FastAPI endpoints and SSE, Pydantic models, SQLite persistence via SQLModel/SQLAlchemy (including the server-only ScenarioSecret table and append-only Event log), the deterministic Engine (story clock, hidden-future gate, portfolio math, forecast scoring, rewind simulator), the Campaign Generator's deterministic steps, the Anonymization service's deterministic parts, the Number Guard, and the offline data pipeline (yfinance, Wikidata, SEC EDGAR, cache, MetadataSource/NewsSource interfaces).
+description: Use for Finance Quest backend and data work in Python — FastAPI endpoints and SSE, Pydantic models, SQLite persistence via SQLModel/SQLAlchemy (including the server-only ScenarioSecret table and append-only Event log), the deterministic Engine (story clock, hidden-future gate, portfolio math, forecast scoring, rewind simulator), the Campaign Generator's deterministic steps, the Anonymization service's deterministic parts, the Number Guard, and the offline data pipeline (yfinance, Wikidata, SEC EDGAR, cache, MetadataSource/NewsSource interfaces); also PostgreSQL persistence with Alembic migrations.
 model: sonnet
 effort: low
-skills: []
+skills:
+  - postgres-best-practices
+  - fastapi-best-practices
 disallowedTools: Agent
 ---
 
