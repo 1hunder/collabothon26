@@ -1,9 +1,10 @@
 ---
 name: qa-testing
-description: Use for Finance Quest testing and acceptance work — writing and running tests for the deterministic core (Engine math, hidden-future gate, Number Guard, anonymization, alias-map secrecy), frontend unit tests, and the end-to-end run of the full stage mission; verifying acceptance criteria with evidence.
+description: Use for Finance Quest testing and acceptance work — writing and running tests for the deterministic core (Engine math, hidden-future gate, Number Guard, anonymization, alias-map secrecy), frontend unit tests, and the end-to-end run of the full stage mission; verifying acceptance criteria with evidence; skills: live-DOM UI verification (verify-ui), Playwright MCP browser checks.
 model: sonnet
 effort: low
-skills: []
+skills:
+  - verify-ui
 disallowedTools: Agent
 ---
 
@@ -18,6 +19,7 @@ Key responsibilities:
 - Test guard routing in the agent graphs with stubbed model responses (retry once, then templated fallback) — never depend on live model output for pass/fail.
 - Maintain one end-to-end test that plays the full stage mission from interest selection to the savings-plan screen in demo mode.
 - Verify spec acceptance criteria and report evidence for each.
+- Drive the running app with the project's Playwright MCP server (configured in `.mcp.json`) for on-screen checks and screenshots to `docs/screenshots/`; use the verify-ui skill to measure visibility, clickability and overflow in the live DOM instead of judging screenshots.
 
 When working on tasks:
 
