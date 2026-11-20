@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finance Quest — visual novel mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;0,700;1,400&family=Alegreya+Sans:wght@400;500;700&family=Pirata+One&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --lapis: #22305B;
+    --lapis-deep: #161F3D;
+    --verdigris: #3E8A7E;
+    --verdigris-light: #6FB5A8;
+    --gilt: #C9A227;
+    --wax: #A8322D;
+    --vellum: #E8DCC2;
+    --vellum-dim: #B9AE96;
+    --soot: #15121A;
+    --narration: "Alegreya", Georgia, serif;
+    --ui: "Alegreya Sans", system-ui, sans-serif;
+    --title: "Pirata One", "Alegreya", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(120% 80% at 50% 0%, #2a2238 0%, var(--soot) 70%);
+    color: var(--vellum);
+    font-family: var(--ui);
+    min-height: 100vh;
+    display: flex; flex-wrap: wrap; gap: 32px;
+    align-items: flex-start; justify-content: center;
+    padding: 32px 16px 64px;
+  }
+
+  /* ---------- review controls (outside the phone) ---------- */
+  .review { width: 260px; font-size: 15px; line-height: 1.5; color: var(--vellum-dim); }
+  .review h1 { font-family: var(--title); font-weight: 400; font-size: 34px; color: var(--vellum); margin: 0 0 4px; }
+  .review p { margin: 0 0 16px; }
+  .review nav { display: flex; flex-direction: column; gap: 6px; }
+  .review button {
+    font: 500 15px var(--ui); text-align: left; color: var(--vellum);
+    background: transparent; border: 1px solid #3a3550; border-radius: 6px; padding: 8px 12px; cursor: pointer;
+  }
+  .review button[aria-pressed="true"] { border-color: var(--gilt); color: var(--gilt); }
+  .review button:focus-visible, .phone button:focus-visible { outline: 2px solid var(--gilt); outline-offset: 2px; }
+
+  /* ---------- phone ---------- */
+  .phone {
+    position: relative; width: 390px; height: 844px; border-radius: 44px; overflow: hidden;
+    box-shadow: 0 0 0 10px #0c0a10, 0 30px 80px rgba(0,0,0,.6);
+    background: var(--lapis-deep);
+  }
+  @media (max-width: 440px) { .phone { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; } body { padding: 0; } .review { width: 100%; padding: 16px; } }
+
+  /* painted scene (placeholder art drawn in SVG) */
+  .scene { position: absolute; inset: 0; }
+  .scene svg { width: 100%; height: 100%; display: block; }
+  .vignette { position: absolute; inset: 0; background:
+      radial-gradient(90% 60% at 50% 35%, transparent 40%, rgba(10,8,16,.55) 100%),
+      linear-gradient(to bottom, rgba(10,8,16,.35), transparent 22%, transparent 55%, rgba(10,8,16,.85)); pointer-events: none; }
+
+  /* status — quiet, glyph-led */
+  .status {
+    position: absolute; top: 0; left: 0; right: 0; padding: 54px 20px 0;
+    display: flex; align-items: center; gap: 16px; font-size: 15px; z-index: 5;
+  }
+  .status .hero { font-family: var(--narration); font-style: italic; font-size: 17px; margin-right: auto; }
+  .status .hero b { font-style: normal; font-weight: 700; }
+  .stat { display: inline-flex; align-items: center; gap: 5px; }
+  .stat svg { width: 16px; height: 16px; }
+  .stat.hp { color: var(--gilt); }
+  .close { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(232,220,194,.35); background: rgba(21,18,26,.4); color: var(--vellum); font-size: 18px; cursor: pointer; }
+
+  /* plain placeholder backdrop */
+  .backdrop { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: linear-gradient(180deg, #1d2547 0%, #191630 55%, #120f1a 100%); }
+  .backdrop span { font: 400 40px var(--title); color: rgba(232,220,194,.28); }
+  .backdrop small { font: 400 13px var(--ui); color: rgba(232,220,194,.22); }
+
+  /* Buddy token + placeholder summon */
+  .token { position: absolute; right: 22px; bottom: 300px; width: 76px; height: 76px; z-index: 6; filter: drop-shadow(0 0 18px rgba(111,181,168,.55)); }
+  .token svg { width: 100%; height: 100%; }
+  .token.summon { animation: summon .6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes summon { 0% { transform: translateY(40px) rotateY(0deg) scale(.4); opacity: 0; } 60% { transform: translateY(-6px) rotateY(540deg) scale(1.08); opacity: 1; } 100% { transform: none; } }
+
+  /* dialogue box */
+  .dialogue {
+    position: absolute; left: 12px; right: 12px; bottom: 92px; z-index: 6;
+    background: linear-gradient(180deg, rgba(34,48,91,.94), rgba(22,31,61,.97));
+    border-radius: 14px 14px 18px 18px;
+    padding: 22px 22px 34px;
+    box-shadow: inset 0 0 0 1px rgba(201,162,39,.55), inset 0 0 0 5px rgba(22,31,61,1), inset 0 0 0 6px rgba(201,162,39,.22);
+  }
+  .nametab {
+    position: absolute; top: -15px; left: 18px; padding: 3px 14px 4px;
+    font: 700 16px var(--narration); letter-spacing: .02em; color: var(--soot);
+    background: var(--gilt); border-radius: 4px 4px 4px 0;
+  }
+  .nametab.buddy { background: var(--verdigris-light); }
+  .dialogue p { margin: 0; font-family: var(--narration); font-size: 19px; line-height: 1.5; color: var(--vellum); min-height: 4.5em; max-width: 34ch; }
+  .dialogue p em { color: #f3e6c4; }
+  .advance { position: absolute; right: 18px; bottom: 12px; color: var(--gilt); font-size: 14px; animation: bob 1.4s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(3px); } }
+  .page { position: absolute; left: 22px; bottom: 12px; font-size: 13px; color: var(--vellum-dim); }
+
+  /* choices */
+  .choices { position: absolute; left: 12px; right: 12px; bottom: 92px; z-index: 6; display: flex; flex-direction: column; gap: 8px; }
+  .choices .ask { font: italic 18px/1.4 var(--narration); color: var(--vellum); margin: 0 6px 6px; text-shadow: 0 1px 8px rgba(0,0,0,.8); }
+  .choice {
+    text-align: left; font: 500 17px/1.35 var(--narration); color: var(--vellum);
+    background: rgba(22,31,61,.92); border: 1px solid rgba(111,181,168,.5); border-left: 3px solid var(--verdigris);
+    border-radius: 4px 12px 12px 4px; padding: 12px 14px; cursor: pointer;
+  }
+  .choice.own { border-style: dashed; border-left-style: solid; color: var(--vellum-dim); font-style: italic; }
+  .choice.decide { border-color: rgba(201,162,39,.6); border-left-color: var(--gilt); color: #f3e6c4; }
+
+  /* dock */
+  .dock { position: absolute; left: 0; right: 0; bottom: 0; height: 84px; padding: 0 20px 22px; display: flex; justify-content: space-between; align-items: center; z-index: 7; }
+  .dock button { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; background: none; border: 0; color: var(--vellum-dim); font: 500 12px var(--ui); cursor: pointer; }
+  .dock svg { width: 26px; height: 26px; }
+  .dock .buddy-btn { color: var(--verdigris-light); }
+
+  /* location title card */
+  .titlecard { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; text-align: center; background: rgba(10,8,16,.5); }
+  .titlecard h2 { font: 400 64px/1 var(--title); margin: 0; color: var(--vellum); text-shadow: 0 2px 20px rgba(0,0,0,.8); }
+  .titlecard p { font: italic 18px var(--narration); color: var(--vellum-dim); margin: 10px 0 0; }
+  .titlecard .rule { width: 120px; height: 1px; margin: 16px auto 0; background: linear-gradient(90deg, transparent, var(--gilt), transparent); }
+
+  /* dice moment */
+  .dice { position: absolute; inset: 0; z-index: 9; background: rgba(10,8,16,.72); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 28px; text-align: center; }
+  .dice .challenge { font: italic 19px/1.45 var(--narration); color: var(--vellum); max-width: 30ch; margin: 0 0 26px; }
+  .dice .die { width: 150px; height: 150px; filter: drop-shadow(0 12px 24px rgba(0,0,0,.6)); }
+  .dice.rolling .die { animation: tumble 1s cubic-bezier(.3,.7,.2,1) both; }
+  @keyframes tumble { 0% { transform: translate(-140px,-220px) rotate(-260deg) scale(.6); } 70% { transform: translate(8px,6px) rotate(18deg) scale(1.04); } 100% { transform: none; } }
+  .chalk { font: 700 20px var(--narration); color: var(--vellum); margin-top: 20px; }
+  .chalk span { color: var(--vellum-dim); font-weight: 400; }
+  .verdict { font: 400 46px var(--title); margin: 8px 0 0; color: var(--verdigris-light); }
+  .verdict.setback { color: #d9625b; }
+  .dice .row { display: flex; gap: 10px; margin-top: 22px; }
+  .btn { font: 700 16px var(--ui); padding: 12px 20px; border-radius: 999px; cursor: pointer; border: 1px solid var(--gilt); background: var(--gilt); color: var(--soot); }
+  .btn.ghost { background: transparent; color: var(--vellum); border-color: rgba(232,220,194,.4); }
+
+  /* map */
+  .map { position: absolute; inset: 0; z-index: 9; background: rgba(10,8,16,.6); display: flex; align-items: flex-end; }
+  .map .sheet { width: 100%; background: var(--vellum); color: var(--soot); border-radius: 20px 20px 0 0; padding: 20px 20px 34px; }
+  .map h3 { font: 400 30px var(--title); margin: 0 0 2px; color: var(--lapis); }
+  .map .sub { font: italic 16px var(--narration); margin: 0 0 12px; color: #5b5242; }
+  .map svg { width: 100%; height: auto; display: block; }
+  .map ul { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+  .map li button { width: 100%; text-align: left; display: flex; justify-content: space-between; font: 500 17px var(--narration); padding: 10px 12px; border-radius: 8px; border: 1px solid #c9bb98; background: #efe6d1; color: var(--soot); cursor: pointer; }
+  .map li button[aria-current="true"] { border-color: var(--lapis); box-shadow: inset 3px 0 0 var(--lapis); }
+  .map li small { font: 400 14px var(--ui); color: #6d6350; }
+
+  /* seal (commit) */
+  .seal { position: absolute; inset: 0; z-index: 9; background: rgba(10,8,16,.7); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .scroll { width: 100%; background: var(--vellum); color: var(--soot); border-radius: 6px; padding: 26px 22px 22px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  .scroll::before, .scroll::after { content: ""; position: absolute; left: -6px; right: -6px; height: 14px; background: #d6c7a4; border-radius: 7px; }
+  .scroll::before { top: -8px; } .scroll::after { bottom: -8px; }
+  .scroll h3 { font: 400 32px var(--title); margin: 0 0 4px; color: var(--lapis); }
+  .scroll .sub { font: italic 16px var(--narration); color: #5b5242; margin: 0 0 14px; }
+  .scroll dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 16px; }
+  .scroll dt { color: #6d6350; }
+  .scroll dd { margin: 0; font-family: var(--narration); font-weight: 500; }
+  .wax { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .wax svg { width: 64px; height: 64px; flex: none; }
+  .wax p { margin: 0; font: italic 15px/1.4 var(--narration); color: #5b5242; }
+  .scroll .row { display: flex; gap: 10px; margin-top: 18px; }
+  .scroll .btn { background: var(--wax); border-color: var(--wax); color: var(--vellum); }
+  .scroll .btn.ghost { background: transparent; color: var(--lapis); border-color: #b9a982; }
+
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .advance, .dice.rolling .die, .token.summon { animation: none; } }
+</style>
+</head>
+<body>
+
+<aside class="review">
+  <h1>Finance Quest</h1>
+  <p>Visual-novel direction for the campaign engine. Pick a moment to preview it inside the phone.</p>
+  <nav aria-label="Mock screens">
+    <button data-show="title" aria-pressed="false">Arriving at the Tavern</button>
+    <button data-show="scene" aria-pressed="true">Narration</button>
+    <button data-show="choices" aria-pressed="false">What would you do?</button>
+    <button data-show="dice" aria-pressed="false">Dice check</button>
+    <button data-show="buddy" aria-pressed="false">CommerzBuddy</button>
+    <button data-show="map" aria-pressed="false">Map</button>
+    <button data-show="seal" aria-pressed="false">Seal your decision</button>
+  </nav>
+</aside>
+
+<main class="phone" aria-label="Phone preview">
+  <!-- background placeholder: real backgrounds come from the constant set or Nano Banana -->
+  <div class="scene" aria-hidden="true">
+    <div class="backdrop"><span id="loc-name">Market Square</span><small>background placeholder</small></div>
+    <div class="vignette"></div>
+  </div>
+
+  <header class="status">
+    <span class="hero"><b>Lena</b>, the Analyst</span>
+    <span class="stat hp" title="Hit points — your purse">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 14s-6-3.6-6-8a3.3 3.3 0 0 1 6-1.9A3.3 3.3 0 0 1 14 6c0 4.4-6 8-6 8z"/></svg>100 <span style="color:var(--vellum-dim)">· €1,000</span>
+    </span>
+    <span class="stat" title="Focus">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M8 1.5 9.8 6.2 14.5 8 9.8 9.8 8 14.5 6.2 9.8 1.5 8 6.2 6.2Z"/></svg>3
+    </span>
+    <button class="close" aria-label="Close quest">✕</button>
+  </header>
+
+  <!-- Buddy token (placeholder until the team's token art and animation) -->
+  <div class="token" id="buddy-token" hidden aria-hidden="true">
+    <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#C9A227"/><circle cx="32" cy="32" r="25" fill="#3E8A7E"/><circle cx="32" cy="32" r="21" fill="none" stroke="#6FB5A8" stroke-width="1.5"/><path d="M32 18l3.5 9.5L45 31l-9.5 3.5L32 44l-3.5-9.5L19 31l9.5-3.5z" fill="#E8DCC2"/></svg>
+  </div>
+
+  <!-- narration -->
+  <section class="dialogue" id="v-scene" aria-live="polite">
+    <span class="nametab">The Chronicler</span>
+    <p>The Market Square smells of wax and wet stone. On the guild board, a fresh notice: <em>Lumen Works</em> — makers of lamp-glass for half the city — have lost a third of their value since the spring fair.</p>
+    <span class="page">2 / 3</span>
+    <span class="advance" aria-hidden="true">▼</span>
+  </section>
+
+  <!-- buddy -->
+  <section class="dialogue" id="v-buddy" hidden aria-live="polite">
+    <span class="nametab buddy">CommerzBuddy</span>
+    <p>A drawdown is how far something has fallen from its last high point. A third down hurts — but it says nothing yet about <em>why</em>. What would you want to know first?</p>
+    <span class="advance" aria-hidden="true">▼</span>
+  </section>
+
+  <!-- choices -->
+  <section class="choices" id="v-choices" hidden>
+    <p class="ask">What would you do?</p>
+    <button class="choice">Read the notice on the guild board closely</button>
+    <button class="choice">Ask the lamp-seller what customers are saying</button>
+    <button class="choice">Head to the Library to see the price history</button>
+    <button class="choice own">Write your own action…</button>
+  </section>
+
+  <!-- arriving title card -->
+  <section class="titlecard" id="v-title" hidden>
+    <div>
+      <h2>The Tavern</h2>
+      <p>Where every journey starts</p>
+      <div class="rule"></div>
+    </div>
+  </section>
+
+  <!-- dice moment -->
+  <section class="dice" id="v-dice" hidden>
+    <p class="challenge">You try to spot what is off in Lumen Works' last half-year report.</p>
+    <svg class="die" viewBox="0 0 160 160" aria-label="Twenty-sided die showing 14">
+      <polygon points="80,6 148,44 148,116 80,154 12,116 12,44" fill="#8c6a2a"/>
+      <polygon points="80,6 148,44 80,62 12,44" fill="#b48a3c"/>
+      <polygon points="12,44 80,62 46,124 12,116" fill="#6f5222"/>
+      <polygon points="148,44 148,116 114,124 80,62" fill="#7c5c26"/>
+      <polygon points="80,62 114,124 46,124" fill="#c9a227"/>
+      <polygon points="46,124 114,124 80,154" fill="#5e451c"/>
+      <text x="80" y="110" text-anchor="middle" font-family="Alegreya, serif" font-weight="700" font-size="34" fill="#15121A">14</text>
+    </svg>
+    <p class="chalk">14 + 2 = 16 <span>against 12</span></p>
+    <p class="verdict">Success</p>
+    <div class="row"><button class="btn">Continue</button></div>
+  </section>
+
+  <!-- map -->
+  <section class="map" id="v-map" hidden>
+    <div class="sheet">
+      <h3>The city</h3>
+      <p class="sub">Where will you go next?</p>
+      <svg viewBox="0 0 350 150" aria-hidden="true">
+        <path d="M10 120 C80 40 140 140 200 70 S320 40 340 100" fill="none" stroke="#8a7a58" stroke-width="2" stroke-dasharray="5 6"/>
+        <circle cx="40" cy="98" r="9" fill="#22305B"/><circle cx="150" cy="104" r="7" fill="#8a7a58"/><circle cx="230" cy="62" r="7" fill="#8a7a58"/><circle cx="320" cy="78" r="7" fill="#A8322D"/>
+      </svg>
+      <ul>
+        <li><button>The Tavern <small>where the journey starts</small></button></li>
+        <li><button aria-current="true">Market Square <small>you are here</small></button></li>
+        <li><button>The Library <small>records and prices</small></button></li>
+        <li><button>Lumen Glassworks <small>this tale only</small></button></li>
+        <li><button>The Lamp Fair <small>this tale only</small></button></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- seal decision -->
+  <section class="seal" id="v-seal" hidden>
+    <div class="scroll">
+      <h3>Seal your decision</h3>
+      <p class="sub">Once the wax sets, the future is revealed.</p>
+      <dl>
+        <dt>Decision</dt><dd>Invest €400, keep €600</dd>
+        <dt>Because</dt><dd>Sales fell, but orders for the fair are rising…</dd>
+        <dt>Forecast</dt><dd>60% likely higher in six months</dd>
+        <dt>Confidence</dt><dd>Medium</dd>
+      </dl>
+      <div class="wax">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4c6 0 8 5 13 6s9 6 9 12 4 8 4 13-5 8-6 13-7 8-12 8-8 4-13 4-8-4-13-5-9-6-10-11-5-8-5-13 4-8 5-13 6-10 11-11S26 4 32 4z" fill="#A8322D"/><circle cx="32" cy="34" r="14" fill="none" stroke="#7d221e" stroke-width="2"/><text x="32" y="40" text-anchor="middle" font-family="Pirata One" font-size="18" fill="#e8dcc2">L</text></svg>
+        <p>You won't be able to change this after sealing.</p>
+      </div>
+      <div class="row"><button class="btn">Seal it</button><button class="btn ghost">Go back</button></div>
+    </div>
+  </section>
+
+  <nav class="dock" aria-label="Quest tools">
+    <button><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg>Map</button>
+    <button><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M6 3h11a2 2 0 0 1 2 2v15H8a2 2 0 0 1-2-2zM6 18a2 2 0 0 0 2 2M10 8h6M10 12h6"/></svg>Journal</button>
+    <button class="buddy-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#C9A227" stroke-width="1.6"/><circle cx="12" cy="12" r="7" fill="#3E8A7E"/><path d="M12 7.5l1.3 3.2 3.2 1.3-3.2 1.3L12 16.5l-1.3-3.2L7.5 12l3.2-1.3z" fill="#E8DCC2"/></svg>Buddy</button>
+    <button><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>Voice on</button>
+  </nav>
+</main>
+
+<script>
+  const views = { scene: ['v-scene'], choices: ['v-choices'], title: ['v-title'], dice: ['v-dice'], buddy: ['v-buddy'], map: ['v-map', 'v-scene'], seal: ['v-seal', 'v-scene'] };
+  const all = ['v-scene','v-choices','v-title','v-dice','v-buddy','v-map','v-seal'];
+  const token = document.getElementById('buddy-token');
+  const locName = document.getElementById('loc-name');
+  function show(name) {
+    all.forEach(id => document.getElementById(id).hidden = !views[name].includes(id));
+    locName.textContent = name === 'title' ? 'The Tavern' : 'Market Square';
+    token.hidden = name !== 'buddy';
+    token.classList.remove('summon'); if (name === 'buddy') { void token.offsetWidth; token.classList.add('summon'); }
+    const dice = document.getElementById('v-dice');
+    dice.classList.remove('rolling'); if (name === 'dice') { void dice.offsetWidth; dice.classList.add('rolling'); }
+    document.querySelectorAll('.review button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.show === name)));
+  }
+  document.querySelectorAll('.review button').forEach(b => b.addEventListener('click', () => show(b.dataset.show)));
+  document.querySelector('.buddy-btn').addEventListener('click', () => show('buddy'));
+  show('scene');
+</script>
+</body>
+</html>
