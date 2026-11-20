@@ -20,6 +20,8 @@ import JournalSheet from './JournalSheet';
 import LibrarySheet from './LibrarySheet';
 import MapSheet from './MapSheet';
 import PriceBoard from './PriceBoard';
+import RumourLedger from './RumourLedger';
+import { hasRumourLedger, rumoursHeard } from './rumours';
 import TitleCard from './TitleCard';
 import VnStage from './VnStage';
 
@@ -49,7 +51,7 @@ type Overlay =
   | { kind: 'news'; card: NewsCard }
   | { kind: 'dice'; card: DiceCard };
 
-type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | null;
+type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | null;
 
 interface TitleInfo {
   name: string;
@@ -336,7 +338,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
 
   const chips =
     locKey === 'market_square' ? (
-      <Chip label="Price board" onClick={() => setSheet('board')} />
+      <>
+        <Chip label="Price board" onClick={() => setSheet('board')} />
+        {hasRumourLedger(c.hero.items, c.rumours) ? <Chip label="Rumour ledger" onClick={() => setSheet('rumours')} /> : null}
+      </>
     ) : locKey === 'library' ? (
       <Chip label="Library documents" onClick={() => setSheet('library')} />
     ) : null;
@@ -372,6 +377,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           {sheet === 'board' ? (
             <PriceBoard rows={c.price_board} newsDay={c.news_shown ? c.story_day : null} onClose={() => setSheet(null)} />
           ) : null}
+          {sheet === 'rumours' ? <RumourLedger rumours={rumoursHeard(c.rumours, c.backlog)} onClose={() => setSheet(null)} /> : null}
           {sheet === 'library' ? <LibrarySheet library={c.library} onClose={() => setSheet(null)} /> : null}
           {title !== null && activeOverlay.kind === 'none' ? <TitleCard title={title.name} onDone={dismissTitle} /> : null}
           {activeOverlay.kind === 'timeskip' ? (
@@ -379,13 +385,19 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           ) : null}
           {activeOverlay.kind === 'news' ? <BreakingNewsCard card={activeOverlay.card} onContinue={afterNews} /> : null}
           {activeOverlay.kind === 'dice' && diceApi ? (
-            <DiceMoment key={activeOverlay.card.challenge_id} card={activeOverlay.card} api={diceApi} onResolved={rolled} />
+            <DiceMoment
+              key={activeOverlay.card.challenge_id}
+              card={activeOverlay.card}
+              api={diceApi}
+              onResolved={rolled}
+              resumeSetback={overlay.kind === 'none' && c.pending?.state === 'rolling' ? { rerollsLeft: c.rerolls_left } : undefined}
+            />
           ) : null}
         </>
       }
     >
       {buddyOpen ? (
-        <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} />
+        <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
         dialogue
       )}

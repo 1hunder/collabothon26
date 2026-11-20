@@ -26,7 +26,7 @@ from financequest.agents.campaign.schemas import (
     XpOut,
 )
 from financequest.campaign.narration import TurnReply
-from financequest.campaign.xp import RawScore
+from financequest.campaign.xp import RawScore, excerpt
 from financequest.llm import NodeLLM, get_node_llm
 
 log = logging.getLogger("financequest.agents")
@@ -220,7 +220,25 @@ def heuristic_xp(rubric: tuple[tuple[str, int], ...], texts: dict[str, str]) -> 
     out = []
     for name, mx in rubric:
         src = texts["reflection"] if "eflection" in name else texts["evidence"]
-        quote = src.strip()[:60]
+        quote = excerpt(src, 60)
         score = min(mx, round(mx * min(len(src.strip()), 120) / 120))
-        out.append(RawScore(name, score, "Your reasoning was clear and specific.", quote))
+        out.append(RawScore(name, score, _heuristic_rationale(name, bool(quote)), quote))
     return out
+
+
+def _heuristic_rationale(category: str, has_quote: bool) -> str:
+    """A rationale specific to the category (neutral wording: no outcome or profit words)."""
+    low = category.lower()
+    if "evidence" in low:
+        what = "You pointed to specific details from the documents"
+    elif "risk" in low:
+        what = "You named what could go wrong"
+    elif "uncertain" in low:
+        what = "You admitted what could not be known"
+    elif "logic" in low or "consisten" in low:
+        what = "Your steps followed from one another"
+    elif "eflection" in low:
+        what = "You looked back at your own reasoning"
+    else:
+        what = f"On {category.lower()}, you explained your thinking"
+    return what + (", as in your own words." if has_quote else ".")

@@ -282,7 +282,11 @@ def _route(state: TurnState) -> dict[str, Any]:
 
 
 def _route_facts(ctx: C.AgentContext) -> str:
-    chars = [f"{c['id']} ({c['name']}, at {c['location']})" for c in ctx.content["characters"]]
+    here = ctx.current["key"] if ctx.current else ""
+    chars = [
+        f"{c['id']} ({c['name']}, at {c['location']}{', HERE' if c['location'] == here else ''})"
+        for c in ctx.content["characters"]
+    ]
     locs = [f"{x['key']} ({x['name']})" for x in ctx.locations]
     chs = [f"{c['key']} ({c['title']}, {c['state']})" for c in ctx.challenges]
     return (
@@ -309,11 +313,14 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
         free = C.free_clues_at(ctx, loc["key"])
         titles = [f"{i} = {(ctx.evidence_by_id(i) or {}).get('title')}" for i in free]
         state = "back again (do not re-describe it)" if loc["visited"] else "a first visit"
+        who = [c for c in ctx.content["characters"] if c["location"] == loc["key"]]
         return (
             f"# Intent: arrival\nThe hero goes to {loc['name']} ({loc['key']}): {state}. "
             f"Place: {loc['description']}\nFree clues the hero learns on arrival, which you MUST "
             f"mention in clue_ids_given and in the text: {'; '.join(titles) or 'none'}.\n"
-            "Speaker: chronicler.",
+            + (f"Characters who can be questioned here: {', '.join(c['name'] for c in who)}. "
+               "Offer 'Ask <name> ...' as one of the suggestions.\n" if who else "")
+            + "Speaker: chronicler.",
             set(free),
         )
     if r.intent == "talk":
@@ -445,13 +452,18 @@ def prepared_setup(ctx: C.AgentContext) -> SetupOut:
     docs = ", ".join(d["title"] for d in ctx.content["documents"]) or "the archives"
     chars = [c for c in ctx.content["characters"] if ctx.location_name(c["location"]) != c["location"]]
     who = "; ".join(f"{c['name']} at {the(ctx.location_name(c['location']))}" for c in chars[:3])
+    known = [e["title"] for e in ctx.content["evidence"] if e["id"] in set(ctx.found)]
+    if not known:  # the opening facts: free clues of the starting place, else of the first
+        start = ctx.current["key"] if ctx.current else None
+        known = [e["title"] for e in ctx.content["evidence"] if e["location"] == start][:3]
+    knows = f"You already know: {'; '.join(known[:3])}. " if known else "You already know only the rumours of the room. "
     text = (
         f"Rain drums on the stained glass of the tavern in {p.setting}. The talk of the room is "
         f"{p.company_name}, {p.trade[:1].lower() + p.trade[1:]}. Your task: investigate, then decide "
-        f"what to do with your {ctx.budget} euros. The story runs {clock_label(ctx)}. "
+        f"what to do with your {ctx.budget} euros. {knows}The story runs {clock_label(ctx)}. "
         f"The Library holds {docs}. The {p.market_name} shows the price board and the crowd's "
         f"mood. {who + ' can be questioned. ' if who else ''}"
-        "CommerzBuddy can be called at any time. Where will you start?"
+        "CommerzBuddy can be called at any time. What would you do?"
     )
     return SetupOut(text=text, suggestions=default_suggestions(ctx))
 

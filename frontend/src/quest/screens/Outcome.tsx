@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { patchCampaignCache, streamDebrief, useOutcome } from '../../api/campaign';
 import { formatEur, formatPct, formatSigned } from '../lib/commit';
+import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
 
 const StoryChart = lazy(() => import('../components/StoryChart'));
@@ -51,6 +52,7 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
 
   return (
     <div className="space-y-5 pb-8">
+      <ScreenBuddy campaignId={id} screen="outcome" />
       <h1 className="font-quest-title text-4xl text-quest-gilt">The outcome</h1>
       <p className="font-quest-sans text-quest-vellum-dim">
         Locked at {o.locked_at} · horizon {o.horizon_days} days

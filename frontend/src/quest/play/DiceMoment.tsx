@@ -15,9 +15,15 @@ interface DiceMomentProps {
   api: DiceApi;
   /** The result is final (Continue, Accept, or a Second Look). The narration follows. */
   onResolved: (final: RollResult) => void;
+  /**
+   * Coming back to a setback that was never resolved (the state only says "rolling"): show the
+   * same Setback card without a new roll. The server's pending roll is the only source.
+   */
+  resumeSetback?: { rerollsLeft: number };
 }
 
 type Stage =
+  | { name: 'resumed' }
   | { name: 'offer' }
   | { name: 'tumbling' }
   | { name: 'result'; roll: RollResult }
@@ -26,8 +32,8 @@ type Stage =
 const pause = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
 /** Full-screen dice check. Every number on it comes from the API. */
-export default function DiceMoment({ card, api, onResolved }: DiceMomentProps): React.JSX.Element {
-  const [stage, setStage] = useState<Stage>({ name: 'offer' });
+export default function DiceMoment({ card, api, onResolved, resumeSetback }: DiceMomentProps): React.JSX.Element {
+  const [stage, setStage] = useState<Stage>(resumeSetback ? { name: 'resumed' } : { name: 'offer' });
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -77,6 +83,33 @@ export default function DiceMoment({ card, api, onResolved }: DiceMomentProps): 
                 Keen Eye — roll with advantage ({card.keen_eye_left} left)
               </button>
             ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {stage.name === 'resumed' && resumeSetback ? (
+        <>
+          <p className="font-quest-sans text-quest-vellum-dim">Difficulty {card.dc}</p>
+          <p data-testid="dice-verdict" className="mt-2 font-quest-title text-5xl text-quest-wax-light">
+            Setback
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            {resumeSetback.rerollsLeft > 0 ? (
+              <button
+                type="button"
+                onClick={() => void run(() => api.reroll(card.roll_id))}
+                className="min-h-11 rounded-full border border-quest-gilt bg-quest-gilt px-6 font-quest-sans font-bold text-quest-soot"
+              >
+                Second Look — reroll ({resumeSetback.rerollsLeft} left)
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void api.accept(card.roll_id).then(onResolved)}
+              className="min-h-11 rounded-full border border-quest-vellum/40 px-6 font-quest-sans font-bold text-quest-vellum"
+            >
+              {resumeSetback.rerollsLeft > 0 ? 'Accept setback' : 'Continue'}
+            </button>
           </div>
         </>
       ) : null}

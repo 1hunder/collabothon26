@@ -53,7 +53,10 @@ ROUTER = """\
 You classify one player action in a financial-literacy visual novel. Output only the structured
 judgment. Intents:
 - challenge: the player attempts one of the listed challenges (set challenge_key to its key).
-- talk: the player speaks to a listed character (set character_id).
+- talk: the player speaks to a listed character (set character_id). Match the character by the
+  NAME the player wrote ("Ask Ren Tal ..." is Ren Tal), even if the character is somewhere else;
+  never pick a character from a role word or a topic (such as "guild") when another character is
+  named. If no one is named, prefer a character who is at the current location.
 - move: the player wants to go to a listed location (set location_key).
 - decision_intent: the player says they are ready to decide, invest or commit.
 - off_topic: unrelated to the investigation (jokes, small talk, other topics).

@@ -152,18 +152,18 @@ Notes:
 
     Component tests. **[Agent: react-frontend]**
 
-- [ ] **Slice 8: End-to-end Enron campaign on fakes**
-  - [ ] Add a backend demo mode with deterministic scripted narration (`FAKE_LLM=1`) so the full stack runs without keys. Then:
+- [x] **Slice 8: End-to-end Enron campaign on fakes**
+  - [x] Add a backend demo mode with deterministic scripted narration (`FAKE_LLM=1`) so the full stack runs without keys. Then:
     1. Start Postgres + API (FAKE_LLM) + the Vite preview.
     2. With the Playwright MCP, play the Enron campaign as a user: new hero → interests → disclosure → Tavern → Library / Market Square → a dice check → Buddy → news → commit and seal → outcome (€607.51 case) → debrief → reflection → company reveal → XP → Finish.
     3. Verify the spec acceptance criteria along the way, and no real names or dates before the reveal.
     4. Stop every process by PID and delete the screenshots. **[Agent: qa-testing]**
 
-- [ ] **Slice 9: Feature Testing & Regression**
+- [x] **Slice 9: Feature Testing & Regression**
 
   > Verifies the whole feature end-to-end against functional-spec.md, run after all implementation slices are complete.
-  - [ ] Read functional-spec.md acceptance criteria in full. Generate acceptance-level tests that verify the entire feature as a whole — not individual slices. Cover applicable layers (unit for pure logic, integration for service interactions, e2e for user flows) based on the project's testing stack. Write tests with RED validation (must fail before implementation is confirmed done). Annotate each test with `@spec: 003-campaign-engine` and `@regression` if suitable for long-term regression. **[Agent: qa-testing]**
-  - [ ] Run all generated tests. All must pass. Fix any failures before proceeding. **[Agent: qa-testing]**
+  - [x] Read functional-spec.md acceptance criteria in full. Generate acceptance-level tests that verify the entire feature as a whole — not individual slices. Cover applicable layers (unit for pure logic, integration for service interactions, e2e for user flows) based on the project's testing stack. Write tests with RED validation (must fail before implementation is confirmed done). Annotate each test with `@spec: 003-campaign-engine` and `@regression` if suitable for long-term regression. **[Agent: qa-testing]**
+  - [x] Run all generated tests. All must pass. Fix any failures before proceeding. **[Agent: qa-testing]**
 
 - [ ] **Slice 10: Live Enron campaign (needs keys in `.env`)**
   - [ ] With real `ANTHROPIC_API_KEY` and `GOOGLE_GENAI_API_KEY`:

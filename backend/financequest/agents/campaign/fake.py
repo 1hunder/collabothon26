@@ -21,12 +21,18 @@ from financequest.llm import LLMResult
 
 
 def first_sentences(text: str, n: int = 1, max_words: int = 32) -> str:
+    """The first ``n`` sentences. A sentence that is too long is cut at the last clause boundary
+    (comma, semicolon or colon) that fits, never mid-clause, so no figure is left dangling."""
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     out = " ".join(parts[:n])
     words = out.split()
-    if len(words) > max_words:
-        out = " ".join(words[:max_words]).rstrip(",;:") + "."
-    return out
+    if len(words) <= max_words:
+        return out
+    head = " ".join(words[:max_words])
+    cut = max(head.rfind(","), head.rfind(";"), head.rfind(":"))
+    if cut > len(head) // 3:
+        head = head[:cut]
+    return head.rstrip(",;: ") + "."
 
 
 def _names(ctx: C.AgentContext, ids: list[str]) -> str:
@@ -36,6 +42,9 @@ def _names(ctx: C.AgentContext, ids: list[str]) -> str:
 def _has(text: str, *words: str) -> bool:
     low = text.lower()
     return any(re.search(rf"\b{re.escape(w)}", low) for w in words)
+
+
+_GENERIC_ROLE = {"guild", "golden", "company"}
 
 
 class CampaignFakeLLM:
@@ -72,11 +81,20 @@ class CampaignFakeLLM:
             title_words = {w for w in re.findall(r"[a-z]+", ch["title"].lower()) if len(w) > 3}
             if title_words & words or ch["key"].lower() in low:
                 return S.RouteOut(intent="challenge", challenge_key=ch["key"])
-        for char in ctx.content["characters"]:
-            parts = {w for w in re.findall(r"[a-z]+", char["name"].lower()) if len(w) > 2}
-            role = {w for w in re.findall(r"[a-z]+", char["role"].lower().split(";")[0]) if len(w) > 4}
-            if parts & words or (role & words and _has(low, "ask", "talk", "speak", "question")):
-                return S.RouteOut(intent="talk", character_id=char["id"])
+        here = ctx.current["key"] if ctx.current else ""
+        named = [
+            (len(names & words), char["location"] == here, char)
+            for char in ctx.content["characters"]
+            if (names := {w for w in re.findall(r"[a-z']+", char["name"].lower()) if len(w) > 2}) & words
+        ]
+        if named:  # a name beats any role word: "Ask Ren Tal about the guild" is Ren Tal
+            named.sort(key=lambda t: (t[0], t[1]), reverse=True)
+            return S.RouteOut(intent="talk", character_id=named[0][2]["id"])
+        if _has(low, "ask", "talk", "speak", "question"):
+            for char in ctx.content["characters"]:
+                role = {w for w in re.findall(r"[a-z]+", char["role"].lower().split(";")[0]) if len(w) > 4}
+                if role & words and not _GENERIC_ROLE & role & words:
+                    return S.RouteOut(intent="talk", character_id=char["id"])
         if _has(low, "go to", "visit", "head to", "walk to", "travel", "enter", "back to", "return to"):
             for loc in ctx.locations:
                 name_words = {w for w in re.findall(r"[a-z]+", loc["name"].lower()) if len(w) > 3}
@@ -115,7 +133,7 @@ class CampaignFakeLLM:
             sugg = ["Review what you found", "Ask CommerzBuddy for a recap", "Look around once more"]
         else:
             body += " What would you do?"
-            sugg = _suggestions(ctx, given)
+            sugg = _suggestions(ctx, given, r.location_key if r.intent == "move" else None)
         return S.TurnOut(text=body, speaker=speaker, suggestions=sugg, clue_ids_given=given,
                          nothing_more_to_uncover=nothing_more)  # fmt: skip
 
@@ -132,7 +150,7 @@ class CampaignFakeLLM:
             for i in free[:2]:
                 ev = ctx.evidence_by_id(i)
                 if ev:
-                    parts.append(first_sentences(ev["text"], 1, 28))
+                    parts.append(first_sentences(ev["text"], 1, 60))
         elif loc["visited"]:
             parts.append("Nothing new catches your eye.")
         if here:
@@ -288,7 +306,9 @@ class CampaignFakeLLM:
 
     def debrief(self, c: dict[str, Any]) -> S.DebriefOut:
         ctx: C.AgentContext = c["ctx"]
-        mine = " ".join((ctx.player_texts[0] if ctx.player_texts else "").split()[:12])
+        from financequest.campaign.xp import excerpt
+
+        mine = excerpt(ctx.player_texts[0] if ctx.player_texts else "", 80)
         sound = (
             f"You wrote “{mine}”, which shows you looked for reasons rather than rumours."
             if mine else "You gave reasons in your own words."
@@ -359,11 +379,14 @@ def _remaining_need(ctx: C.AgentContext, given: set[str]) -> list[str]:
     ]  # fmt: skip
 
 
-def _suggestions(ctx: C.AgentContext, given: list[str]) -> list[str]:
+def _suggestions(ctx: C.AgentContext, given: list[str], at: str | None = None) -> list[str]:
     out: list[str] = []
     got = set(ctx.found) | set(given)
     gated = rules.gated_clue_ids(ctx.pack)
-    cur = ctx.current["key"] if ctx.current else ""
+    cur = at or (ctx.current["key"] if ctx.current else "")
+    for ch in ctx.content["characters"]:
+        if any(i not in got for i in ch["may_reveal"]) and ch["location"] == cur:
+            out.append(f"Ask {ch['name']} what they know")
     for e in ctx.unfound():
         if e["id"] in got or e["id"] in gated:
             continue
@@ -371,9 +394,6 @@ def _suggestions(ctx: C.AgentContext, given: list[str]) -> list[str]:
             name = ctx.location_name(e["location"])
             if f"Go to the {name}" not in out:
                 out.append(f"Go to the {name}")
-    for ch in ctx.content["characters"]:
-        if any(i not in got for i in ch["may_reveal"]) and ch["location"] == cur:
-            out.append(f"Ask {ch['name']} what they know")
     for c in ctx.challenges:
         if c["state"] == "open" and not c["optional"]:
             out.append(f"Examine {c['title']}")

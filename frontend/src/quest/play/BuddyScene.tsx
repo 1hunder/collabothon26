@@ -12,13 +12,15 @@ interface BuddySceneProps {
   /** VOICE HOOK, same contract as DialogueBox.onPageShown. */
   onPageShown?: (text: string, voice: VoiceKind, audioTextId?: number | string | null) => void;
   onAsked?: () => void;
+  /** Where the player is, per the buddy contract: market_square, library, document:<id>, commit, outcome, debrief, xp. */
+  screen?: string;
 }
 
 /**
  * CommerzBuddy on call: the token sits beside the dialogue box, Buddy speaks under the verdigris
  * name tab, and a question box is open. Closing keeps the typed draft (sessionStorage).
  */
-export default function BuddyScene({ stream, onClose, onPageShown, onAsked }: BuddySceneProps): React.JSX.Element {
+export default function BuddyScene({ stream, onClose, onPageShown, onAsked, screen }: BuddySceneProps): React.JSX.Element {
   const [draft, setDraft] = useSessionDraft(BUDDY_DRAFT_KEY);
   const { state } = stream;
   const empty = draft.trim() === '';
@@ -29,7 +31,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked }: Bu
     onAsked?.();
     const text = draft.trim();
     setDraft('');
-    stream.send({ text });
+    stream.send(screen ? { text, screen } : { text });
   };
 
   const live = state.phase === 'streaming' || state.phase === 'done';

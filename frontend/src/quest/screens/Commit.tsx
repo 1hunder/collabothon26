@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { lockDecision, patchCampaignCache, resumePlay, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
 import type { CampaignState, CommitDraft, Confidence, DecisionAction } from '../../api/types';
+import ScreenBuddy from '../play/ScreenBuddy';
 import {
   actionLabels,
   emptyDraft,
@@ -47,7 +48,12 @@ export default function Commit(): React.JSX.Element {
   const campaignId = hero.data?.active_campaign_id ?? null;
   const campaign = useCampaign(campaignId);
   if (!campaign.data) return <p role="status">Loading…</p>;
-  return <CommitForm campaign={campaign.data} />;
+  return (
+    <>
+      <CommitForm campaign={campaign.data} />
+      <ScreenBuddy campaignId={campaign.data.id} screen="commit" />
+    </>
+  );
 }
 
 function initialDraft(c: CampaignState): CommitDraft {

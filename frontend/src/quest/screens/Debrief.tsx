@@ -5,6 +5,7 @@ import { patchCampaignCache, streamDebrief } from '../../api/campaign';
 import type { DebriefData } from '../../api/types';
 import { useVoice } from '../../voice';
 import WhatIfPanel from '../components/WhatIfPanel';
+import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
 
 /** `/quest/debrief`: three parts, the forecast line, What if…, then the reflection question. */
@@ -51,6 +52,7 @@ export default function Debrief(): React.JSX.Element {
 
   return (
     <div className="space-y-5 pb-8">
+      <ScreenBuddy campaignId={id} screen="debrief" />
       <h1 className="font-quest-title text-4xl text-quest-gilt">Debrief</h1>
       {parts.map(([label, text]) => (
         <section key={label}>

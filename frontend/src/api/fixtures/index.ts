@@ -196,7 +196,7 @@ function finish(): unknown {
     items: newItem ? [...db.hero.items, newItem] : db.hero.items,
     history: [
       ...db.hero.history,
-      { campaign_id: db.campaign.id, interests: db.campaign.interests, total_xp: total, decision: db.decision?.action, result_pct: db.decision ? outcomeFor(db.campaign.budget_eur ?? 1000, db.decision).breakdown.pl_pct : null },
+      { campaign_id: db.campaign.id, interests: db.campaign.interests, total_xp: total, decision: db.decision?.action, finished_at: new Date().toISOString().slice(0, 10), result_pct: db.decision ? outcomeFor(db.campaign.budget_eur ?? 1000, db.decision).breakdown.pl_pct : null },
     ],
     active_campaign_id: null,
   };

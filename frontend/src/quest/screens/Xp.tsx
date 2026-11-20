@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { fetchXp, finishCampaign, queryKeys } from '../../api/campaign';
 import type { FinishResult, XpResult } from '../../api/types';
 import { finishQuest } from '../questStore';
+import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
 
 /** `/quest/xp`: the campaign's rubric categories, then Finish quest. */
@@ -46,6 +47,7 @@ export default function Xp(): React.JSX.Element {
 
   return (
     <div className="space-y-5 pb-8">
+      <ScreenBuddy campaignId={id} screen="xp" />
       <h1 className="font-quest-title text-4xl text-quest-gilt">Your XP</h1>
       <ul className="space-y-4">
         {xp.categories.map((c) => (

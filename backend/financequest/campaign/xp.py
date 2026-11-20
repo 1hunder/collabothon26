@@ -28,6 +28,35 @@ class RawScore:
     quote: str
 
 
+ELLIPSIS = "…"
+
+
+def excerpt(text: str, max_chars: int = 80) -> str:
+    """A quotable excerpt of ``text``: whole words (or the first sentence when it fits), with a
+    trailing ellipsis when shortened. ``quote_in`` accepts it as a substring check."""
+    t = " ".join(text.split())
+    if len(t) <= max_chars:
+        return t
+    sentence = re.match(r".+?[.!?](?=\s|$)", t)
+    if sentence and len(sentence.group(0)) <= max_chars:
+        return sentence.group(0)
+    cut = t[:max_chars]
+    if not t[max_chars].isspace():  # mid-word: back off to the last whole word
+        cut = cut.rsplit(" ", 1)[0] if " " in cut else cut
+    return cut.rstrip(" ,;:-") + ELLIPSIS
+
+
+def quote_in(quote: str, player_text: str) -> bool:
+    """Whether ``quote`` is a verbatim excerpt; a trailing ellipsis marks a shortened quote."""
+    q = quote.rstrip()
+    for mark in (ELLIPSIS, "..."):
+        if q.endswith(mark):
+            q = q[: -len(mark)].rstrip()
+            break
+    norm = " ".join(player_text.split())
+    return bool(q) and (q in player_text or q in norm)
+
+
 def rubric_for(manifest_rubric: tuple[tuple[str, int], ...] | None) -> tuple[tuple[str, int], ...]:
     return manifest_rubric or DEFAULT_RUBRIC
 
@@ -43,7 +72,7 @@ def validate_scores(
         score = max(0, min(mx, int(r.score))) if r else 0
         rationale = r.rationale if r else NEUTRAL
         quote = r.quote if r else ""
-        if quote and quote not in player_text:
+        if quote and not quote_in(quote, player_text):
             quote, rationale = "", NEUTRAL
         if _BAD.search(rationale):
             rationale = NEUTRAL
