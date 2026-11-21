@@ -32,8 +32,10 @@ export function useSessionDraft(key: string): [string, (value: string) => void] 
 
 export const ACTION_DRAFT_KEY = 'fq.draft.action';
 export const BUDDY_DRAFT_KEY = 'fq.draft.buddy';
+export const VETERAN_DRAFT_KEY = 'fq.draft.veteran';
 
 export function clearPlayDrafts(): void {
   write(ACTION_DRAFT_KEY, '');
   write(BUDDY_DRAFT_KEY, '');
+  write(VETERAN_DRAFT_KEY, '');
 }

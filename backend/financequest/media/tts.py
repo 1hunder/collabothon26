@@ -24,7 +24,7 @@ from financequest.storage import get_storage
 
 log = logging.getLogger("financequest.tts")
 
-Voice = Literal["dm", "buddy"]
+Voice = Literal["dm", "buddy", "veteran"]
 SAMPLE_RATE = 24000
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 MAX_CONCURRENT = 4
@@ -53,7 +53,7 @@ def split_sentences(text: str) -> list[str]:
 
 def voice_name(voice: str) -> str:
     s = get_settings()
-    return s.tts_voice_dm if voice == "dm" else s.tts_voice_buddy
+    return {"dm": s.tts_voice_dm, "veteran": s.tts_voice_veteran}.get(voice, s.tts_voice_buddy)
 
 
 def cache_key(text: str, voice: str) -> str:

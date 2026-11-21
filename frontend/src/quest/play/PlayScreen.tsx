@@ -5,6 +5,7 @@ import { patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } 
 import { request } from '../../api/client';
 import type { CampaignState, DiceCard, DiceMode, HpChange, MarketCard, NewsCard, PlayLocation, RollResult, SpeakerKind, TradeCard, TurnExtras } from '../../api/types';
 import { useDmStream, type DmDone } from '../../api/useDmStream';
+import { VETERAN_TALK_PATH, useVeteran, veteranKeys } from '../../api/veteran';
 import { useVoice } from '../../voice';
 import { inertVoice } from '../../voice/context';
 import Backlog from './Backlog';
@@ -27,7 +28,10 @@ import HotspotLayer from './HotspotLayer';
 import type { HotspotTarget } from './sceneHotspots';
 import RumourLedger from './RumourLedger';
 import { hasRumourLedger, rumoursHeard } from './rumours';
+import TavernVeteran from './TavernVeteran';
 import TitleCard from './TitleCard';
+import VeteranScene, { VeteranChip } from './VeteranScene';
+import VeteranTimeline from './VeteranTimeline';
 import VnStage from './VnStage';
 
 export interface PlayScreenProps {
@@ -61,7 +65,7 @@ type Overlay =
   | { kind: 'market'; card: MarketCard }
   | { kind: 'trade'; card: TradeCard };
 
-type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | null;
+type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | 'timeline' | null;
 
 interface TitleInfo {
   name: string;
@@ -80,6 +84,7 @@ interface DamageToast {
 const damageText = (h: HpChange): string => `−${Math.abs(h.delta)} HP (−€${(Math.abs(h.delta) * 10).toLocaleString('en-US')}): ${h.reason}`;
 
 const notYou = (speaker: string): boolean => !speaker.startsWith('You') && speaker !== 'CommerzBuddy';
+const TAVERN = 'tavern';
 
 export default function PlayScreen({ voiceOn, onToggleVoice, onPageShown }: PlayScreenProps): React.JSX.Element {
   const hero = useHero();
@@ -116,6 +121,9 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const [sheet, setSheet] = useState<SheetName>(null);
   useReportSheetOpen(sheet !== null);
   const [buddyOpen, setBuddyOpen] = useState(false);
+  // The Veteran by the Tavern fire: hero-scoped, it never spends a turn of this campaign.
+  const [veteranOpen, setVeteranOpen] = useState(false);
+  const [timelineFor, setTimelineFor] = useState<string | null>(null);
   const [title, setTitle] = useState<TitleInfo | null>(null);
   // A location the Master just created: its art is awaited until ready, failed or timed out.
   const [exploreId, setExploreId] = useState<string | null>(null);
@@ -186,6 +194,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
 
   const dm = useDmStream(`${base}/actions`, onTurnDone);
   const buddy = useDmStream(`${base}/buddy`);
+  const veteran = useDmStream(VETERAN_TALK_PATH, () => void qc.invalidateQueries({ queryKey: veteranKeys.overview }));
+  const veteranInfo = useVeteran(veteranOpen);
 
   // Opening scene: the first request of a new campaign.
   const needsOpening = c.phase === 'setup' && !c.opening_done;
@@ -458,6 +468,19 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
         {npc.name} · {npc.role}
       </span>
     ) : null;
+  const openVeteran = (): void => {
+    stopVoice();
+    setBuddyOpen(false);
+    veteran.reset();
+    setVeteranOpen(true);
+  };
+  const closeVeteran = (): void => {
+    stopVoice();
+    setVeteranOpen(false);
+  };
+  const inTavern = locKey === TAVERN;
+  const sceneFree = sheet === null && !buddyOpen && !veteranOpen && !diceOpen && activeOverlay.kind === 'none' && title === null && (state.phase === 'idle' || state.phase === 'done');
+
   const chips =
     npcChip !== null ? (
       npcChip
@@ -468,6 +491,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       </>
     ) : locKey === 'library' ? (
       <Chip label="Library documents" onClick={() => setSheet('library')} />
+    ) : inTavern && !veteranOpen ? (
+      <VeteranChip onClick={openVeteran} />
     ) : null;
 
   return (
@@ -477,11 +502,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       status={<HeroStatus campaign={c} hitKey={hitKey} onOpen={() => void navigate('/quest/hero')} />}
       chips={chips}
       hotspots={
-        <HotspotLayer
-          locationKey={locKey}
-          active={sheet === null && !buddyOpen && !diceOpen && activeOverlay.kind === 'none' && title === null && (state.phase === 'idle' || state.phase === 'done')}
-          onOpen={openHotspot}
-        />
+        <>
+          <HotspotLayer locationKey={locKey} active={sceneFree} onOpen={openHotspot} />
+          {inTavern ? <TavernVeteran active={sceneFree} hidden={veteranOpen} onOpen={openVeteran} /> : null}
+        </>
       }
       dock={
         <Dock
@@ -506,6 +530,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           ) : null}
           {sheet === 'rumours' ? <RumourLedger rumours={rumoursHeard(c.rumours, c.backlog)} onClose={() => setSheet(null)} /> : null}
           {sheet === 'library' ? <LibraryScroll library={c.library} onClose={() => setSheet(null)} /> : null}
+          {sheet === 'timeline' && timelineFor !== null ? <VeteranTimeline campaignId={timelineFor} onClose={() => setSheet(null)} /> : null}
           {title !== null && activeOverlay.kind === 'none' ? <TitleCard title={title.name} onDone={dismissTitle} /> : null}
           {activeOverlay.kind === 'timeskip' ? (
             <TitleCard title={activeOverlay.card.time_skip_label} onDone={() => setOverlay({ kind: 'news', card: activeOverlay.card })} />
@@ -530,7 +555,20 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           {damage.text}
         </p>
       ) : null}
-      {buddyOpen ? (
+      {veteranOpen ? (
+        <VeteranScene
+          stream={veteran}
+          overview={veteranInfo.data}
+          onClose={closeVeteran}
+          onTimeline={(cid) => {
+            stopVoice();
+            setTimelineFor(cid);
+            setSheet('timeline');
+          }}
+          onPageShown={onPageShown}
+          onAsked={stopVoice}
+        />
+      ) : buddyOpen ? (
         <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
         <div className="relative">

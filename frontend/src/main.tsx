@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import './styles/index.css';
+import { adoptSessionFromUrl } from './api/client';
 import { router } from './router';
 import { SessionProvider } from './shell/lib/session';
 
@@ -27,6 +28,8 @@ window.addEventListener('load', () => {
     }
   }, 10_000);
 });
+
+adoptSessionFromUrl();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');

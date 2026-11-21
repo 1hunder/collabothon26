@@ -1,6 +1,6 @@
 import { baseUrl } from '../api/client';
 
-export type VoiceName = 'dm' | 'buddy';
+export type VoiceName = 'dm' | 'buddy' | 'veteran';
 
 export interface VoiceProvider {
   /** Call from a tap handler: lets later, non-gesture playback make sound. */
@@ -52,6 +52,13 @@ export class WebSpeechProvider implements VoiceProvider {
     if (pick) u.voice = pick;
     u.pitch = voice === 'dm' ? 0.8 : 1.3;
     u.rate = voice === 'dm' ? 0.95 : 1.08;
+    if (voice === 'veteran') {
+      // The Veteran: a third voice when the device has one, low and unhurried.
+      const old = voices[2] ?? voices[0];
+      if (old) u.voice = old;
+      u.pitch = 0.78;
+      u.rate = 0.88;
+    }
     this.speech.speak(u);
   }
 

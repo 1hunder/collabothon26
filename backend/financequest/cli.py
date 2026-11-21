@@ -276,3 +276,58 @@ def quest_generate(
 
 if __name__ == "__main__":
     app()
+
+
+veteran_app = typer.Typer(no_args_is_help=True)
+app.add_typer(veteran_app, name="veteran")
+
+
+@veteran_app.command("demo-hero")
+def veteran_demo_hero(
+    name: Annotated[str, typer.Option(help="The demo hero's name")] = "Tarn",
+    scenario: Annotated[
+        list[str] | None,
+        typer.Option(help="Scenario id to play (repeat for several); default: different companies"),
+    ] = None,
+    campaigns: Annotated[int, typer.Option(min=1, max=6)] = 3,
+) -> None:
+    """Create a demo session whose hero has finished campaigns, for the Veteran. Runs on the
+    scripted agents: no keys, no network. Prints the session id to open the app with."""
+    import os
+    import uuid
+
+    os.environ["FAKE_LLM"] = "1"  # scripted agents and placeholder art while seeding
+    os.environ.pop("GOOGLE_GENAI_API_KEY", None)
+    get_settings.cache_clear()
+    from financequest.veteran.demo import seed_demo_hero
+
+    ids = [uuid.UUID(s) for s in scenario] if scenario else None
+    out = seed_demo_hero(name=name, scenario_ids=ids, campaigns=campaigns)
+    typer.echo(f"session_id: {out['session_id']}")
+    n, companies = len(out["campaigns"]), out["distinct_companies"]
+    typer.echo(f"finished campaigns: {n} on {companies} companies")
+    if out["distinct_companies"] < 2:
+        typer.echo(
+            "note: every campaign is on the same company. While a new campaign on that company "
+            "runs, the Veteran keeps the old ones sealed. Import or generate other quests and pass "
+            "--scenario to play different companies."
+        )
+    typer.echo(f"open the app with ?session={out['session_id']}")
+
+
+@veteran_app.command("rebuild")
+def veteran_rebuild() -> None:
+    """Throw away and rebuild the Veteran's memory of every hero from the campaign tables."""
+    from sqlmodel import Session, select
+
+    from financequest.db.models_campaign import Hero
+    from financequest.db.session import get_engine
+    from financequest.veteran import memory
+
+    with Session(get_engine()) as db:
+        heroes = list(db.exec(select(Hero)))
+        n = 0
+        for hero in heroes:
+            n += len(memory.rebuild(db, hero.id))
+        db.commit()
+    typer.echo(f"rebuilt {n} campaign memories for {len(heroes)} heroes")

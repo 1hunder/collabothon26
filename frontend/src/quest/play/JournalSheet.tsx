@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Lightbulb } from 'lucide-react';
 import { request } from '../../api/client';
 import type { JournalEntry } from '../../api/types';
+import { useVeteran } from '../../api/veteran';
 import Sheet from './Sheet';
 
 interface JournalSheetProps {
@@ -61,11 +62,25 @@ export default function JournalSheet({ campaignId, onBacklog, onClose }: Journal
     queryFn: () => request<{ entries: JournalEntry[] }>('GET', `/campaigns/${campaignId}/journal`),
     staleTime: 0,
   });
+  const lessons = useVeteran().data?.lessons ?? [];
   return (
     <Sheet title="Journal" subtitle="In the order it happened" onClose={onClose}>
       <button type="button" onClick={onBacklog} className="mb-3 min-h-11 rounded-full bg-quest-lapis-deep px-4">
         Open the backlog
       </button>
+      {lessons.length > 0 ? (
+        <section aria-label="Lessons learned" className="mb-4 rounded-lg border border-quest-wax/30 bg-white/40 p-3">
+          <h3 className="font-quest-title text-xl text-quest-wax">Lessons learned</h3>
+          <ul className="mt-1 space-y-1.5 font-quest text-base leading-snug">
+            {lessons.map((l) => (
+              <li key={l.id}>
+                {l.text}
+                {l.quest_title ? <span className="block font-quest-sans text-[12px] text-[#6E5C43]">from {l.quest_title}, kept with Brannoc</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {journal.isPending ? <p role="status" className="font-quest">Loading…</p> : null}
       {journal.isError ? <p role="alert" className="font-quest">Could not load the journal.</p> : null}
       {journal.data && journal.data.entries.length === 0 ? <p className="font-quest">Nothing yet. Your story starts here.</p> : null}
