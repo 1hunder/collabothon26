@@ -28,18 +28,24 @@ Voice = Literal["dm", "buddy", "veteran"]
 SAMPLE_RATE = 24000
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 MAX_CONCURRENT = 4
-SENTENCE_TIMEOUT_S = 20.0
+SENTENCE_TIMEOUT_S = 40.0  # one call per reply: a long reply takes 7-15 s
 TOTAL_TIMEOUT_S = 45.0
 ATTEMPTS = 2  # one try and one retry per sentence
 
 
-QUOTA_COOLDOWN_S = 300.0
+QUOTA_COOLDOWN_S = 60.0  # when Google gives no "retry in Ns"; the limit is per minute
 _blocked_until = 0.0
 
 
 def _is_quota(exc: Exception) -> bool:
     code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
     return code == 429 or "429" in str(exc)[:200] or "RESOURCE_EXHAUSTED" in str(exc)[:200]
+
+
+def _cooldown_s(exc: Exception) -> float:
+    """Google says how long to wait ("Please retry in 43s"); never more than two minutes."""
+    m = re.search(r"retry in ([0-9.]+)s", str(exc))
+    return min(max(float(m.group(1)), 5.0), 120.0) if m else QUOTA_COOLDOWN_S
 
 
 class TtsUnavailable(RuntimeError):
@@ -140,7 +146,7 @@ async def _bounded_synth(sentence: str, voice: str) -> bytes:
             last = exc
             log.warning("tts attempt %d failed: %s", attempt + 1, type(exc).__name__)
             if _is_quota(exc):  # a retry cannot help; stop asking for a while
-                _blocked_until = time.monotonic() + QUOTA_COOLDOWN_S
+                _blocked_until = time.monotonic() + _cooldown_s(exc)
                 raise TtsUnavailable("quota") from None
     raise TtsUnavailable(type(last).__name__ if last else "unknown")
 
@@ -158,7 +164,9 @@ async def _sentence_wav_pcm(sentence: str, voice: str) -> bytes:
 
 
 async def _build(text: str, voice: str) -> bytes:
-    sentences = split_sentences(text) or [text]
+    # One provider call per reply. Gemini TTS allows 10 requests a minute: a call per sentence
+    # spent a whole minute's budget on one reply and sent the next ones to the browser voice.
+    sentences = [text.strip()]
     try:
         parts = await asyncio.wait_for(
             asyncio.gather(*(_sentence_wav_pcm(x, voice) for x in sentences)), TOTAL_TIMEOUT_S

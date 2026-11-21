@@ -11,7 +11,9 @@ export interface VoiceProvider {
 }
 
 /** Server audio that has not started playing by then is replaced by browser speech. */
-export const TTS_TIMEOUT_MS = 15_000;
+export const TTS_TIMEOUT_MS = 30_000; // a new reply takes 7-15 s to synthesize
+/** The narrator's server voice plays 15% faster (pitch kept); Buddy at normal speed. */
+export const PLAYBACK_RATE: Partial<Record<VoiceName, number>> = { dm: 1.15 };
 
 // 0.1 s of silence; played once on unlock so the reused Audio element is allowed to play later.
 const SILENT_WAV =
@@ -70,7 +72,7 @@ export class WebSpeechProvider implements VoiceProvider {
     if (pick) u.voice = pick;
     u.lang = pick?.lang ?? 'en-US';
     u.pitch = voice === 'dm' ? 0.92 : 1.12;
-    u.rate = voice === 'dm' ? 0.95 : 1.05;
+    u.rate = voice === 'dm' ? 1.1 : 1.05;
     if (voice === 'veteran') {
       // The Veteran: a third voice when the device has one, low and unhurried.
       const old = voices[2] ?? voices[0];
@@ -91,6 +93,7 @@ export class WebSpeechProvider implements VoiceProvider {
 export class AudioUrlProvider implements VoiceProvider {
   private audio: HTMLAudioElement | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private request = 0;
 
   constructor(
     private readonly fallback: VoiceProvider | null = null,
@@ -122,9 +125,11 @@ export class AudioUrlProvider implements VoiceProvider {
     }
     const a = this.element();
     this.clearTimer();
+    const request = ++this.request;
     let settled = false;
     const fail = (): void => {
-      if (settled) return;
+      // a newer line replaced this one (its play() rejects with AbortError): stay silent
+      if (settled || request !== this.request) return;
       settled = true;
       this.clearTimer();
       a.onerror = null;
@@ -139,11 +144,16 @@ export class AudioUrlProvider implements VoiceProvider {
     };
     this.timer = setTimeout(fail, this.timeoutMs);
     a.src = `${baseUrl()}/tts/${encodeURIComponent(textId)}?voice=${voice}`;
+    // after src: loading a new source resets the rate to the default
+    a.preservesPitch = true;
+    a.defaultPlaybackRate = PLAYBACK_RATE[voice] ?? 1;
+    a.playbackRate = PLAYBACK_RATE[voice] ?? 1;
     void Promise.resolve(a.play()).catch(fail);
   }
 
   stop(): void {
     this.clearTimer();
+    this.request += 1; // a line still loading must not fall back to the browser voice later
     if (this.audio) {
       this.audio.onerror = null;
       this.audio.onplaying = null;

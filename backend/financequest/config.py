@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     demo_scenario_id: str = ""
     generation_concurrency: int = 2
     art_model: str = "gemini-2.5-flash-image"
-    tts_model: str = "gemini-3.8-flash-tts"
+    # flash-lite: about half the latency of flash (7 s vs 12 s for an 80-word reply), same voices
+    tts_model: str = "gemini-3.8-flash-lite-tts"
     # Gemini TTS voices (GET /v1beta/voices lists them): a deep, unhurried British storyteller for
     # the Campaign Master, a warm, friendly voice for CommerzBuddy, a weathered one for the Veteran
     tts_voice_dm: str = "en-gb-storyteller-4"

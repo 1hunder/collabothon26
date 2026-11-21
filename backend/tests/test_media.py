@@ -143,12 +143,12 @@ def test_tts_serves_and_caches(client: TestClient, data_dir: Path) -> None:
     assert r.headers["content-type"] == "audio/wav"
     assert r.content[:4] == b"RIFF"
     files = sorted((data_dir / "tts").glob("*.wav"))
-    assert len(files) == 3  # two sentences + the whole text
+    assert len(files) == 1  # one call and one cached file per reply and voice
     mtimes = [f.stat().st_mtime_ns for f in files]
     assert client.get(f"/tts/{ev}", params={"voice": "dm"}).content == r.content
     assert [f.stat().st_mtime_ns for f in sorted((data_dir / "tts").glob("*.wav"))] == mtimes
     client.get(f"/tts/{ev}", params={"voice": "buddy"})
-    assert len(list((data_dir / "tts").glob("*.wav"))) == 6  # voices cached separately
+    assert len(list((data_dir / "tts").glob("*.wav"))) == 2  # voices cached separately
 
 
 def test_tts_rejects_unknown_and_textless(client: TestClient) -> None:
