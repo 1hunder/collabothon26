@@ -56,8 +56,22 @@ describe('PlayScreen: scene and hero status', () => {
     await readToChoices(user);
     const list = screen.getByRole('region', { name: 'Your turn' });
     expect(within(list).getByText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['Send']); // no hint, no bonus lead
+    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['◀ Read again', 'Send']); // no hint, no bonus lead
     expect(within(list).queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
+  });
+
+  it('"Read again" brings back the reply on its last page; reading it through returns to the input', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await screen.findByTestId('name-tab');
+    await readToChoices(user);
+    await user.click(screen.getByRole('button', { name: /Read again/ }));
+    expect(screen.queryByRole('region', { name: 'Your turn' })).not.toBeInTheDocument();
+    const count = screen.getByText(/^\d \/ \d$/).textContent ?? '';
+    const [at, of] = count.split(' / ');
+    expect(at).toBe(of); // the last page, where the player left it
+    await user.click(screen.getByTestId('dialogue-box'));
+    expect(await screen.findByRole('region', { name: 'Your turn' })).toBeInTheDocument();
   });
 
   it('shows Keen Eye for an Investigator and 120 HP for a Guardian', async () => {

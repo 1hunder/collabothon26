@@ -123,6 +123,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const [localVoice, setLocalVoice] = useState(true);
   const [scene, setScene] = useState<Scene | null>(null);
   const [advancedKey, setAdvancedKey] = useState<string | null>(null);
+  // The reply brought back with "Read again": shown silently, and its last tap returns to the input.
+  const [rereadKey, setRereadKey] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
   const [sheet, setSheet] = useState<SheetName>(null);
   useReportSheetOpen(sheet !== null);
@@ -447,6 +449,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           awaitingReasoning={c.awaiting_reasoning === true}
           onSend={sendAction}
           onDecide={() => void decide()}
+          onReread={current.text.trim() !== '' ? () => {
+            setRereadKey(current.key);
+            setAdvancedKey(null);
+          } : undefined}
         />
       );
     }
@@ -466,7 +472,17 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           text={current.text}
           instant={current.instant}
           audioTextId={current.audioTextId}
-          onAdvance={activeOverlay.kind === 'none' ? advance : () => undefined}
+          revisit={rereadKey === current.key}
+          onAdvance={
+            rereadKey === current.key
+              ? () => {
+                  setRereadKey(null);
+                  setAdvancedKey(current.key);
+                }
+              : activeOverlay.kind === 'none'
+                ? advance
+                : () => undefined
+          }
           onPageShown={onPageShown}
           onSwipeDown={() => setSheet('backlog')}
         />

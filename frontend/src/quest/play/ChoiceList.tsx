@@ -15,6 +15,8 @@ export interface ChoiceListProps {
   busy?: boolean;
   onSend: (text: string) => void;
   onDecide: () => void;
+  /** Bring back the reply just read, to read it again (a tap went past it too fast). */
+  onReread?: () => void;
 }
 
 const buttonBase =
@@ -28,10 +30,20 @@ export default function ChoiceList({
   awaitingReasoning = false,
   busy = false,
   onSend,
+  onReread,
   onDecide,
 }: ChoiceListProps): React.JSX.Element {
   return (
     <section aria-label="Your turn" className="mx-3 flex flex-col gap-2">
+      {onReread ? (
+        <button
+          type="button"
+          onClick={onReread}
+          className="mx-1.5 flex min-h-9 items-center gap-1.5 self-start rounded-full bg-quest-soot/60 px-3 font-quest-sans text-sm text-quest-vellum hover:bg-quest-soot/80"
+        >
+          <span aria-hidden="true" className="text-quest-gilt">◀</span> Read again
+        </button>
+      ) : null}
       {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
       <ActionInput
         prompt={awaitingReasoning ? 'Why did you choose that?' : prompt}

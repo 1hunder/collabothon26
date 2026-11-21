@@ -97,4 +97,37 @@ describe('DialogueBox', () => {
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(onAdvance).not.toHaveBeenCalled();
   });
+
+  it('the back button and the left arrow return to the previous page, shown at once', async () => {
+    const onAdvance = vi.fn();
+    render(<DialogueBox speaker="Campaign Master" text={long} onAdvance={onAdvance} />);
+    const box = screen.getByTestId('dialogue-box');
+    expect(screen.queryByRole('button', { name: 'Previous page' })).toBeNull();
+    await userEvent.click(box); // complete page 1
+    await userEvent.click(box); // page 2
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(screen.getByText('1 / 3')).toBeInTheDocument();
+    expect(screen.getByTestId('dialogue-text')).toHaveTextContent(sentence(30, 'a')); // no retyping
+    expect(onAdvance).not.toHaveBeenCalled();
+    box.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(screen.getByText('1 / 3')).toBeInTheDocument();
+  });
+
+  it('a revisited reply opens on its last page, complete and silent', async () => {
+    const onPageShown = vi.fn();
+    const onAdvance = vi.fn();
+    render(<DialogueBox speaker="Campaign Master" text={long} revisit audioTextId={7} onPageShown={onPageShown} onAdvance={onAdvance} />);
+    expect(screen.getByText('3 / 3')).toBeInTheDocument();
+    expect(screen.getByTestId('dialogue-text')).toHaveTextContent(sentence(30, 'c'));
+    await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(screen.getByTestId('dialogue-text')).toHaveTextContent(sentence(30, 'b'));
+    expect(onPageShown).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByTestId('dialogue-box'));
+    await userEvent.click(screen.getByTestId('dialogue-box'));
+    expect(onAdvance).toHaveBeenCalledTimes(1);
+  });
 });

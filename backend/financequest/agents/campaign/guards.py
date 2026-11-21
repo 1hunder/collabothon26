@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
+from pydantic import BaseModel
+
 SAFE_FALLBACK = "Let's check the numbers in the Library."
 
 # ---- numbers ------------------------------------------------------------------------------------
@@ -51,6 +53,7 @@ def _variants(canon_value: str) -> set[str]:
     except InvalidOperation:
         return out
     out.add(canon(d.quantize(Decimal(1))))
+    out.add(canon(d.quantize(Decimal(1), ROUND_HALF_UP)))  # how round_decimals rounds 2.5
     out.add(canon(d.quantize(Decimal("0.1"))))
     if d >= 100:
         digits = len(str(int(d)))
@@ -147,7 +150,9 @@ _MECHANICS = re.compile(
     re.I,
 )
 _THIRD_PERSON = re.compile(r"\b(the\s+hero|the\s+player|our\s+hero|the\s+adventurer)\b", re.I)
-MECHANICS_NOTE = "mentions the engine, dice or rolling; the interface shows the dice, never speak of them"
+MECHANICS_NOTE = (
+    "mentions the engine, dice or rolling; the interface shows the dice, never speak of them"
+)
 THIRD_NOTE = "talks about the hero in third person; address the hero as you"
 
 
@@ -158,7 +163,9 @@ _CHECK_PROMISE = re.compile(
     r"see\s+if\s+fortune|try\s+your\s+luck|tempt\s+fate|leave\s+it\s+to\s+fate)\b",
     re.I,
 )
-CHECK_NOTE = "promises a test of skill, but no challenge is available here; describe only what you see"
+CHECK_NOTE = (
+    "promises a test of skill, but no challenge is available here; describe only what you see"
+)
 
 
 def implies_check(text: str) -> bool:
@@ -212,6 +219,42 @@ def whole(value: Any) -> str:
     except InvalidOperation:
         return str(value)
     return str(int(d.quantize(Decimal(1), ROUND_HALF_UP)))
+
+
+# A number with a decimal part: "6.7", "3188.139", "1,234.5". Not part of a key or a date
+# ("F-1.2", "v2.0", "2001.05.12"); a full stop after it ends the sentence ("was 6.7.").
+_DECIMAL = re.compile(r"(?<![\w.,])(?<![A-Za-z]-)(\d{1,3}(?:,\d{3})+|\d+)\.\d+(?!\w)(?!\.\d)")
+# Player-facing text an agent writes. Never quotes, the player's own reasoning, ids or keys.
+_ROUNDED_FIELDS = frozenset({
+    "text", "hp_reason", "summary", "sound_reasoning", "how_you_reasoned", "overlooked", "luck",
+    "reflection_question", "description", "stakes", "persona", "rationale",
+})  # fmt: skip
+
+
+def round_decimals(text: str) -> str:
+    """Every figure as a whole number, half up: "earnings of 6.7" -> "earnings of 7"."""
+
+    def repl(m: re.Match[str]) -> str:
+        n = int(Decimal(m.group(0).replace(",", "")).quantize(Decimal(1), ROUND_HALF_UP))
+        return f"{n:,}" if "," in m.group(1) else str(n)
+
+    return _DECIMAL.sub(repl, text)
+
+
+def whole_numbers(value: Any) -> Any:
+    """A parsed agent output with every decimal in its player-facing text rounded (nested too)."""
+    if isinstance(value, list):
+        return [whole_numbers(v) for v in value]
+    if not isinstance(value, BaseModel):
+        return value
+    update: dict[str, Any] = {}
+    for name in type(value).model_fields:
+        v = getattr(value, name)
+        if isinstance(v, str) and name in _ROUNDED_FIELDS:
+            update[name] = round_decimals(v)
+        elif isinstance(v, list | BaseModel):
+            update[name] = whole_numbers(v)
+    return value.model_copy(update=update) if update else value
 
 
 # ---- format -------------------------------------------------------------------------------------
