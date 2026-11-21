@@ -6,6 +6,7 @@ Only guarded text stored in the event log is ever synthesized. FAKE_LLM=1 return
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import io
 import re
@@ -56,25 +57,19 @@ async def _synth_pcm(sentence: str, voice: str) -> bytes:
     if s.fake_llm:
         return silent_pcm()
     from google import genai
-    from google.genai import types
 
-    client = genai.Client(api_key=s.google_genai_api_key)
-    resp = await client.aio.models.generate_content(
+    # Speech generation lives on the Interactions API (generate_content rejects speechConfig).
+    client = genai.Client(api_key=s.google_genai_api_key, http_options={"api_version": "v1beta"})
+    interaction = await client.aio.interactions.create(
         model=s.tts_model,
-        contents=sentence,
-        config=types.GenerateContentConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name(voice))
-                )
-            ),
-        ),
+        input=[{"type": "user_input", "content": [{"type": "text", "text": sentence}]}],
+        response_format={"type": "audio", "mime_type": "audio/l16", "sample_rate": 24000},
+        generation_config={"speech_config": [{"voice": voice_name(voice)}]},
     )
-    for cand in resp.candidates or []:
-        for part in (cand.content.parts if cand.content else None) or []:
-            if part.inline_data and part.inline_data.data:
-                return part.inline_data.data
+    audio = getattr(interaction, "output_audio", None)
+    data = getattr(audio, "data", None)
+    if data:
+        return base64.b64decode(data) if isinstance(data, str) else bytes(data)
     raise RuntimeError("TTS returned no audio")
 
 

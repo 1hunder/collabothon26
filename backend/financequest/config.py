@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     data_dir: str = "data"
     demo_mode: bool = False
     art_model: str = "gemini-2.5-flash-image"
-    tts_model: str = "gemini-2.5-flash-preview-tts"
+    tts_model: str = "gemini-3.8-flash-tts"
     tts_voice_dm: str = "Charon"
     tts_voice_buddy: str = "Puck"
     art_timeout_s: float = 60.0
