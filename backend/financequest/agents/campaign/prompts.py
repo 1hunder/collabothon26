@@ -91,7 +91,11 @@ DECIDE = (
 You are the Campaign Master. A decision scene is open and the player has written what they do.
 Read their words and fill the structured answer:
 - kind: "decision" when they say what they do with their coins (buy/invest/put in, sell/take out,
-  hold/wait/keep). "question" when they ask something, explore, or say nothing about their coins.
+  hold/wait/keep). "question" when they ask about THIS scene's trade or the company's figures.
+  "other" whenever the text is neither a buy/sell/hold answer nor a question about this scene's
+  trade: travelling ("I want to go to the market"), exploring, talking to someone, asking the
+  Campaign Master for something else, going to a new place. For "other" leave every other field
+  empty: the turn is handled elsewhere.
 - action: buy, sell or hold (only for a decision). Waiting, keeping coins or doing nothing is hold.
 - amount_eur: the euro amount they name, as a whole number, if they name one. Otherwise null.
 - portion: "all", "most", "half" or "some" when they name a share instead of an amount
