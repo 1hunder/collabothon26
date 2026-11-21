@@ -13,3 +13,5 @@ docs/screenshots/
 /.agent-workspace/
 .DS_Store
 *.save
+.env.local
+/.vercel
