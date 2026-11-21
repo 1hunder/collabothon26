@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DiceCard, DiceMode, RollResult } from '../../api/types';
+import Die3D from './Die3D';
 import { prefersReducedMotion } from './useTypewriter';
 
 export const TUMBLE_MS = 1000;
@@ -114,9 +115,14 @@ export default function DiceMoment({ card, api, onResolved, resumeSetback }: Dic
         </>
       ) : null}
 
-      {stage.name === 'tumbling' ? (
-        <div role="status" aria-label="Rolling" className="animate-tumble motion-reduce:animate-none">
-          <D20 face="?" />
+      {/* One die from the throw to the result, so it can settle onto the rolled face. */}
+      {stage.name === 'tumbling' || result !== null ? (
+        <div
+          role={stage.name === 'tumbling' ? 'status' : undefined}
+          aria-label={stage.name === 'tumbling' ? 'Rolling' : undefined}
+          className={stage.name === 'tumbling' ? 'animate-tumble motion-reduce:animate-none' : critClass(result)}
+        >
+          <Die3D value={result?.used ?? null} />
         </div>
       ) : null}
 
@@ -137,8 +143,8 @@ function Result({ roll, offerReroll, onResolved, run, api }: ResultProps): React
   const success = roll.result === 'success';
   const natural = roll.used === 20 ? 'Natural 20' : roll.used === 1 ? 'Natural 1' : null;
   return (
-    <>
-      <D20 face={String(roll.used ?? '')} />
+    // fades in once the die has settled (SETTLE_MS)
+    <div className="flex animate-dice-reveal flex-col items-center motion-reduce:animate-none">
       {roll.dice.length > 1 ? (
         <p className="mt-2 font-quest-sans text-sm text-quest-vellum-dim">
           Two dice: {roll.dice.join(' and ')}. The higher one counts.
@@ -175,22 +181,13 @@ function Result({ roll, offerReroll, onResolved, run, api }: ResultProps): React
           </button>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
-function D20({ face }: { face: string }): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 160 160" width={150} height={150} role="img" aria-label={`Twenty-sided die showing ${face}`} className="drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)]">
-      <polygon points="80,6 148,44 148,116 80,154 12,116 12,44" fill="#8c6a2a" />
-      <polygon points="80,6 148,44 80,62 12,44" fill="#b48a3c" />
-      <polygon points="12,44 80,62 46,124 12,116" fill="#6f5222" />
-      <polygon points="148,44 148,116 114,124 80,62" fill="#7c5c26" />
-      <polygon points="80,62 114,124 46,124" fill="#c9a227" />
-      <polygon points="46,124 114,124 80,154" fill="#5e451c" />
-      <text x="80" y="110" textAnchor="middle" fontFamily="Alegreya, serif" fontWeight="700" fontSize="34" fill="#15121A">
-        {face}
-      </text>
-    </svg>
-  );
+/** A natural 20 glows gold and a natural 1 shudders, once the die has settled. */
+function critClass(roll: RollResult | null): string | undefined {
+  if (roll?.used === 20) return 'animate-crit-glow motion-reduce:animate-none';
+  if (roll?.used === 1) return 'animate-crit-shake motion-reduce:animate-none';
+  return undefined;
 }
