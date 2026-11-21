@@ -34,6 +34,6 @@ async def speak(audio_text_id: int, voice: Literal["dm", "buddy"], db: DbSession
         raise HTTPException(404, "Unknown audio text")
     try:
         wav = await tts.synthesize(text, voice)
-    except Exception:
-        raise HTTPException(502, "Voice unavailable") from None
+    except tts.TtsUnavailable:
+        raise HTTPException(503, "Voice unavailable") from None
     return Response(wav, media_type="audio/wav", headers={"Cache-Control": "max-age=86400"})

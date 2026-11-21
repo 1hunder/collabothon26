@@ -47,6 +47,17 @@ describe('DialogueBox', () => {
     expect(onPageShown).toHaveBeenCalledTimes(2);
   });
 
+  it('plays the server audio once for the whole multi-page reply and not again per page', async () => {
+    const onPageShown = vi.fn();
+    render(<DialogueBox speaker="Campaign Master" text={long} audioTextId={7} onAdvance={() => undefined} onPageShown={onPageShown} />);
+    const box = screen.getByTestId('dialogue-box');
+    await userEvent.click(box);
+    await userEvent.click(box);
+    await userEvent.click(box);
+    expect(onPageShown).toHaveBeenCalledTimes(1);
+    expect(onPageShown).toHaveBeenCalledWith(long, 'dm', 7);
+  });
+
   it('uses the gilt tab for the Campaign Master and the verdigris tab for CommerzBuddy', () => {
     const { rerender } = render(<DialogueBox speaker="Campaign Master" text="Hello." onAdvance={() => undefined} />);
     expect(screen.getByTestId('name-tab')).toHaveClass('bg-quest-gilt');

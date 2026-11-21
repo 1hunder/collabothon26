@@ -154,6 +154,15 @@ class LaterEvent(_Model):
     text: str
 
 
+class RealEvent(_Model):
+    """What really happened, for the reveal table. ``text`` may use ``{FIG-...}`` placeholders,
+    filled with the real figure values."""
+
+    evidence_id: str  # an announcement/news evidence id, or "news" for the news card
+    headline: str
+    text: str
+
+
 class Secret(_Model):
     """Server-only. Never sent to a client or agent before the reveal."""
 
@@ -165,6 +174,7 @@ class Secret(_Model):
     alias_map: dict[str, str]
     leak_terms: list[str]
     later_events: list[LaterEvent] = []
+    real_events: list[RealEvent] = []
     evidence_sources: dict[str, str] = {}  # evidence id -> "section / source ids"
 
 

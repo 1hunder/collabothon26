@@ -939,3 +939,31 @@ async def test_known_defect_batch_larger_than_the_pool_stalls(client: TestClient
         assert run.id is not None
         summ = await run_batch(session_factory, run.id, ids, llm_factory=make_llm, concurrency=2)
     assert len(summ.done) == 3
+
+
+def test_reveal_news_rows_show_the_real_events(client: TestClient, enron: str) -> None:
+    """The reveal's "What happened" rows say what really happened, not the fantasy text.
+    @spec: 002-anonymization-reid-gate"""
+    rv = reveal_for(client, enron)
+    blob = json.dumps(rv["news_points"])
+    assert "Enron" in blob and "618" in blob and "Skilling" in blob
+    assert "Golden Guild" not in blob and "Aster Vale" not in blob
+    assert rv["what_changed"]  # the disguised -> real mapping stays
+
+
+def test_pre_reveal_endpoints_never_contain_real_events(client: TestClient, enron: str) -> None:
+    """@spec: 002-anonymization-reid-gate"""
+    h = player(client)
+    for path in (f"/scenario/{enron}/view", "/scenario/playable"):
+        text = client.get(path, headers=h).text
+        assert "Enron" not in text and "Skilling" not in text, path
+
+
+def test_bundled_real_events_fill_real_figures_for_rows_approved_earlier() -> None:
+    """The reveal falls back to the pack's real events for rows that stored disguised prose."""
+    from financequest.refpack import real_events
+
+    ev = real_events.bundled("FQ-AV-001")
+    head, text = ev["news"]
+    assert "Enron" in head and "618 million" in text and "{" not in text
+    assert "Skilling" in ev["F-CEO-RESIGN-001"][0]

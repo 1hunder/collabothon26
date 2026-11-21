@@ -12,6 +12,7 @@ retry after a refusal runs with ``fallback=True``. No node needs the raw ``anthr
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections.abc import Callable
@@ -24,10 +25,14 @@ from pydantic import BaseModel, ValidationError
 from financequest.agents.campaign import context as C
 from financequest.agents.campaign import prompts
 from financequest.agents.campaign.guards import (
+    CHECK_NOTE,
+    MECHANICS_NOTE,
     SAFE_FALLBACK,
+    THIRD_NOTE,
     FieldRule,
     GuardRules,
     advice_prefilter,
+    implies_check,
 )
 from financequest.agents.campaign.schemas import (
     AdviceCheck,
@@ -37,7 +42,7 @@ from financequest.agents.campaign.schemas import (
     SetupOut,
     TurnOut,
 )
-from financequest.campaign import rules
+from financequest.campaign import clock, rules
 from financequest.llm import LLMResult, NodeLLM, extract_json_object
 
 log = logging.getLogger("financequest.agents")
@@ -77,6 +82,23 @@ class GState(TypedDict, total=False):
     violations: list[str]
     refused: bool
     degraded: bool
+    trail: list[dict[str, Any]]
+    gen_ms: int
+
+
+def guard_results(violations: list[str]) -> dict[str, str]:
+    """Pass/fail per guard from violation texts; only categories, never the offending terms."""
+    def hit(*keys: str) -> bool:
+        return any(k in v for v in violations for k in keys)
+
+    return {
+        "number": "pass" if not hit("number ", "millions or billions") else "fail",
+        "leak": "pass" if not hit("real identity term") else "fail",
+        "advice": "pass" if not hit("recommends", "promises", "predicts the future", "advice check")
+        else "fail",
+        "word_cap": "pass" if not hit("the cap is", "must end with a question") else "fail",
+        "style": "pass" if not hit(MECHANICS_NOTE, THIRD_NOTE, CHECK_NOTE) else "fail",
+    }
 
 
 def _parse(res: LLMResult, schema: type[BaseModel]) -> BaseModel | None:
@@ -89,6 +111,12 @@ def _parse(res: LLMResult, schema: type[BaseModel]) -> BaseModel | None:
 
 
 def _generate(state: GState) -> dict[str, Any]:
+    t_gen = time.monotonic()
+    out = _generate_once(state)
+    return {**out, "gen_ms": int((time.monotonic() - t_gen) * 1000)}
+
+
+def _generate_once(state: GState) -> dict[str, Any]:
     spec, attempt = state["spec"], state.get("attempt", 0)
     notes = state.get("violations") or None
     t0 = time.monotonic()
@@ -105,8 +133,8 @@ def _generate(state: GState) -> dict[str, Any]:
         log.warning("node=%s call failed: %s", spec.node, exc)
         return {"attempt": attempt + 1, "out": None, "refused": False,
                 "violations": [f"the model call failed ({type(exc).__name__})"]}  # fmt: skip
-    log.info("node=%s attempt=%d stop=%s %.1fs", spec.node, attempt, res.stop_reason,
-             time.monotonic() - t0)  # fmt: skip
+    log.debug("node=%s attempt=%d stop=%s %.1fs", spec.node, attempt, res.stop_reason,
+              time.monotonic() - t0)  # fmt: skip
     if res.refused:
         return {"attempt": attempt + 1, "out": None, "refused": True,
                 "violations": ["the model refused to answer"]}  # fmt: skip
@@ -142,6 +170,16 @@ def classify_advice(spec: GuardedSpec, text: str) -> AdviceCheck | None:
 
 
 def _check(state: GState) -> dict[str, Any]:
+    res = _check_once(state)
+    viol = res.get("violations", state.get("violations") or [])
+    entry = {"attempt": state.get("attempt", 1), "ms": state.get("gen_ms", 0),
+             "refused": bool(state.get("refused")), **guard_results(viol)}  # fmt: skip
+    if state.get("out") is None:
+        entry["call"] = "failed"
+    return {**res, "trail": [*(state.get("trail") or []), entry]}
+
+
+def _check_once(state: GState) -> dict[str, Any]:
     spec, out = state["spec"], state.get("out")
     if out is None:
         return {}
@@ -192,7 +230,17 @@ GUARDED = _build_guarded()
 
 
 def run_guarded(spec: GuardedSpec) -> GuardedResult:
-    s = GUARDED.invoke({"spec": spec, "attempt": 0, "violations": [], "degraded": False})
+    t0 = time.monotonic()
+    s = GUARDED.invoke({"spec": spec, "attempt": 0, "violations": [], "degraded": False,
+                        "trail": []})  # fmt: skip
+    trail = s.get("trail") or []
+    # One structured line per guarded call. Guard names and pass/fail only: never the text, the
+    # offending terms or the leak list.
+    log.info("guarded %s", json.dumps({
+        "graph": spec.node, "attempts": int(s.get("attempt", 1)), "trail": trail,
+        "retry": len(trail) > 1, "fallback": bool(s.get("degraded")),
+        "ms": int((time.monotonic() - t0) * 1000),
+    }, separators=(",", ":")))  # fmt: skip
     return GuardedResult(
         out=s["out"], degraded=bool(s.get("degraded")), attempts=int(s.get("attempt", 1)),
         violations=list(s.get("violations") or []),
@@ -213,6 +261,7 @@ def make_rules(
     return GuardRules(
         allowed=C.allowlist(ctx, typed),
         leak_terms=ctx.pack.leak_terms,
+        hero_name=ctx.hero_name,
         leak_enabled=not ctx.company_revealed,
         advice=True,
         unfound_texts=unfound,
@@ -315,7 +364,7 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
         state = "back again (do not re-describe it)" if loc["visited"] else "a first visit"
         who = [c for c in ctx.content["characters"] if c["location"] == loc["key"]]
         return (
-            f"# Intent: arrival\nThe hero goes to {loc['name']} ({loc['key']}): {state}. "
+            f"# Intent: arrival\nYou (the hero) go to {loc['name']} ({loc['key']}): {state}. "
             f"Place: {loc['description']}\nFree clues the hero learns on arrival, which you MUST "
             f"mention in clue_ids_given and in the text: {'; '.join(titles) or 'none'}.\n"
             + (f"Characters who can be questioned here: {', '.join(c['name'] for c in who)}. "
@@ -345,18 +394,24 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
             alt = c["alt_source"] or "ask around and read the documents"
             return (
                 f"# Intent: challenge '{c['title']}' was already rolled ({c['result']}).\n"
-                f"Say the information must come from another source: {alt}. No dice.",
+                f"Say the information must come from another source: {alt}. Do not mention dice.",
                 set(),
             )
         return (
-            f"# Intent: challenge '{c['title']}'\nNarrate only the lead-in; the engine rolls the "
-            "dice next. Do not reveal what the check finds. End with a question.",
+            f"# Intent: challenge '{c['title']}'\nNarrate only the lead-in, to 'you'; a result card "
+            "follows on its own. Do not mention dice, rolling, checks or the engine, and do not "
+            "reveal what you find. End with a question.",
             set(),
         )
     if r.intent == "off_topic":
         return ("# Intent: off-topic\nOne friendly sentence, then steer back to the investigation.",
                 set())  # fmt: skip
     return ("# Intent: free action\nAnswer from the reference data.", C.reachable_clue_ids(ctx, None))
+
+
+def open_challenge_here(ctx: C.AgentContext) -> dict[str, Any] | None:
+    here = ctx.current["key"] if ctx.current else ""
+    return next((c for c in ctx.challenges if c["state"] == "open" and c["location"] == here), None)
 
 
 def _turn_texts(o: TurnOut) -> dict[str, str]:
@@ -369,18 +424,35 @@ def _turn_texts(o: TurnOut) -> dict[str, str]:
 def _narrate(state: TurnState) -> dict[str, Any]:
     ctx, text, r = state["ctx"], state["text"], state["route"]
     extra, _ = turn_extra(ctx, r)
+    rules_ = make_rules(ctx, text, fields={"text": FieldRule(DM_WORDS, True),
+                                           "suggestions": FieldRule()})  # fmt: skip
+    rules_.forbid_check = r.intent != "challenge" and open_challenge_here(ctx) is None
     spec = GuardedSpec(
         llm=state["llm"], node="campaign_turn", schema=TurnOut, effort="medium",
         messages=lambda notes: C.build_messages(ctx, prompts.CAMPAIGN_MASTER, text, corrective=notes, extra=extra),
         texts=_turn_texts,
-        rules=make_rules(ctx, text, fields={"text": FieldRule(DM_WORDS, True),
-                                            "suggestions": FieldRule()}),  # fmt: skip
+        rules=rules_,
         template=lambda: TurnOut(text=SAFE_FALLBACK, speaker=C.CHRONICLER,
                                  suggestions=default_suggestions(ctx)),  # fmt: skip
         ctx=ctx, llm_context={"ctx": ctx, "input": text, "route": r, "extra": extra},
     )  # fmt: skip
     res = run_guarded(spec)
     return {"out": res.out, "degraded": res.degraded}
+
+
+def name_who_is_here(
+    ctx: C.AgentContext, loc_key: str, text: str, sugg: list[str]
+) -> tuple[str, list[str]]:
+    """The arrival names who is there and offers "Ask <name> ..." (engine facts, so safe to add)."""
+    who = [c for c in ctx.content["characters"] if c["location"] == loc_key]
+    for ch in who[:1]:
+        if ch["name"] not in text:
+            head, sep, last = text.rpartition(". ")
+            note = f"{ch['name']} is here, ready to talk."
+            text = f"{head}{sep}{note} {last}" if sep else f"{note} {text}"
+        if not any(f"Ask {ch['name']}" in s for s in sugg):
+            sugg = [*sugg[:2], f"Ask {ch['name']} what they know"][:3]
+    return text, sugg
 
 
 def _validate(state: TurnState) -> dict[str, Any]:
@@ -405,10 +477,20 @@ def _validate(state: TurnState) -> dict[str, Any]:
             break
         if extra_s not in sugg:
             sugg.append(extra_s)
+    text_out = out.text.strip()
+    if r.intent == "move" and r.location_key and not state.get("degraded"):
+        text_out, sugg = name_who_is_here(ctx, r.location_key, text_out, sugg)
+    intent, ch_key = r.intent, r.challenge_key
+    promised = None
+    if intent not in ("challenge", "decision_intent") and not state.get("degraded") \
+            and implies_check(out.text):
+        promised = open_challenge_here(ctx)  # a promised check always gets its dice card
+        if promised is not None:
+            intent, ch_key = "challenge", promised["key"]
     reply = TurnReply(
-        text=out.text.strip(), speaker=C.speaker_name(ctx, speaker), intent=r.intent,
-        challenge_id=next((c["id"] for c in ctx.challenges if c["key"] == r.challenge_key), None)
-        if r.intent == "challenge" else None,
+        text=text_out, speaker=C.speaker_name(ctx, speaker), intent=intent,
+        challenge_id=next((c["id"] for c in ctx.challenges if c["key"] == ch_key), None)
+        if intent == "challenge" else None,
         location_key=r.location_key if r.intent == "move" else None,
         clue_ids_given=given, suggestions=sugg,
         nothing_more_to_uncover=bool(out.nothing_more_to_uncover) and not state.get("degraded"),
@@ -451,7 +533,7 @@ def prepared_setup(ctx: C.AgentContext) -> SetupOut:
     p = ctx.pack
     docs = ", ".join(d["title"] for d in ctx.content["documents"]) or "the archives"
     chars = [c for c in ctx.content["characters"] if ctx.location_name(c["location"]) != c["location"]]
-    who = "; ".join(f"{c['name']} at {the(ctx.location_name(c['location']))}" for c in chars[:3])
+    who = "; ".join(f"{c['name']} at {the(ctx.location_name(c['location']))}" for c in chars[:5])
     known = [e["title"] for e in ctx.content["evidence"] if e["id"] in set(ctx.found)]
     if not known:  # the opening facts: free clues of the starting place, else of the first
         start = ctx.current["key"] if ctx.current else None
@@ -460,7 +542,7 @@ def prepared_setup(ctx: C.AgentContext) -> SetupOut:
     text = (
         f"Rain drums on the stained glass of the tavern in {p.setting}. The talk of the room is "
         f"{p.company_name}, {p.trade[:1].lower() + p.trade[1:]}. Your task: investigate, then decide "
-        f"what to do with your {ctx.budget} euros. {knows}The story runs {clock_label(ctx)}. "
+        f"what to do with your {ctx.budget} euros. {knows}In this story {clock.horizon_sentence(ctx.pack)}. "
         f"The Library holds {docs}. The {p.market_name} shows the price board and the crowd's "
         f"mood. {who + ' can be questioned. ' if who else ''}"
         "CommerzBuddy can be called at any time. What would you do?"
@@ -473,10 +555,6 @@ def the(name: str) -> str:
     return name if name.lower().startswith("the ") else f"the {name}"
 
 
-def clock_label(ctx: C.AgentContext) -> str:
-    from financequest.campaign import clock
-
-    return clock.horizon_label(ctx.pack)
 
 
 def _plan(state: SetupState) -> dict[str, Any]:

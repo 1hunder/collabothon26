@@ -213,12 +213,13 @@ def arrive(db: Session, run: CampaignRun, pack: Pack, loc: Location) -> tuple[li
 def fire_news(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     assert pack.news is not None
     run.news_shown = True
+    before = run.clock_day
     run.checkpoint, run.clock_day = clock.after_news(pack, run.clock_day)
     card = {
         "kind": "news",
         "headline": pack.news["headline"],
         "summary": pack.news["summary"],
-        "time_skip_label": clock.time_skip_label(pack),
+        "time_skip_label": clock.time_skip_label(pack, before, run.clock_day),
         "story_day": run.clock_day,
     }
     append_event(db, run, "news", card)
@@ -685,7 +686,12 @@ def make_xp(db: Session, run: CampaignRun, pack: Pack, nar: Narration) -> XpAwar
         raise ApiError(409, "wrong_phase", "Finish the reflection first")
     texts = player_text(db, run, dec, deb)
     rubric = xp.rubric_for(pack.rubric)
-    raw = nar.xp(rubric, texts)
+    conf = {v: k for k, v in CONF.items()}.get(dec.confidence or 0)
+    raw = nar.xp(rubric, texts, {
+        "action": dec.action, "amount_eur": (dec.amount_cents or 0) // 100,
+        "forecast_pct": int(dec.forecast_pct) if dec.forecast_pct is not None else None,
+        "confidence": conf,
+    })  # fmt: skip
     all_text = "\n".join(texts.values())
     cats, total = xp.validate_scores(rubric, raw, all_text)
     award = XpAward(campaign_id=run.id, categories=cats, total=total)

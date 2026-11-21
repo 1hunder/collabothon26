@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readDb, writeDb } from '../../api/fixtures/db';
 import * as sse from '../../api/sse';
 import { FIRST_EVENT_TIMEOUT_MS } from '../../api/useDmStream';
-import { readToChoices, setupPlay, skipTitle } from './playTestUtils';
+import { readParchment, readToChoices, setupPlay, skipTitle } from './playTestUtils';
 
 vi.mock('../components/StoryChart', () => ({
   default: ({ points }: { points: { story_day: number }[] }) => <div role="img" aria-label="Price chart" data-last-day={points.at(-1)?.story_day} />,
@@ -142,8 +142,10 @@ describe('PlayScreen: map, titles and places', () => {
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
     const lib = await screen.findByRole('dialog', { name: 'Library' });
-    expect(within(lib).getByText('Guild ledger, year one')).toBeInTheDocument();
-    expect(within(lib).queryByText('Quarterly loss notice')).not.toBeInTheDocument();
+    const text = await readParchment(user, lib);
+    expect(text).toContain('Guild ledger, year one');
+    expect(text).not.toContain('Quarterly loss notice');
+    await user.click(within(lib).getByRole('button', { name: 'Previous page' }));
     const card = within(lib).getByRole('region', { name: 'Company card' });
     expect(card).toHaveTextContent('Lumenvale Guild');
     expect(card).toHaveTextContent('Lantern oil and lighting');
@@ -156,11 +158,65 @@ describe('PlayScreen: map, titles and places', () => {
     await moveTo(user, 'Market Square');
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
     expect(within(board).getByRole('rowheader', { name: '60' })).toBeInTheDocument();
     expect(within(board).queryByRole('rowheader', { name: '61' })).not.toBeInTheDocument();
     expect(within(board).getByRole('columnheader', { name: 'Volume' })).toBeInTheDocument();
+  });
+});
+
+describe('PlayScreen: scene hotspots', () => {
+  it('the Tavern notice board opens a notice from campaign state and closes back to the scene', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    await user.click(screen.getByRole('button', { name: 'Read the notice board' }));
+    const notice = await screen.findByRole('dialog', { name: 'Notice board' });
+    expect(await within(notice).findByText('No news posted yet. Check back as the days pass.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Read the notice board' })).not.toBeInTheDocument();
+    await user.click(within(notice).getByRole('button', { name: 'Close Notice board' }));
+    expect(screen.queryByRole('dialog', { name: 'Notice board' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Read the notice board' })).toBeInTheDocument();
+  });
+
+  it("the Library books open the parchment; the Library documents chip still reaches it", async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    await moveTo(user, 'Library');
+    await readToChoices(user);
+    await user.click(screen.getByRole('button', { name: "Read the guild's records" }));
+    const lib = await screen.findByRole('dialog', { name: 'Library' });
+    expect(within(lib).getByRole('region', { name: 'Company card' })).toHaveTextContent('Lumenvale Guild');
+    await user.click(within(lib).getByRole('button', { name: 'Close Library' }));
+    await user.click(screen.getByRole('button', { name: 'Library documents' }));
+    expect(await screen.findByRole('dialog', { name: 'Library' })).toBeInTheDocument();
+  });
+
+  it('the market stall opens the stall panel with the price chart as its first tab', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    await moveTo(user, 'Market Square');
+    await readToChoices(user);
+    await user.click(screen.getByRole('button', { name: 'Visit the market stall' }));
+    const panel = await screen.findByRole('dialog', { name: 'Market stall' });
+    expect(within(panel).getByRole('tab', { name: 'Price chart', selected: true })).toBeInTheDocument();
+    expect(await within(panel).findByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
+    await user.click(within(panel).getByRole('button', { name: 'Close Market stall' }));
+    expect(screen.queryByRole('dialog', { name: 'Market stall' })).not.toBeInTheDocument();
+  });
+
+  it('no hotspot is offered at another location or while a sheet or the Buddy is open', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    await user.click(choiceButton('Map'));
+    expect(screen.queryByRole('button', { name: 'Read the notice board' })).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole('dialog', { name: 'The map' })).getByRole('button', { name: /Close/ }));
+    await user.click(choiceButton('Buddy'));
+    expect(screen.queryByRole('button', { name: 'Read the notice board' })).not.toBeInTheDocument();
   });
 });
 

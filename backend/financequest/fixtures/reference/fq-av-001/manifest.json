@@ -965,6 +965,18 @@
       "F-Q3-RECUR-001": "7 / S20",
       "F-Q3-NOTE-001": "11 Encounter 3",
       "F-MOOD-002": "11 NPCs"
-    }
+    },
+    "real_events": [
+      {
+        "evidence_id": "F-CEO-RESIGN-001",
+        "headline": "Jeffrey Skilling resigns as Enron CEO",
+        "text": "On August 14, 2001 Enron announced that Jeffrey Skilling was resigning as president and CEO for personal reasons, and that chairman Kenneth Lay would take over the roles. Lay said the company's business was strong and its growth prospects bright."
+      },
+      {
+        "evidence_id": "news",
+        "headline": "Enron reports a $618 million third-quarter loss",
+        "text": "On October 16, 2001 Enron reported a Q3 2001 net loss of ${FIG-Q3-LOSS} million ($0.84 per share) after ${FIG-Q3-CHARGE} million of after-tax charges ($287 million at Azurix, $180 million restructuring broadband, $544 million of other investment losses), while stressing ${FIG-Q3-RECUR} million of recurring net income. On the results call it said shareholders' equity would be reduced by ${FIG-Q3-EQ-CUT} million."
+      }
+    ]
   }
 }

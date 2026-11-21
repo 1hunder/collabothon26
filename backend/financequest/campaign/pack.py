@@ -60,6 +60,48 @@ class Char:
     never: list[str]
 
 
+_LOCAL_FOLK: tuple[tuple[tuple[str, ...], str, str, str], ...] = (
+    (("exchange", "market", "steps", "square", "trader"), "odo-fenn", "Odo Fenn",
+     "A lamplighter who hears the crowd talk"),
+    (("hall", "guild", "council", "archive", "library"), "sela-quill", "Sela Quill",
+     "A hall scribe who copies the council's papers"),
+)
+_LOCAL_DEFAULT = ("tobin-marsh", "Tobin Marsh", "A wandering porter who carries messages")
+
+
+def ensure_local_characters(
+    chars: tuple[Char, ...], seeds: tuple[dict[str, Any], ...], evidence: tuple[Ev, ...],
+    checkpoints: tuple[Cp, ...],
+) -> tuple[Char, ...]:
+    """Every campaign location has someone to talk to. A seed location without a manifest
+    character gets a generic local who may reveal only the evidence already at that place."""
+    out = list(chars)
+    used = {c.id for c in out}
+    for seed in seeds:
+        key = str(seed["key"])
+        if any(c.location.removeprefix("campaign:") == key for c in out):
+            continue
+        low = f"{seed['key']} {seed.get('name', '')}".lower()
+        cid, name, role = next(
+            ((i, n, r) for kws, i, n, r in _LOCAL_FOLK if any(k in low for k in kws) and i not in used),
+            _LOCAL_DEFAULT,
+        )
+        if cid in used:
+            cid, name, role = f"local-{key}", f"Old {key.split('_')[0].title()}", "A local who knows the place"
+        used.add(cid)
+        here = [e for e in evidence if e.location.removeprefix("campaign:") == key]
+        reveal = {
+            cp.id: [e.id for e in here if e.checkpoint == cp.id]
+            for cp in checkpoints if any(e.checkpoint == cp.id for e in here)
+        }
+        out.append(Char(
+            id=cid, name=name, role=role, location=f"campaign:{key}", may_reveal=reveal,
+            never=["Real names, companies or places", "What the price will do",
+                   "Advice to buy, sell or invest"],
+        ))  # fmt: skip
+    return tuple(out)
+
+
 @dataclass(frozen=True)
 class Row:
     """One trading day. Real prices: engine-only."""
@@ -210,7 +252,9 @@ def build_pack(scenario: Scenario, secret: ScenarioSecret) -> Pack:
         checkpoints=cps,
         evidence=ev,
         documents=tuple(manifest.get("documents", [])),
-        characters=chars,
+        characters=ensure_local_characters(
+            chars, tuple(manifest.get("campaign_location_seeds", []))[:3], ev, cps
+        ),
         encounters=encs,
         news=manifest.get("news"),
         key_figures=tuple(card.get("key_figures", [])),

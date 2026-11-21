@@ -116,6 +116,12 @@ export function ActionInput({ busy, onSend, onCancel }: ActionInputProps): React
         id="own-action"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            submit();
+          }
+        }}
         rows={3}
         maxLength={400}
         // 16px or more keeps iOS from zooming the page on focus

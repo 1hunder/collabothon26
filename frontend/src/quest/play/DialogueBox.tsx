@@ -25,7 +25,7 @@ export interface DialogueBoxProps {
    * voice reads it. The voice module (src/voice) plugs in here; this component stays silent.
    */
   onPageShown?: (text: string, voice: VoiceKind, audioTextId?: number | string | null) => void;
-  /** Server audio id of the whole reply; only used when the reply fits one page. */
+  /** Server audio id of the whole reply; played once, across all pages. */
   audioTextId?: number | string | null;
   /** Swipe down on the box opens the backlog. */
   onSwipeDown?: () => void;
@@ -58,10 +58,18 @@ export default function DialogueBox({
   const spoken = useRef<number>(-1);
   const pageReady = final || !last;
   useEffect(() => {
-    if (!pageReady || page === '' || spoken.current === index) return;
+    if (!pageReady || page === '') return;
+    // Server audio covers the whole reply: start it once with page one and let it run across pages.
+    if (final && audioTextId != null) {
+      if (spoken.current >= 0) return;
+      spoken.current = 0;
+      onPageShown?.(pages.join(' '), voice, audioTextId);
+      return;
+    }
+    if (spoken.current === index) return;
     spoken.current = index;
-    onPageShown?.(page, voice, final && pages.length === 1 ? audioTextId : null);
-  }, [index, page, pageReady, voice, onPageShown, final, pages.length, audioTextId]);
+    onPageShown?.(page, voice, null);
+  }, [index, page, pages, pageReady, voice, onPageShown, final, audioTextId]);
 
   const tap = (): void => {
     if (!done) complete();

@@ -165,9 +165,11 @@ Notes:
   - [x] Read functional-spec.md acceptance criteria in full. Generate acceptance-level tests that verify the entire feature as a whole — not individual slices. Cover applicable layers (unit for pure logic, integration for service interactions, e2e for user flows) based on the project's testing stack. Write tests with RED validation (must fail before implementation is confirmed done). Annotate each test with `@spec: 003-campaign-engine` and `@regression` if suitable for long-term regression. **[Agent: qa-testing]**
   - [x] Run all generated tests. All must pass. Fix any failures before proceeding. **[Agent: qa-testing]**
 
-- [ ] **Slice 10: Live Enron campaign (needs keys in `.env`)**
-  - [ ] With real `ANTHROPIC_API_KEY` and `GOOGLE_GENAI_API_KEY`:
+- [x] **Slice 10: Live Enron campaign (needs keys in `.env`)**
+  - [x] With real `ANTHROPIC_API_KEY` and `GOOGLE_GENAI_API_KEY`:
     1. Run the live LLM evals (the five safeguard prompts × the Campaign Master and Buddy).
     2. Play the full Enron campaign through the UI with the Playwright MCP, as a user.
     3. Report latency, guard outcomes, art and voice, and any defects.
     4. Stop every process by PID. **[Agent: qa-testing]**
+
+  Done 2026-11-21 with live Claude and Gemini TTS. Gemini image generation is blocked by the key's quota (`limit: 0`), and the placeholder fallback was verified. The defects found in the live run are fixed on `feat/scene-hotspots`.

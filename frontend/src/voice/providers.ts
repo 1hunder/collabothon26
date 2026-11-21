@@ -10,6 +10,9 @@ export interface VoiceProvider {
   stop(): void;
 }
 
+/** Server audio that has not started playing by then is replaced by browser speech. */
+export const TTS_TIMEOUT_MS = 15_000;
+
 // 0.1 s of silence; played once on unlock so the reused Audio element is allowed to play later.
 const SILENT_WAV =
   'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
@@ -60,11 +63,18 @@ export class WebSpeechProvider implements VoiceProvider {
 /** Server audio via GET /tts/{audio_text_id}?voice=..., on one reused, unlocked Audio element. */
 export class AudioUrlProvider implements VoiceProvider {
   private audio: HTMLAudioElement | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly fallback: VoiceProvider | null = null,
     private readonly makeAudio: () => HTMLAudioElement = () => new Audio(),
+    private readonly timeoutMs: number = TTS_TIMEOUT_MS,
   ) {}
+
+  private clearTimer(): void {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+  }
 
   private element(): HTMLAudioElement {
     this.audio ??= this.makeAudio();
@@ -84,14 +94,32 @@ export class AudioUrlProvider implements VoiceProvider {
       return;
     }
     const a = this.element();
-    a.onerror = () => this.fallback?.speak(null, text, voice);
+    this.clearTimer();
+    let settled = false;
+    const fail = (): void => {
+      if (settled) return;
+      settled = true;
+      this.clearTimer();
+      a.onerror = null;
+      a.onplaying = null;
+      a.pause();
+      this.fallback?.speak(null, text, voice);
+    };
+    a.onerror = fail;
+    a.onplaying = () => {
+      settled = true;
+      this.clearTimer();
+    };
+    this.timer = setTimeout(fail, this.timeoutMs);
     a.src = `${baseUrl()}/tts/${encodeURIComponent(textId)}?voice=${voice}`;
-    void Promise.resolve(a.play()).catch(() => this.fallback?.speak(null, text, voice));
+    void Promise.resolve(a.play()).catch(fail);
   }
 
   stop(): void {
+    this.clearTimer();
     if (this.audio) {
       this.audio.onerror = null;
+      this.audio.onplaying = null;
       this.audio.pause();
       this.audio.currentTime = 0;
     }

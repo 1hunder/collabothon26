@@ -33,3 +33,18 @@ describe('splitPages', () => {
     expect(splitPages('   ')).toEqual(['']);
   });
 });
+
+describe('splitPages with decimals and abbreviations', () => {
+  const samples = [
+    'The price rose to 3000.807 euros. Then it fell 6.7 percent. Nobody knew why, e.g. the board.',
+    'Revenue was 1.5 billion, i.e. 1500.25 million. Done.',
+    `${'Growth of 3.14 percent was seen. '.repeat(30)}End at 99.9.`,
+  ];
+  it.each(samples)('join(pages) equals the original', (text) => {
+    expect(splitPages(text).join(' ')).toBe(text.replace(/\s+/g, ' ').trim());
+  });
+  it('never splits inside a number', () => {
+    for (const p of splitPages(samples[2] ?? '')) expect(p).not.toMatch(/\d\. \d/);
+    expect(splitPages('Cost 3000.807 now. Next.')).toEqual(['Cost 3000.807 now. Next.']);
+  });
+});

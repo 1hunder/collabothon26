@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import ChoiceList, { type ChoiceListProps } from './ChoiceList';
+import ChoiceList, { ActionInput, type ChoiceListProps } from './ChoiceList';
 
 const suggestions = ['Go to the Library', 'Visit the Square', 'Ask the barkeep'];
 
@@ -81,5 +81,19 @@ describe('ChoiceList', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Chase a bonus lead' }));
     expect(p.onHint).toHaveBeenCalled();
     expect(p.onBonusLead).toHaveBeenCalled();
+  });
+});
+
+describe('own action keyboard', () => {
+  it('Enter submits, Shift+Enter does not, empty never submits', async () => {
+    const onSend = vi.fn();
+    render(<ActionInput busy={false} onSend={onSend} onCancel={() => undefined} />);
+    const box = screen.getByRole('textbox');
+    await userEvent.type(box, '{Enter}');
+    expect(onSend).not.toHaveBeenCalled();
+    await userEvent.type(box, 'Ask the clerk{Shift>}{Enter}{/Shift}more');
+    expect(onSend).not.toHaveBeenCalled();
+    await userEvent.type(box, '{Enter}');
+    expect(onSend).toHaveBeenCalledWith('Ask the clerk\nmore');
   });
 });

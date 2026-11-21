@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     demo_scenario_id: str = ""
     generation_concurrency: int = 2
     art_model: str = "gemini-2.5-flash-image"
-    tts_model: str = "gemini-2.5-flash-preview-tts"
+    tts_model: str = "gemini-3.8-flash-tts"
     tts_voice_dm: str = "Charon"
     tts_voice_buddy: str = "Puck"
     art_timeout_s: float = 60.0

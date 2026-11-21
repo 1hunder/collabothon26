@@ -140,6 +140,45 @@ def spoiler_violations(text: str, unfound_texts: Iterable[str], n: int = 7) -> l
     return []
 
 
+# ---- voice: second person, no game mechanics ---------------------------------------------------
+_MECHANICS = re.compile(
+    r"\b(the\s+engine|engine|dice|d20|d6|rolls?|rolled|rolling|re-?rolls?|natural\s+\d+|"
+    r"difficulty\s+class|DC\s*\d+|saving\s+throw)\b",
+    re.I,
+)
+_THIRD_PERSON = re.compile(r"\b(the\s+hero|the\s+player|our\s+hero|the\s+adventurer)\b", re.I)
+MECHANICS_NOTE = "mentions the engine, dice or rolling; the interface shows the dice, never speak of them"
+THIRD_NOTE = "talks about the hero in third person; address the hero as you"
+
+
+_CHECK_PROMISE = re.compile(
+    r"\b(put\s+your\s+\w+(\s+\w+)?\s+to\s+the\s+test|test\s+of\s+(your\s+)?(skill|wits|"
+    r"perception|insight|nerve|luck|eye)|(skill|perception|insight|investigation|"
+    r"analysis)\s+check|let'?s\s+see\s+(if|whether)\s+you\s+(can|manage|notice|spot)|"
+    r"see\s+if\s+fortune|try\s+your\s+luck|tempt\s+fate|leave\s+it\s+to\s+fate)\b",
+    re.I,
+)
+CHECK_NOTE = "promises a test of skill, but no challenge is available here; describe only what you see"
+
+
+def implies_check(text: str) -> bool:
+    """The text promises a skill check (the interface then owes the player a dice card)."""
+    return bool(_CHECK_PROMISE.search(text))
+
+
+def voice_violations(text: str, hero_name: str = "") -> list[str]:
+    out: list[str] = []
+    if _MECHANICS.search(text):
+        out.append(MECHANICS_NOTE)
+    name = hero_name.strip()
+    third = bool(_THIRD_PERSON.search(text)) or (
+        len(name) >= 2 and re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", text, re.I) is not None
+    )
+    if third:
+        out.append(THIRD_NOTE)
+    return out
+
+
 # ---- format -------------------------------------------------------------------------------------
 def word_count(text: str) -> int:
     return len(text.split())
@@ -162,6 +201,9 @@ class GuardRules:
     allowed: set[str]
     leak_terms: tuple[str, ...] = ()
     leak_enabled: bool = True
+    hero_name: str = ""
+    voice: bool = True
+    forbid_check: bool = False
     advice: bool = True
     unfound_texts: tuple[str, ...] = ()
     fields: dict[str, FieldRule] = field(default_factory=dict)
@@ -178,6 +220,10 @@ class GuardRules:
             if rule.question and not ends_with_question(text):
                 out.append(f"{name} must end with a question")
             out += number_violations(text, self.allowed)
+            if self.voice:
+                out += voice_violations(text, self.hero_name)
+            if self.forbid_check and implies_check(text):
+                out.append(CHECK_NOTE)
             if self.leak_enabled:
                 out += leak_violations(text, self.leak_terms)
             if self.unfound_texts:
