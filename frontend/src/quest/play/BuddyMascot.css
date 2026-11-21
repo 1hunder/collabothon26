@@ -20,3 +20,14 @@
 @media (prefers-reduced-motion: reduce) {
   .buddy-mascot[data-playing="true"] .buddy-frames { animation-duration: 1ms; }
 }
+
+/* Awake: a learning moment is waiting. */
+.buddy-wrap {
+  position: absolute; bottom: calc(100% - var(--mascot-width, 150px) * 7 / 380); right: 12px; z-index: 1;
+  --mascot-width: clamp(114px, 36vw, 150px); width: var(--mascot-width);
+}
+.buddy-wrap .buddy-mascot { position: relative; inset: auto; display: block; right: auto; bottom: auto; }
+.buddy-mascot[data-awake="true"] { filter: drop-shadow(0 0 10px rgba(232,220,194,.85)); animation: buddy-wake .7s ease-out 1, buddy-glow 2.4s ease-in-out .7s infinite; }
+@keyframes buddy-wake { 0% { transform: translateY(0) scale(.96); } 40% { transform: translateY(-10px) scale(1.04); } 100% { transform: translateY(0) scale(1); } }
+@keyframes buddy-glow { 50% { filter: drop-shadow(0 0 16px rgba(111,181,168,.95)); } }
+@media (prefers-reduced-motion: reduce) { .buddy-mascot[data-awake="true"] { animation: none; } }
