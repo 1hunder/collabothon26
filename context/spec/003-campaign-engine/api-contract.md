@@ -205,3 +205,96 @@ Xp = {categories: [{name, score, max, rationale, quote}], total}    // 5 categor
 - `backend/tests/test_api_contract.py`: error envelope (401, 404, 422 with `fields`), hero shape, SSE `status`/`done` fields and resume `suggestions`, news card `kind` and `news_text` on replay, commit-draft/resume-play/lock/reveal flow and the outcome shape.
 - Existing suites updated for D1-D10 (`test_campaign_api.py`, `test_campaign_agents.py`, `test_scenarios_api.py`).
 - Live run against uvicorn (`FAKE_LLM=1`, port 8015) on the approved Enron pack, session through finish: in the task report.
+
+## 9. Master intents, Master-created places with an NPC, HP damage
+
+### 9.1 Free-text movement (no API change)
+
+`POST /campaigns/{id}/actions` routes "let's go to the market", "head to the library", "back to the
+inn", "visit the guild hall" (synonyms: market/exchange/square/price board; library/archive/records;
+tavern/inn/pub; guild hall/council chamber) to `intent: "move"`. The `done` payload then has
+`intent: "move"` and `location: {id, key, name}` exactly like `POST /move`.
+
+### 9.2 Master-created places (`new_location`)
+
+The player never creates a place. When the story needs one that does not exist (a counterparty's
+warehouse, a ship, a regulator's office) the Campaign Master adds it: a `location` row (at most 3
+per campaign; beyond that the Master uses existing places), an NPC at it, a Nano Banana art job
+(9:16, scrubbed prompt, no text/people/logos), and the player is moved there.
+
+`done` of `POST /actions` when this happens:
+
+```
+intent: "new_location"
+speaker: "Campaign Master", speaker_kind: "master"
+location: {id, key, name}                      // the NEW place; the player is already there
+new_location: {
+  id, key, name, description,
+  art_status: "pending" | "ready" | "failed" | "placeholder",   // "pending" while the job runs
+  npc: {id, name, role}                        // id looks like "npc-1a2b3c4d"
+}
+```
+Otherwise `new_location` is `null`. The text introduces the NPC by name; `suggestions[0]` is
+"Ask <npc> what they know". Art readiness uses the existing mechanism, nothing new: poll
+`GET /campaigns/{id}` (`locations[].art_status`), read `state.art_ready` (ids) in the SSE `state`
+event of later turns, or fetch `GET /locations/{id}/art`. The `state` event now also carries the
+full `locations` array (same item shape as the campaign state), so the new place is on the map
+without a refetch.
+
+Campaign state `locations[]` items gain `generated: bool` and `npc: {id, name, role} | null`
+(`null` and `false` for the fixed and seed places).
+
+### 9.3 NPC agent
+
+While the current location is a generated one, `POST /actions` is answered by its NPC, in
+character, with the full gated context and the same guards (numbers, leaks, advice, 120 words,
+second person, no mechanics talk). The NPC reveals only evidence already unlocked at the current
+checkpoint (never future evidence; never dice-gated clues), at most two clues per reply, granted
+through the usual `clue_ids_given`.
+
+`done`: `speaker` = NPC name, `speaker_kind: "npc"`, `intent: "talk"`, `escalated: false`.
+
+The NPC hands over to the Campaign Master when the player wants to decide or commit, travel, asks
+about other places' evidence or people, attempts something risky, is off-topic, or the scene is
+done (and when the NPC's own guards fail). The Master then runs the normal turn for the same
+action in the same request: `speaker: "Campaign Master"`, `speaker_kind: "master"`,
+`escalated: true`, and the usual `intent` (`move`, `challenge`, `decision_intent`, `new_location`...).
+The player can always leave through the map (`POST /move`, the Tavern is always reachable). An
+open decision scene is answered by the Master, never by the NPC. NPC turns may take up to 30 s
+(NPC call + Master call); other turns keep 15 s.
+
+### 9.4 `speaker_kind` and `hp_change` on every `done`
+
+Every `done` of `/actions`, `/move`, `/narrate-roll`, `/buddy` (also `/opening`, `/focus/hint`,
+`/debrief`) now has:
+
+```
+speaker_kind: "master" | "npc" | "buddy"
+escalated: bool                     // false except an NPC hand-over
+hp_change: {delta: int (negative), reason: str, hp: int, hp_eur: int} | null
+new_location: {...} | null         // see 9.2
+```
+`hp_change` is `null` on almost every turn. The Master only takes HP when the story costs the hero
+money (a budget loss in a scene, an incorrect or reckless decision showing its cost, a setback that
+backfires after a failed check), never for asking questions. The text then says it plainly ("You
+lose 3 HP: ..."). `/buddy` and `/move` never carry damage (`null`).
+
+### 9.5 Damage rules (engine, not the model)
+
+HP is the money bar: 1 HP = 10 euros, `hp_eur = hp * 10`. The engine clamps what the Master asks:
+at most 10 HP per turn, at most 30% of the starting HP in total, never below 10 HP, never more than
+the cash in the purse, nothing after the lock; the stated number in the text is rewritten to the
+applied one. It is persisted (`campaign_run.hp_lost`, event `hp_change`) and the loss comes out of
+the purse cash. The investable budget for the result is the current `hp_eur`: the purse, the
+outcome and the what-if table all start from the reduced budget.
+
+Campaign state: `hp` and `hp_eur` reflect damage; `hp_start` is new (starting HP). `budget_eur`
+(and `scenario.budget_eur`) stay the starting budget. `state` SSE events carry `hp`, `hp_eur`.
+The reveal `breakdown.starting_budget` is the budget after damage (the shape is otherwise
+unchanged); `hp_before` is the HP after damage.
+
+`POST /campaigns/{id}/lock`: when the body has `amount_cents` greater than `hp_eur * 100` the
+response is `422` `{"error": {"code": "amount_over_budget", ...}}`. (Without `amount_cents` the
+lock behaves as before: what was invested comes from the decisions already written.)
+
+FAKE_LLM never deals damage unless a test queues it (`agents/campaign/fake.py::script_damage`).

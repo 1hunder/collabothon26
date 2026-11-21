@@ -10,10 +10,29 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Intent = Literal["free", "challenge", "talk", "decision_intent", "off_topic", "move"]
+Intent = Literal[
+    "free", "challenge", "talk", "decision_intent", "off_topic", "move", "new_location"
+]
 BuddyIntent = Literal["concept", "advice_request", "future_request", "identity_request", "other"]
 Mood = Literal["calm", "curious", "thinking", "cheerful", "concerned"]
 ChallengeKind = Literal["public_report", "unusual_figure", "cross_check", "obscure_lead"]
+
+
+class NpcSpec(BaseModel):
+    name: str = Field(description="A generated fantasy name, never a real person")
+    role: str = Field(description="Short role, e.g. 'Dockmaster of the guild fleet'")
+    persona: str = Field(default="", description="Two sentences: manner of speaking and attitude")
+
+
+class NewLocationSpec(BaseModel):
+    """A place the Campaign Master adds because the story needs it. The engine validates it."""
+
+    name: str = Field(description="Place name, 2 to 5 words")
+    description: str = Field(default="", description="One or two sentences, fictional world")
+    art_subject: str = Field(
+        default="", description="Scene for the painter: no text, lettering, logos, people or faces"
+    )
+    npc: NpcSpec
 
 
 class RouteOut(BaseModel):
@@ -23,6 +42,9 @@ class RouteOut(BaseModel):
     challenge_key: str | None = Field(default=None, description="Challenge key, intent=challenge")
     character_id: str | None = Field(default=None, description="Character id, intent=talk")
     location_key: str | None = Field(default=None, description="Location key, intent=move")
+    new_location: NewLocationSpec | None = Field(
+        default=None, description="intent=new_location: the place to create, with its NPC"
+    )
 
 
 class TurnOut(BaseModel):
@@ -34,6 +56,8 @@ class TurnOut(BaseModel):
     calls_for_decision: bool = Field(
         default=False, description="True when this scene puts an investment choice to the hero"
     )
+    hp_loss: int = Field(default=0, description="HP the hero loses in this scene, 0 to 10")
+    hp_reason: str = Field(default="", description="Why, in one short phrase, when hp_loss > 0")
 
 
 class DecideOut(BaseModel):
@@ -49,6 +73,22 @@ class DecideOut(BaseModel):
 
 class TextOut(BaseModel):
     text: str
+
+
+class DiceOut(BaseModel):
+    text: str
+    hp_loss: int = Field(default=0, description="HP the hero loses, 0 to 10; usually 0")
+    hp_reason: str = Field(default="", description="Why, in one short phrase, when hp_loss > 0")
+
+
+class NpcOut(BaseModel):
+    """The reply of the NPC at a Master-created place."""
+
+    text: str = Field(description="At most 120 words, in the NPC's own voice, to 'you'")
+    suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short actions")
+    clue_ids_given: list[str] = Field(default_factory=list)
+    escalate: bool = Field(default=False, description="True when the Campaign Master must answer")
+    escalate_reason: str = ""
 
 
 class SummaryOut(BaseModel):

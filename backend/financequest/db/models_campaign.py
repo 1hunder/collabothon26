@@ -79,6 +79,11 @@ class CampaignRun(SQLModel, table=True):
     news_shown: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     opening_done: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     hp_start: int = 100
+    hp_lost: int = Field(default=0, sa_column=Column(Integer, nullable=False, server_default="0"))
+    # damage (cents) not yet folded into a trade's cash_after: the purse is cash minus this
+    loss_unapplied_cents: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default="0")
+    )
     rng_seed: int = Field(sa_column=Column(Integer, nullable=False))  # server-only
     pending: Any = _jsonb()
     commit_draft: Any = _jsonb()
@@ -109,6 +114,11 @@ class Location(SQLModel, table=True):
     art_path: str | None = None
     art_subject: str | None = None
     visited: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
+    # a place the Campaign Master created mid-story, with its NPC {id, name, role, persona}
+    generated: bool = Field(
+        default=False, sa_column=Column(Boolean, nullable=False, server_default="false")
+    )
+    npc: Any = _jsonb()
 
 
 class Challenge(SQLModel, table=True):

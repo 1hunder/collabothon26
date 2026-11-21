@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -33,11 +34,14 @@ from financequest.agents.campaign.guards import (
     GuardRules,
     advice_prefilter,
     implies_check,
+    leak_violations,
 )
 from financequest.agents.campaign.schemas import (
     AdviceCheck,
     ExtraChallenge,
     ExtraLocation,
+    NewLocationSpec,
+    NpcOut,
     RouteOut,
     SetupOut,
     TurnOut,
@@ -48,6 +52,9 @@ from financequest.llm import LLMResult, NodeLLM, extract_json_object
 log = logging.getLogger("financequest.agents")
 MIN_RETRY_S = 5.0
 DM_WORDS = 150
+NPC_WORDS = 120
+HP_NOTE = "hp_loss is above 0 but the text does not state the loss (write 'You lose N HP: reason')"
+NO_DAMAGE_INTENTS = ("move", "new_location", "off_topic", "decision_intent")
 
 
 # =====================================================================================
@@ -65,6 +72,7 @@ class GuardedSpec:
     template: Callable[[], Any]
     ctx: C.AgentContext
     llm_context: dict[str, Any] = field(default_factory=dict)
+    checks: Callable[[Any], list[str]] | None = None  # node-specific violations on the parsed output
 
 
 @dataclass
@@ -97,7 +105,7 @@ def guard_results(violations: list[str]) -> dict[str, str]:
         "advice": "pass" if not hit("recommends", "promises", "predicts the future", "advice check")
         else "fail",
         "word_cap": "pass" if not hit("the cap is", "must end with a question") else "fail",
-        "style": "pass" if not hit(MECHANICS_NOTE, THIRD_NOTE, CHECK_NOTE) else "fail",
+        "style": "pass" if not hit(MECHANICS_NOTE, THIRD_NOTE, CHECK_NOTE, HP_NOTE) else "fail",
     }
 
 
@@ -185,6 +193,8 @@ def _check_once(state: GState) -> dict[str, Any]:
         return {}
     texts = spec.texts(out)
     bad = spec.rules.static_violations(texts)
+    if spec.checks is not None:
+        bad += spec.checks(out)
     if not bad and spec.rules.advice:
         joined = "\n".join(texts.values())
         if advice_prefilter(joined):
@@ -303,9 +313,54 @@ def validate_route(ctx: C.AgentContext, r: RouteOut) -> RouteOut:
         return r
     if r.intent == "move" and r.location_key in {x["key"] for x in ctx.locations}:
         return r
+    if r.intent == "new_location":
+        return _validate_new_location(ctx, r)
     if r.intent in ("decision_intent", "off_topic", "free"):
         return r
     return RouteOut(intent="free")
+
+
+_FALLBACK_NPC = ("Brim Ostler", "A local keeper of the place")
+
+
+def sanitize_new_location(ctx: C.AgentContext, spec: NewLocationSpec) -> NewLocationSpec | None:
+    """The engine, not the model, decides whether a created place is acceptable: the cap, a
+    clean name, and no real identity term anywhere (names fall back, free text is scrubbed)."""
+    from financequest.media.art import scrub_subject
+
+    terms = ctx.pack.leak_terms
+    name = " ".join(spec.name.split())[:60]
+    if not name or len(name) < 3 or re.search(r"\d", name) or leak_violations(name, terms):
+        return None
+    if ctx.generated_count >= C.MAX_GENERATED:
+        return None
+    npc_name = " ".join(spec.npc.name.split())[:40]
+    npc_role = " ".join(spec.npc.role.split())[:80]
+    if not npc_name or re.search(r"\d", npc_name) or leak_violations(npc_name, terms):
+        npc_name = _FALLBACK_NPC[0]
+    if not npc_role or leak_violations(npc_role, terms):
+        npc_role = _FALLBACK_NPC[1]
+    clean = lambda t: " ".join(scrub_subject(t, terms).split())  # noqa: E731
+    desc = clean(spec.description) or f"{name}, a place of this story."
+    subject = clean(spec.art_subject) or desc
+    subject = f"{subject.rstrip('. ')}. No people, no text or lettering, no logos."
+    return NewLocationSpec(
+        name=name, description=desc, art_subject=subject,
+        npc={"name": npc_name, "role": npc_role, "persona": clean(spec.npc.persona)},  # type: ignore[arg-type]
+    )
+
+
+def _validate_new_location(ctx: C.AgentContext, r: RouteOut) -> RouteOut:
+    if r.new_location is None:
+        return RouteOut(intent="free")
+    wanted = r.new_location.name.strip().lower()
+    for x in ctx.locations:  # the place already exists: that is a move
+        if x["name"].lower() == wanted or x["key"].replace("_", " ") == wanted:
+            return RouteOut(intent="move", location_key=x["key"])
+    spec = sanitize_new_location(ctx, r.new_location)
+    if spec is None:
+        return RouteOut(intent="free")
+    return RouteOut(intent="new_location", new_location=spec)
 
 
 def _route(state: TurnState) -> dict[str, Any]:
@@ -340,7 +395,12 @@ def _route_facts(ctx: C.AgentContext) -> str:
     chs = [f"{c['key']} ({c['title']}, {c['state']})" for c in ctx.challenges]
     return (
         f"# Ids you may use\nChallenges: {'; '.join(chs) or 'none'}\n"
-        f"Characters: {'; '.join(chars) or 'none'}\nLocations: {'; '.join(locs)}"
+        f"Characters: {'; '.join(chars) or 'none'}\nLocations: {'; '.join(locs)}\n"
+        + (f"Created places: {ctx.generated_count} of {C.MAX_GENERATED}; the cap is reached, never "
+           "use new_location, pick the closest listed location or free."
+           if ctx.generated_count >= C.MAX_GENERATED
+           else f"Created places so far: {ctx.generated_count} of {C.MAX_GENERATED} (new_location "
+                "is allowed).")
     )
 
 
@@ -362,7 +422,7 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
         free = C.free_clues_at(ctx, loc["key"])
         titles = [f"{i} = {(ctx.evidence_by_id(i) or {}).get('title')}" for i in free]
         state = "back again (do not re-describe it)" if loc["visited"] else "a first visit"
-        who = [c for c in ctx.content["characters"] if c["location"] == loc["key"]]
+        who = C.people_at(ctx, loc["key"])
         return (
             f"# Intent: arrival\nYou (the hero) go to {loc['name']} ({loc['key']}): {state}. "
             f"Place: {loc['description']}\nFree clues the hero learns on arrival, which you MUST "
@@ -371,6 +431,16 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
                "Offer 'Ask <name> ...' as one of the suggestions.\n" if who else "")
             + "Speaker: chronicler.",
             set(free),
+        )
+    if r.intent == "new_location" and r.new_location is not None:
+        n = r.new_location
+        return (
+            f"# Intent: arrival at a NEW place\nYou (the hero) walk into {n.name}, a place that "
+            f"has only now come into the story, a first visit. Place: {n.description}\n"
+            f"Someone is here: {n.npc.name}, {n.npc.role}. Introduce them by name in the text, in "
+            f"one or two sentences, and offer 'Ask {n.npc.name} ...' as one of the suggestions. "
+            "Reveal no clues and give no clue_ids. hp_loss is 0. Speaker: chronicler.",
+            set(),
         )
     if r.intent == "talk":
         ch = ctx.character(r.character_id)
@@ -418,7 +488,16 @@ def _turn_texts(o: TurnOut) -> dict[str, str]:
     t = {"text": o.text}
     if o.suggestions:
         t["suggestions"] = " / ".join(o.suggestions)
+    if o.hp_loss > 0 and o.hp_reason.strip():
+        t["hp_reason"] = o.hp_reason
     return t
+
+
+def hp_checks(o: Any) -> list[str]:
+    """A damage claim must be stated in the text, so the player always sees why HP dropped."""
+    if int(getattr(o, "hp_loss", 0) or 0) > 0 and not re.search(r"\bHP\b", o.text):
+        return [HP_NOTE]
+    return []
 
 
 def _narrate(state: TurnState) -> dict[str, Any]:
@@ -427,14 +506,24 @@ def _narrate(state: TurnState) -> dict[str, Any]:
     rules_ = make_rules(ctx, text, fields={"text": FieldRule(DM_WORDS, True),
                                            "suggestions": FieldRule()})  # fmt: skip
     rules_.forbid_check = r.intent != "challenge" and open_challenge_here(ctx) is None
+    if r.intent == "new_location" and r.new_location is not None:
+        n = r.new_location
+        arrival = TurnOut(
+            text=f"You arrive at {n.name}. {n.npc.name}, {n.npc.role}, looks up from the work "
+                 f"at hand. What would you do?",
+            speaker=C.CHRONICLER, suggestions=[f"Ask {n.npc.name} what they know",
+                                               *default_suggestions(ctx)][:3],
+        )  # fmt: skip
     spec = GuardedSpec(
         llm=state["llm"], node="campaign_turn", schema=TurnOut, effort="medium",
         messages=lambda notes: C.build_messages(ctx, prompts.CAMPAIGN_MASTER, text, corrective=notes, extra=extra),
         texts=_turn_texts,
         rules=rules_,
-        template=lambda: TurnOut(text=SAFE_FALLBACK, speaker=C.CHRONICLER,
-                                 suggestions=default_suggestions(ctx)),  # fmt: skip
+        template=lambda: arrival if r.intent == "new_location" and r.new_location is not None
+        else TurnOut(text=SAFE_FALLBACK, speaker=C.CHRONICLER,
+                     suggestions=default_suggestions(ctx)),  # fmt: skip
         ctx=ctx, llm_context={"ctx": ctx, "input": text, "route": r, "extra": extra},
+        checks=hp_checks,
     )  # fmt: skip
     res = run_guarded(spec)
     return {"out": res.out, "degraded": res.degraded}
@@ -444,7 +533,7 @@ def name_who_is_here(
     ctx: C.AgentContext, loc_key: str, text: str, sugg: list[str]
 ) -> tuple[str, list[str]]:
     """The arrival names who is there and offers "Ask <name> ..." (engine facts, so safe to add)."""
-    who = [c for c in ctx.content["characters"] if c["location"] == loc_key]
+    who = C.people_at(ctx, loc_key)
     for ch in who[:1]:
         if ch["name"] not in text:
             head, sep, last = text.rpartition(". ")
@@ -480,10 +569,21 @@ def _validate(state: TurnState) -> dict[str, Any]:
     text_out = out.text.strip()
     if r.intent == "move" and r.location_key and not state.get("degraded"):
         text_out, sugg = name_who_is_here(ctx, r.location_key, text_out, sugg)
+    spec = r.new_location if r.intent == "new_location" else None
+    if spec is not None:
+        if spec.npc.name not in text_out:
+            head, sep, last = text_out.rpartition(". ")
+            note = f"{spec.npc.name}, {spec.npc.role}, is here."
+            text_out = f"{head}{sep}{note} {last}" if sep else f"{note} {text_out}"
+        if not any(f"Ask {spec.npc.name}" in s_ for s_ in sugg):
+            sugg = [*sugg[:2], f"Ask {spec.npc.name} what they know"][:3]
+    hp_loss = 0
+    if not state.get("degraded") and r.intent not in NO_DAMAGE_INTENTS:
+        hp_loss = max(0, min(int(out.hp_loss or 0), 10))
     intent, ch_key = r.intent, r.challenge_key
     promised = None
-    if intent not in ("challenge", "decision_intent") and not state.get("degraded") \
-            and implies_check(out.text):
+    if intent not in ("challenge", "decision_intent", "new_location") \
+            and not state.get("degraded") and implies_check(out.text):
         promised = open_challenge_here(ctx)  # a promised check always gets its dice card
         if promised is not None:
             intent, ch_key = "challenge", promised["key"]
@@ -497,7 +597,9 @@ def _validate(state: TurnState) -> dict[str, Any]:
         degraded=bool(state.get("degraded")), rejected_clue_ids=rejected,
         speaker_id=speaker,
         calls_for_decision=bool(getattr(out, "calls_for_decision", False))
-        and not state.get("degraded") and intent not in ("challenge", "move"),
+        and not state.get("degraded") and intent not in ("challenge", "move", "new_location"),
+        hp_loss=hp_loss, hp_reason=out.hp_reason.strip() if hp_loss else "",
+        new_location=spec.model_dump() if spec is not None else None,
     )  # fmt: skip
     return {"reply": reply}
 
@@ -517,6 +619,117 @@ def _build_turn() -> Any:
 
 
 TURN = _build_turn()
+
+
+# =====================================================================================
+# NPC graph: the character of a Master-created place answers; the Master takes over on escalation
+# =====================================================================================
+class NpcState(TypedDict, total=False):
+    llm: NodeLLM
+    ctx: C.AgentContext
+    text: str
+    out: NpcOut | None
+    escalate_reason: str
+    reply: Any
+
+
+def npc_extra(ctx: C.AgentContext) -> str:
+    npc = ctx.npc_here
+    assert npc is not None
+    loc = next(x for x in ctx.locations if x["key"] == (ctx.current or {}).get("key"))
+    may = C.npc_may_reveal(ctx)
+    fresh = [i for i in may if i not in set(ctx.found)]
+    titles = [f"{i} = {(ctx.evidence_by_id(i) or {}).get('title')}" for i in fresh]
+    found = [(ctx.evidence_by_id(i) or {}).get("title", i) for i in ctx.found]
+    return (
+        f"# You are {npc['name']}, {npc['role']}\nPersona: {npc.get('persona') or 'plain-spoken'}\n"
+        f"Place: {loc['name']}: {loc['description']}\n"
+        f"Evidence you may reveal (ids; each only if the hero has not found it yet): "
+        f"{'; '.join(titles) or 'none left'}.\n"
+        f"The hero has already found: {'; '.join(found) or 'nothing yet'}.\n"
+        "Reveal at most two clues per reply, and only by naming them clearly in the text."
+    )
+
+
+def _npc_texts(o: NpcOut) -> dict[str, str]:
+    t = {"text": o.text}
+    if o.suggestions:
+        t["suggestions"] = " / ".join(o.suggestions)
+    return t
+
+
+def _npc_answer(state: NpcState) -> dict[str, Any]:
+    ctx, text = state["ctx"], state["text"]
+    npc = ctx.npc_here
+    if npc is None:
+        return {"out": None, "escalate_reason": "no npc here"}
+    if rules.is_decision_intent(text):  # committing coins is the Master's business, no model call
+        return {"out": None, "escalate_reason": "the hero wants to decide"}
+    rules_ = make_rules(ctx, text, fields={"text": FieldRule(NPC_WORDS, False),
+                                           "suggestions": FieldRule()})  # fmt: skip
+    extra = npc_extra(ctx)
+    spec = GuardedSpec(
+        llm=state["llm"], node="campaign_npc", schema=NpcOut, effort="medium",
+        messages=lambda notes: C.build_messages(ctx, prompts.NPC, text, corrective=notes, extra=extra),
+        texts=_npc_texts, rules=rules_,
+        template=lambda: NpcOut(text=SAFE_FALLBACK, escalate=True, escalate_reason="guards"),
+        ctx=ctx, llm_context={"ctx": ctx, "input": text, "extra": extra, "npc": npc},
+    )  # fmt: skip
+    res = run_guarded(spec)
+    out: NpcOut = res.out
+    if res.degraded or out.escalate:
+        return {"out": None, "escalate_reason": out.escalate_reason or "beyond the npc"}
+    return {"out": out}
+
+
+def _after_npc(state: NpcState) -> str:
+    return "reply" if state.get("out") is not None else "master"
+
+
+def _npc_reply(state: NpcState) -> dict[str, Any]:
+    from financequest.campaign.narration import TurnReply
+
+    ctx, out = state["ctx"], state["out"]
+    assert out is not None
+    npc = ctx.npc_here
+    assert npc is not None
+    may = set(C.npc_may_reveal(ctx))
+    given = [c for c in dict.fromkeys(out.clue_ids_given) if c in may][:2]
+    sugg = [s.strip() for s in out.suggestions if s.strip()][:3]
+    for extra_s in default_suggestions(ctx):
+        if len(sugg) >= 3:
+            break
+        if extra_s not in sugg:
+            sugg.append(extra_s)
+    return {"reply": TurnReply(
+        text=out.text.strip(), speaker=str(npc["name"]), speaker_id=str(npc["id"]),
+        speaker_kind="npc", intent="talk", clue_ids_given=given, suggestions=sugg,
+        rejected_clue_ids=[c for c in out.clue_ids_given if c not in may],
+    )}  # fmt: skip
+
+
+def _npc_master(state: NpcState) -> dict[str, Any]:
+    s = TURN.invoke({"llm": state["llm"], "ctx": state["ctx"], "text": state["text"],
+                     "forced": None})  # fmt: skip
+    reply = s["reply"]
+    reply.escalated = True
+    log.info("npc escalated: %s", state.get("escalate_reason"))
+    return {"reply": reply}
+
+
+def _build_npc() -> Any:
+    g = StateGraph(NpcState)
+    g.add_node("npc", _npc_answer)
+    g.add_node("reply", _npc_reply)
+    g.add_node("master", _npc_master)
+    g.add_edge(START, "npc")
+    g.add_conditional_edges("npc", _after_npc, {"reply": "reply", "master": "master"})
+    g.add_edge("reply", END)
+    g.add_edge("master", END)
+    return g.compile()
+
+
+NPC = _build_npc()
 
 
 # =====================================================================================
@@ -632,6 +845,6 @@ def _build_setup() -> Any:
 SETUP = _build_setup()
 
 __all__ = [
-    "ExtraChallenge", "GUARDED", "SETUP", "TURN", "GuardedSpec", "make_rules", "run_guarded",
+    "ExtraChallenge", "GUARDED", "NPC", "SETUP", "TURN", "GuardedSpec", "make_rules", "run_guarded",
     "prepared_setup", "default_suggestions",
 ]  # fmt: skip
