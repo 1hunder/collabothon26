@@ -112,7 +112,7 @@ def run_job(job_id: uuid.UUID) -> None:
         except Exception as exc:  # noqa: BLE001 - a job failure must never kill the API
             log.exception("quest job %s crashed", job_id)
             _update(job_id, status="failed", step="Failed",
-                    error=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-1500:]}")  # fmt: skip
+                    error=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-1500:]}")  # fmt: skip  # noqa: E501
             return
         _merge_detail(job_id, {"log": final.get("log", []), "window": final.get("window")})
         sid = final.get("scenario_id")

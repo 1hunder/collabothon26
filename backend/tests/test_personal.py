@@ -98,7 +98,7 @@ def test_parse_research_reads_choice_and_strips_fences() -> None:
 
 
 @pytest.fixture
-def fake_mode(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def fake_mode(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:  # noqa: E501
     s = get_settings()
     monkeypatch.setattr(s, "fake_llm", True)
     monkeypatch.setattr(s, "data_dir", str(tmp_path))
@@ -113,7 +113,7 @@ def fake_mode(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 def _player(client: TestClient) -> dict[str, str]:
     sid = client.post("/session").json()["session_id"]
     h = {"X-Session-Id": sid}
-    assert client.post("/hero", json={"name": "Lena", "class": "analyst"}, headers=h).status_code == 201
+    assert client.post("/hero", json={"name": "Lena", "class": "analyst"}, headers=h).status_code == 201  # noqa: E501
     return h
 
 
