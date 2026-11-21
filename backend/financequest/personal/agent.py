@@ -195,9 +195,13 @@ def build_quest_graph(
             shutil.copy(SAMPLE_PACK / "case.md", pack_dir / "case.md")
             shutil.copy(SAMPLE_PACK / "prices.csv", pack_dir / "prices.csv")
             return {"window": {"fake": True}, "pack_dir": str(pack_dir)}
-        windows = [market.Window(**{k: (date.fromisoformat(v) if k in (
-            "intro", "shock", "decision", "buy", "horizon") else v) for k, v in w.items()})
-            for w in state["windows"]]  # fmt: skip
+        date_keys = ("intro", "shock", "decision", "buy", "horizon")
+        windows = []
+        for w in state["windows"]:
+            kwargs: dict[str, Any] = {
+                k: (date.fromisoformat(v) if k in date_keys else v) for k, v in w.items()
+            }
+            windows.append(market.Window(**kwargs))
         frame = market.load_history(company.ticker, Path(cfg.cache_dir), downloader)
         human = prompts.RESEARCH_HUMAN.format(
             company=company.name,
@@ -214,7 +218,7 @@ def build_quest_graph(
         res = None
         for fallback in (False, True):  # a refusal is retried once, as in the gate graph
             res = llm.run("research_company", messages, schema=GuesserReport, effort="high",
-                          web_search_max_uses=cfg.web_search_max_uses, fallback=fallback)  # fmt: skip
+                          web_search_max_uses=cfg.web_search_max_uses, fallback=fallback)  # fmt: skip  # noqa: E501
             if not res.refused:
                 break
         if res is None or res.refused or res.stop_reason not in (None, "end_turn"):
@@ -265,7 +269,7 @@ def build_quest_graph(
         for _ in range(MANIFEST_REPAIRS + 1):
             raw = model.with_structured_output(CampaignManifest).invoke(convo)
             try:
-                m = raw if isinstance(raw, CampaignManifest) else CampaignManifest.model_validate(raw)
+                m = raw if isinstance(raw, CampaignManifest) else CampaignManifest.model_validate(raw)  # noqa: E501
             except Exception as exc:  # noqa: BLE001 - schema problems are repaired below
                 errors = [f"schema: {exc}"[:2000]]
             else:
@@ -278,7 +282,7 @@ def build_quest_graph(
                     )
                     return {}
             convo = [*convo, ("human", "The manifest failed validation. Fix every error and "
-                              "return the full manifest again:\n- " + "\n- ".join(errors))]  # fmt: skip
+                              "return the full manifest again:\n- " + "\n- ".join(errors))]  # fmt: skip  # noqa: E501
         raise QuestFailed("manifest invalid after repairs: " + "; ".join(errors[:5]))
 
     def disguise(state: QuestState) -> dict[str, Any]:
@@ -339,7 +343,7 @@ def build_quest_graph(
             with ThreadPoolExecutor(len(PERSONAS)) as pool:
                 return list(pool.map(one, PERSONAS))
 
-        def results(rnd: list[tuple[GuesserReport | None, str | None]]) -> list[rules.GuesserResult]:
+        def results(rnd: list[tuple[GuesserReport | None, str | None]]) -> list[rules.GuesserResult]:  # noqa: E501
             out: list[rules.GuesserResult] = []
             for rep, err in rnd:
                 if err or rep is None:

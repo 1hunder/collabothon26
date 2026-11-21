@@ -175,4 +175,9 @@ def candidate_queue(
             if comp is not None and comp.ticker not in used:
                 out.append((cat, comp))
     seen: set[str] = set()
-    return [(c, p) for c, p in out if not (p.ticker in seen or seen.add(p.ticker))]
+    unique = []
+    for c, p in out:
+        if p.ticker not in seen:
+            seen.add(p.ticker)
+            unique.append((c, p))
+    return unique
