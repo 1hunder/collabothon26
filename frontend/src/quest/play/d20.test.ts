@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FACES, apply, axisAngle, faceFor, faceToViewer, multiply, rotation, transpose, type Mat3, type Vec3 } from './d20';
+import { FACES, apply, axisAngle, faceFor, faceToViewer, multiply, restingPose, rotation, transpose, type Mat3, type Vec3 } from './d20';
 
 const close = (a: Vec3, b: Vec3): void => a.forEach((x, i) => expect(x).toBeCloseTo(b[i], 6));
 
@@ -19,6 +19,19 @@ describe('d20 geometry', () => {
       const M = faceToViewer(f);
       close(apply(M, f.n), [0, 0, 1]); // facing the viewer (+z)
       close(apply(M, f.up), [0, -1, 0]); // number's top toward screen-up (-y)
+    }
+  });
+
+  it('rests with the rolled face in the centre of the die, facing the viewer', () => {
+    for (let n = 1; n <= 20; n++) {
+      const f = faceFor(n);
+      const M = restingPose(n);
+      const [x, y] = apply(M, f.cen);
+      expect(Math.hypot(x, y)).toBeLessThan(0.25); // centroid is ~1.5 units out; 0.25 is a few px
+      expect(apply(M, f.n)[2]).toBeGreaterThan(0.98);
+      // it is the face nearest the viewer, so it is the one in the middle of the die
+      const nearest = FACES.reduce((best, g) => (apply(M, g.n)[2] > apply(M, best.n)[2] ? g : best));
+      expect(nearest.num).toBe(n);
     }
   });
 
