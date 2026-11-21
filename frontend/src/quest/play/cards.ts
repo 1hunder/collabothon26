@@ -39,6 +39,7 @@ export function normalizeCard(raw: Record<string, unknown>): QuestCard | null {
       summary: str(raw.summary),
       time_skip_label: str(raw.time_skip_label),
       story_day: int(raw.story_day),
+      framing_audio_text_id: typeof raw.framing_audio_text_id === 'number' ? raw.framing_audio_text_id : null,
     };
   }
   if (kind === 'market') {
@@ -49,6 +50,7 @@ export function normalizeCard(raw: Record<string, unknown>): QuestCard | null {
       suggestions: strings(raw.suggestions),
       day_label: str(raw.day_label),
       purse: purse(raw.purse),
+      audio_text_id: typeof raw.audio_text_id === 'number' ? raw.audio_text_id : null,
     };
   }
   if (kind === 'trade') {

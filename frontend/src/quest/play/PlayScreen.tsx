@@ -245,7 +245,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       cards: [],
       newsText: null,
       instant: true,
-      audioTextId: null,
+      audioTextId: last.audio_text_id ?? null,
     };
   }, [c.backlog, c.suggestions, location?.npc]);
 
@@ -296,7 +296,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     setOverlay({ kind: 'none' });
     if (!current) return;
     const key = `${current.key}-scene`;
-    setScene({ ...current, key, speaker: DM_NAME, text: card.text, suggestions: card.suggestions, cards: [], newsText: null, showDecide: false, instant: true, audioTextId: null });
+    setScene({ ...current, key, speaker: DM_NAME, text: card.text, suggestions: card.suggestions, cards: [], newsText: null, showDecide: false, instant: true, audioTextId: card.audio_text_id ?? null });
     setAdvancedKey(key);
   };
 
@@ -334,7 +334,9 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       [...latest.current.backlog].reverse().find((e) => notYou(e.speaker))?.text ??
       null;
     if (followUp !== null && followUp !== current.text) {
-      setScene({ ...current, key: `${current.key}-news`, text: followUp, cards: [], newsText: null, showDecide: false, instant: false, audioTextId: null });
+      const news = current.cards.find((k): k is NewsCard => k.kind === 'news');
+      const followUpAudio = current.newsText !== null ? (news?.framing_audio_text_id ?? null) : null;
+      setScene({ ...current, key: `${current.key}-news`, text: followUp, cards: [], newsText: null, showDecide: false, instant: false, audioTextId: followUpAudio });
     } else {
       setScene({ ...current, cards: [] });
       finishScene(current);

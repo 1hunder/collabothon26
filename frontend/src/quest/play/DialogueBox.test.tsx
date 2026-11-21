@@ -47,6 +47,21 @@ describe('DialogueBox', () => {
     expect(onPageShown).toHaveBeenCalledTimes(2);
   });
 
+  it('says nothing while the reply is still arriving, then plays the server audio of the finished reply', async () => {
+    const onPageShown = vi.fn();
+    const { rerender } = render(
+      <DialogueBox speaker="Campaign Master" text={long} final={false} writing onAdvance={() => undefined} onPageShown={onPageShown} />,
+    );
+    const box = screen.getByTestId('dialogue-box');
+    await userEvent.click(box);
+    await userEvent.click(box);
+    expect(onPageShown).not.toHaveBeenCalled(); // no browser voice for a streaming page
+    // the same box receives the finished reply with its audio id (same React key)
+    rerender(<DialogueBox speaker="Campaign Master" text={long} audioTextId={9} onAdvance={() => undefined} onPageShown={onPageShown} />);
+    await userEvent.click(box);
+    expect(onPageShown).toHaveBeenCalledWith(long, 'dm', 9);
+  });
+
   it('plays the server audio once for the whole multi-page reply and not again per page', async () => {
     const onPageShown = vi.fn();
     render(<DialogueBox speaker="Campaign Master" text={long} audioTextId={7} onAdvance={() => undefined} onPageShown={onPageShown} />);

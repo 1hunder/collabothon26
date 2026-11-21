@@ -22,23 +22,25 @@ def fast(monkeypatch: pytest.MonkeyPatch) -> None:
     tts._inflight.clear()
 
 
-async def test_sentences_run_concurrently_and_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    running = peak = 0
+async def test_one_provider_call_per_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Gemini TTS allows 10 requests a minute: a reply is one call, not one per sentence."""
+    calls: list[str] = []
 
-    async def slow(sentence: str, voice: str) -> bytes:
-        nonlocal running, peak
-        running += 1
-        peak = max(peak, running)
-        await asyncio.sleep(0.05)
-        running -= 1
+    async def record(text: str, voice: str) -> bytes:
+        calls.append(text)
         return tts.silent_pcm(0.01)
 
-    monkeypatch.setattr(tts, "_synth_pcm", slow)
-    t0 = time.monotonic()
+    monkeypatch.setattr(tts, "_synth_pcm", record)
     wav = await tts.synthesize(TEXT, "dm")
     assert wav[:4] == b"RIFF"
-    assert 1 < peak <= tts.MAX_CONCURRENT
-    assert time.monotonic() - t0 < 0.25  # 6 sentences in 2 waves, not 6 sequential
+    assert calls == [TEXT.strip()]
+
+
+def test_quota_cooldown_follows_googles_retry_delay() -> None:
+    msg = "429 Rate limit exceeded (limit: 10 requests per minute). Please retry in 43.5s or upgrade"
+    assert tts._cooldown_s(RuntimeError(msg)) == 43.5
+    assert tts._cooldown_s(RuntimeError("Please retry in 900s")) == 120.0  # capped
+    assert tts._cooldown_s(RuntimeError("429 RESOURCE_EXHAUSTED")) == tts.QUOTA_COOLDOWN_S
 
 
 async def test_hanging_provider_raises_unavailable_quickly(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -55,7 +57,7 @@ async def test_hanging_provider_raises_unavailable_quickly(monkeypatch: pytest.M
     with pytest.raises(tts.TtsUnavailable):
         await tts.synthesize("Only one. Second one.", "dm")
     assert time.monotonic() - t0 < 1.5
-    assert calls == 4  # two sentences, each tried twice
+    assert calls == 2  # one call for the reply, tried twice
 
 
 async def test_one_retry_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
