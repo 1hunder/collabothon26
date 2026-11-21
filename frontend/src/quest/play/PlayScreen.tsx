@@ -441,7 +441,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
 
   const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
     (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
-  const showMascot = masterSpeaking && !sheet && activeOverlay.kind === 'none';
+  const showMascot = (masterSpeaking || inChoices) && !sheet && activeOverlay.kind === 'none';
 
   const openHotspot = (t: HotspotTarget): void => {
     stopVoice();
@@ -483,13 +483,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
         <Dock
           mapDisabled={diceOpen}
           voiceOn={voice}
-          buddyOpen={buddyOpen}
           onMap={() => setSheet('map')}
           onJournal={() => setSheet('journal')}
-          onBuddy={() => {
-            stopVoice();
-            setBuddyOpen((o) => !o);
-          }}
           onToggleVoice={toggleVoice}
         />
       }
