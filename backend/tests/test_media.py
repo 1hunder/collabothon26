@@ -84,7 +84,7 @@ def test_prompt_has_style_negative_and_no_leak_terms() -> None:
     assert art.STYLE_GUIDE in p
     assert art.NEGATIVE_BLOCK in p
     assert "Enron" not in p and "Skilling" not in p
-    assert "#22305B" in p and "16:9" in p
+    assert "#22305B" in p and "9:16" in p
 
 
 async def test_job_pending_then_ready(test_db_url: str, data_dir: Path) -> None:
