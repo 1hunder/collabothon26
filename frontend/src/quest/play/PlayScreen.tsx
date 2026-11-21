@@ -9,6 +9,7 @@ import { useVoice } from '../../voice';
 import { inertVoice } from '../../voice/context';
 import Backlog from './Backlog';
 import BreakingNewsCard from './BreakingNewsCard';
+import BuddyMascot from './BuddyMascot';
 import BuddyScene from './BuddyScene';
 import { normalizeCard } from './cards';
 import ChoiceList from './ChoiceList';
@@ -341,6 +342,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     );
   })();
 
+  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
+    (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
+  const showMascot = masterSpeaking && !sheet && activeOverlay.kind === 'none';
+
   const openHotspot = (t: HotspotTarget): void => {
     stopVoice();
     setSheet(t === 'library' ? 'library' : t === 'market' ? 'board' : 'notice');
@@ -419,7 +424,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       {buddyOpen ? (
         <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
-        dialogue
+        <div className="relative">
+          {dialogue}
+          {showMascot && <BuddyMascot onArrive={() => { stopVoice(); setBuddyOpen(true); }} />}
+        </div>
       )}
     </VnStage>
   );
