@@ -62,19 +62,19 @@ test('Overview shows its content in order', async ({ page }) => {
   const ordered = [
     page.getByRole('heading', { name: 'Hello, Lena' }),
     main.getByText('€1,240.50').first(),
+    page.getByRole('button', { name: 'Transfer' }),
     page.getByRole('button', { name: /StartKonto/ }),
     page.getByText('DE00 0000 0000 0000 0000 00'),
     page.getByRole('button', { name: /StartDepot/ }),
     page.getByText('No investments yet'),
-    page.getByRole('button', { name: 'Transfer' }),
     page.getByRole('button', { name: 'Cards' }),
     page.getByRole('button', { name: 'Postbox' }),
     page.getByRole('heading', { name: 'Finance Quest' }),
   ];
   const ys: number[] = [];
   for (const l of ordered) ys.push(await top(l));
-  // Transfer, Cards and Postbox share a row; every other step must be strictly lower.
-  const rowIdx = [6, 7, 8];
+  // Cards and Postbox share a row; every other step must be strictly lower.
+  const rowIdx = [7, 8];
   ys.forEach((y, i) => {
     if (i === 0) return;
     const prev = rowIdx.includes(i) && rowIdx.includes(i - 1) ? ys[i - 1] : ys[i - 1] + 1;

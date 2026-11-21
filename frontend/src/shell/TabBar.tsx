@@ -35,10 +35,13 @@ export default function TabBar(): React.JSX.Element {
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => navigate(root, { replace: isActive })}
-                className={`flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium ${
+                className={`relative flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-medium ${
                   isActive ? 'text-petrol' : 'text-petrol-muted'
                 }`}
               >
+                {pathname === '/overview' && isActive && (
+                  <span aria-hidden="true" className="absolute inset-x-3 top-0 h-0.5 bg-petrol" />
+                )}
                 <Icon size={22} aria-hidden="true" />
                 {label}
               </button>
