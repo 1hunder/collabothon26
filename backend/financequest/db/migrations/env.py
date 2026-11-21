@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 
 from financequest.config import get_settings
-from financequest.db import models, models_campaign  # noqa: F401  (register tables)
+from financequest.db import models, models_campaign, models_personal  # noqa: F401  (register tables)
 
 target_metadata = SQLModel.metadata
 

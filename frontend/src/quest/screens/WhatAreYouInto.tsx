@@ -7,6 +7,7 @@ import type { CampaignState, Hero, Interest } from '../../api/types';
 import DisclosureNote from '../components/DisclosureNote';
 import { unlockVoice } from '../../voice';
 import { markDisclosureSeen } from '../questStore';
+import { getQuestPick, interestFor, setQuestPick } from '../selectedQuest';
 
 const interests: readonly Interest[] = ['Gaming', 'Fashion', 'Sports', 'Mobility', 'Music', 'Tech'];
 
@@ -16,7 +17,12 @@ export default function WhatAreYouInto(): React.JSX.Element {
   const qc = useQueryClient();
   const hero = useHero();
   const createCampaign = useCreateCampaign();
-  const [picked, setPicked] = useState<readonly Interest[]>([]);
+  // A personal quest chosen on the Finance Quest card (today's or an extra one), if any.
+  const [questPick] = useState(getQuestPick);
+  const [picked, setPicked] = useState<readonly Interest[]>(() => {
+    const i = questPick ? interestFor(questPick.category) : null;
+    return i ? [i] : [];
+  });
   const [campaign, setCampaign] = useState<CampaignState | null>(null);
   const [failed, setFailed] = useState(false);
   const isNewHero = (location.state as { newHero?: boolean } | null)?.newHero === true;
@@ -28,7 +34,19 @@ export default function WhatAreYouInto(): React.JSX.Element {
     unlockVoice();
     setFailed(false);
     try {
-      setCampaign(await createCampaign.mutateAsync({ interests: [...picked] }));
+      const interests = [...picked];
+      let created: CampaignState;
+      try {
+        created = await createCampaign.mutateAsync(
+          questPick ? { interests, scenario_id: questPick.scenarioId } : { interests },
+        );
+      } catch (e: unknown) {
+        // The picked personal quest is gone (retired, or another player's): play the default one.
+        if (!(questPick && e instanceof ApiError && e.status === 404)) throw e;
+        created = await createCampaign.mutateAsync({ interests });
+      }
+      setQuestPick(null);
+      setCampaign(created);
     } catch (e: unknown) {
       if (e instanceof ApiError && e.code === 'campaign_in_progress' && e.campaignId) {
         // A campaign is already running: resume it instead of failing.
@@ -56,6 +74,11 @@ export default function WhatAreYouInto(): React.JSX.Element {
         <p className="font-quest-sans text-quest-vellum-dim">Welcome back, {hero.data.name}</p>
       ) : null}
       <h1 className="font-quest-title text-4xl text-quest-gilt">What are you into?</h1>
+      {questPick ? (
+        <p className="font-quest-sans text-quest-vellum-dim">
+          Your quest is ready: {questPick.categoryLabel}, picked from your spending.
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-3" role="group" aria-label="Interests">
         {interests.map((i) => {
           const on = picked.includes(i);
