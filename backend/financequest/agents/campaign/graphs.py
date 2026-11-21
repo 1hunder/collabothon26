@@ -42,7 +42,7 @@ from financequest.agents.campaign.schemas import (
     SetupOut,
     TurnOut,
 )
-from financequest.campaign import rules
+from financequest.campaign import clock, rules
 from financequest.llm import LLMResult, NodeLLM, extract_json_object
 
 log = logging.getLogger("financequest.agents")
@@ -440,6 +440,21 @@ def _narrate(state: TurnState) -> dict[str, Any]:
     return {"out": res.out, "degraded": res.degraded}
 
 
+def name_who_is_here(
+    ctx: C.AgentContext, loc_key: str, text: str, sugg: list[str]
+) -> tuple[str, list[str]]:
+    """The arrival names who is there and offers "Ask <name> ..." (engine facts, so safe to add)."""
+    who = [c for c in ctx.content["characters"] if c["location"] == loc_key]
+    for ch in who[:1]:
+        if ch["name"] not in text:
+            head, sep, last = text.rpartition(". ")
+            note = f"{ch['name']} is here, ready to talk."
+            text = f"{head}{sep}{note} {last}" if sep else f"{note} {text}"
+        if not any(f"Ask {ch['name']}" in s for s in sugg):
+            sugg = [*sugg[:2], f"Ask {ch['name']} what they know"][:3]
+    return text, sugg
+
+
 def _validate(state: TurnState) -> dict[str, Any]:
     from financequest.campaign.narration import TurnReply
 
@@ -462,6 +477,9 @@ def _validate(state: TurnState) -> dict[str, Any]:
             break
         if extra_s not in sugg:
             sugg.append(extra_s)
+    text_out = out.text.strip()
+    if r.intent == "move" and r.location_key and not state.get("degraded"):
+        text_out, sugg = name_who_is_here(ctx, r.location_key, text_out, sugg)
     intent, ch_key = r.intent, r.challenge_key
     promised = None
     if intent not in ("challenge", "decision_intent") and not state.get("degraded") \
@@ -470,7 +488,7 @@ def _validate(state: TurnState) -> dict[str, Any]:
         if promised is not None:
             intent, ch_key = "challenge", promised["key"]
     reply = TurnReply(
-        text=out.text.strip(), speaker=C.speaker_name(ctx, speaker), intent=intent,
+        text=text_out, speaker=C.speaker_name(ctx, speaker), intent=intent,
         challenge_id=next((c["id"] for c in ctx.challenges if c["key"] == ch_key), None)
         if intent == "challenge" else None,
         location_key=r.location_key if r.intent == "move" else None,
@@ -515,7 +533,7 @@ def prepared_setup(ctx: C.AgentContext) -> SetupOut:
     p = ctx.pack
     docs = ", ".join(d["title"] for d in ctx.content["documents"]) or "the archives"
     chars = [c for c in ctx.content["characters"] if ctx.location_name(c["location"]) != c["location"]]
-    who = "; ".join(f"{c['name']} at {the(ctx.location_name(c['location']))}" for c in chars[:3])
+    who = "; ".join(f"{c['name']} at {the(ctx.location_name(c['location']))}" for c in chars[:5])
     known = [e["title"] for e in ctx.content["evidence"] if e["id"] in set(ctx.found)]
     if not known:  # the opening facts: free clues of the starting place, else of the first
         start = ctx.current["key"] if ctx.current else None
@@ -524,7 +542,7 @@ def prepared_setup(ctx: C.AgentContext) -> SetupOut:
     text = (
         f"Rain drums on the stained glass of the tavern in {p.setting}. The talk of the room is "
         f"{p.company_name}, {p.trade[:1].lower() + p.trade[1:]}. Your task: investigate, then decide "
-        f"what to do with your {ctx.budget} euros. {knows}The story runs {clock_label(ctx)}. "
+        f"what to do with your {ctx.budget} euros. {knows}In this story {clock.horizon_sentence(ctx.pack)}. "
         f"The Library holds {docs}. The {p.market_name} shows the price board and the crowd's "
         f"mood. {who + ' can be questioned. ' if who else ''}"
         "CommerzBuddy can be called at any time. What would you do?"
@@ -537,10 +555,6 @@ def the(name: str) -> str:
     return name if name.lower().startswith("the ") else f"the {name}"
 
 
-def clock_label(ctx: C.AgentContext) -> str:
-    from financequest.campaign import clock
-
-    return clock.horizon_label(ctx.pack)
 
 
 def _plan(state: SetupState) -> dict[str, Any]:

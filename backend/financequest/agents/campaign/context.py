@@ -320,6 +320,7 @@ def free_numbers(ctx: AgentContext, typed: str = "") -> list[Any]:
     nums += [c["dc"] for c in ctx.challenges]
     if ctx.news_shown and p.news:
         nums.append(int(p.news.get("time_skip_days", 0)))
+        nums.append(max(1, ctx.gv.clock_day - p.intro.story_day))  # the shown skip, from the clock
     nums += [cp.story_day for cp in p.checkpoints if ctx.gv.at_checkpoint(cp.id)]
     for text in [typed, *ctx.player_texts]:
         nums += re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))
@@ -348,7 +349,7 @@ def stable_prefix(ctx: AgentContext) -> str:
     lines = [
         "# Reference data for this campaign (the only facts you may state)",
         f"Campaign: {p.title}. Setting: {p.setting}. Company: {p.company_name} ({p.trade}).",
-        f"Market: {p.market_name}. Budget: {ctx.budget} euros. Horizon: {clock.horizon_label(p)}.",
+        f"Market: {p.market_name}. Budget: {ctx.budget} euros. Horizon: {clock.horizon_sentence(p)}.",
         f"Checkpoint {c['checkpoint']}, story day {c['story_day']}.",
         "", "## Evidence visible now (id | location | title | text)",
     ]

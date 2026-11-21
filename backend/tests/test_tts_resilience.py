@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """TTS: bounded concurrency, per-sentence timeout and retry, quick 503, deduped requests."""
 
 import asyncio

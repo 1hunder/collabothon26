@@ -18,13 +18,18 @@ def after_news(pack: Pack, current_day: int) -> tuple[str, int]:
     return pack.cp_by_role("disclosure").id, max(current_day, pack.decision_day)
 
 
-def time_skip_label(pack: Pack) -> str:
-    days = int(pack.news["time_skip_days"]) if pack.news else 0
-    return f"{days} days later…"
+def time_skip_label(pack: Pack, from_day: int, to_day: int) -> str:
+    """The news skip, from the same story days the clock moves between."""
+    return f"{max(1, to_day - from_day)} days later…"
 
 
 def horizon_label(pack: Pack) -> str:
+    """Time from the decision to the result (the post-decision skip uses the same number)."""
     return f"about {pack.horizon_days} days"
+
+
+def horizon_sentence(pack: Pack) -> str:
+    return f"your result is judged {horizon_label(pack)} after you decide"
 
 
 def horizon_skip_label(pack: Pack) -> str:

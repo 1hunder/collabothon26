@@ -71,7 +71,6 @@ class NewsPointOut(BaseModel):
     real_date: str
     real_price: str
     headline: str
-    detail: str = ""
 
 
 class RevealOut(BaseModel):
@@ -193,7 +192,7 @@ def _real_news_point(b: dict[str, Any], bundled: dict[str, tuple[str, str]]) -> 
         head, text = bundled[b["evidence_id"]]
     return NewsPointOut(
         story_day=int(b["day"]), real_date=b["date"], real_price=str(b["price"]),
-        headline=head or text, detail=text if head else "",
+        headline=head or text,
     )  # fmt: skip
 
 

@@ -134,7 +134,11 @@ class AgentNarration:
             effort="low", max_words=HINT_WORDS, question=True, spoilers=True, llm_context={"target": target},
             template=f"Try the {where}: something there is worth reading. Will you go?",
         )  # fmt: skip
-        return TurnReply(text=text, degraded=degraded, intent="hint")
+        sugg = [f"Go to the {where}"]
+        for extra_s in default_suggestions(ctx):
+            if len(sugg) < 3 and extra_s not in sugg:
+                sugg.append(extra_s)
+        return TurnReply(text=text, degraded=degraded, intent="hint", suggestions=sugg[:3])
 
     def summarize(self, ctx: C.AgentContext) -> str:
         found = ", ".join((ctx.evidence_by_id(i) or {}).get("title", i) for i in ctx.found)
@@ -194,7 +198,10 @@ class AgentNarration:
                 "question": out.reflection_question}  # fmt: skip
 
     # ---- xp ----------------------------------------------------------------------------------------
-    def xp(self, rubric: tuple[tuple[str, int], ...], texts: dict[str, str]) -> list[RawScore]:
+    def xp(
+        self, rubric: tuple[tuple[str, int], ...], texts: dict[str, str],
+        decision: dict[str, Any] | None = None,
+    ) -> list[RawScore]:
         """The evaluator sees only the rubric and the player's own words, never P&L, HP or dice;
         the engine clamps, quote-checks and loss-word-scans whatever comes back."""
         from langchain_core.messages import HumanMessage, SystemMessage
@@ -203,26 +210,50 @@ class AgentNarration:
             "Rubric (category: max): " + "; ".join(f"{n}: {m}" for n, m in rubric)
             + f"\n\nPlayer's written evidence:\n{texts.get('evidence', '')}"
             + f"\n\nPlayer's reflection:\n{texts.get('reflection', '')}"
+            + _decision_facts(decision)
         )  # fmt: skip
         try:
             res = self.llm.run(
                 "campaign_xp",
                 [SystemMessage(content=prompts.XP), HumanMessage(content=user)],
-                schema=XpOut, effort="high", context={"rubric": rubric, "texts": texts},
+                schema=XpOut, effort="high",
+                context={"rubric": rubric, "texts": texts, "decision": decision},
             )
             parsed = res.parsed
             if res.refused or not isinstance(parsed, XpOut):
                 raise ValueError("no XP scores")
         except Exception as exc:  # noqa: BLE001
             log.warning("xp evaluator failed, using heuristic scores: %s", exc)
-            return heuristic_xp(rubric, texts)
+            return heuristic_xp(rubric, texts, decision)
         return [RawScore(s.category, int(s.score), s.rationale, s.quote) for s in parsed.scores]
 
 
-def heuristic_xp(rubric: tuple[tuple[str, int], ...], texts: dict[str, str]) -> list[RawScore]:
+def _decision_facts(decision: dict[str, Any] | None) -> str:
+    if not decision:
+        return ""
+    pct, conf = decision.get("forecast_pct"), decision.get("confidence")
+    return (
+        "\n\nCommitted decision (explicit, set by the player on the decision form): "
+        f"action {decision.get('action')}; forecast {pct}% chance the price is higher at the "
+        f"horizon; confidence {conf}."
+    )
+
+
+def heuristic_xp(
+    rubric: tuple[tuple[str, int], ...], texts: dict[str, str], decision: dict[str, Any] | None = None
+) -> list[RawScore]:
     """Degraded scoring when the evaluator fails: clarity by length, never outcome."""
     out = []
+    pct = (decision or {}).get("forecast_pct")
     for name, mx in rubric:
+        if "forecast" in name.lower() and pct is not None:
+            conf = (decision or {}).get("confidence")
+            out.append(RawScore(
+                name, mx,
+                f"You committed to a {pct}% forecast"
+                + (f" with {conf} confidence." if conf else "."), "",
+            ))  # fmt: skip
+            continue
         src = texts["reflection"] if "eflection" in name else texts["evidence"]
         quote = excerpt(src, 60)
         score = min(mx, round(mx * min(len(src.strip()), 120) / 120))

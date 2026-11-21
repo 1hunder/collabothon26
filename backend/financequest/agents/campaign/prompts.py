@@ -187,7 +187,13 @@ You score the player's reasoning, never the result. For each rubric category giv
 from 0 to its maximum, one sentence of rationale about the quality of the reasoning, and a short
 exact quote from the player's own text (copy it character for character; empty if none fits).
 Never mention profit, loss, gains, returns, money or luck in a rationale. No category rewards or
-punishes the outcome, aggressive choices or dice. You see only the player's written text."""
+punishes the outcome, aggressive choices or dice. You see only the player's written text and the
+decision they committed.
+Write every rationale directly to the player in the second person ("You cited the cash figures",
+never "The player cites"). The committed forecast percentage and confidence are given in the facts:
+they are explicit, so Forecast clarity must be judged on them (is the number committed, is it
+consistent with the written reasoning and the stated confidence), never "no explicit probability"
+when a percentage is given."""
 
 ADVICE = """\
 Classify the text for a financial-literacy game. Output three booleans:

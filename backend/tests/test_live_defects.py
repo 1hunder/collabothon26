@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """@spec: 003-campaign-engine. Defects found in the live Enron run (D4 to D8)."""
 
 from __future__ import annotations
@@ -91,3 +92,96 @@ def test_d5_prompts_ban_mechanics() -> None:
 
     for p in (prompts.CAMPAIGN_MASTER, prompts.DICE, prompts.BUDDY):
         assert "Never mention" in p and "dice" in p
+
+
+# ---- D6: the hint carries 3 suggestions --------------------------------------------------------
+def test_d6_focus_hint_returns_three_suggestions(world: SimpleNamespace) -> None:  # noqa: F811
+    from sse_helpers import post_sse
+
+    _, done = post_sse(world.client, f"/campaigns/{world.cid}/focus/hint", world.h)
+    assert len(done["suggestions"]) == 3 and all(s.strip() for s in done["suggestions"])
+
+
+# ---- D7: XP feedback ----------------------------------------------------------------------------
+def test_d7_xp_feedback_is_second_person() -> None:
+    from financequest.campaign.xp import RawScore, to_second_person, validate_scores
+
+    assert to_second_person("The player cites the ledger.") == "You cite the ledger."
+    assert to_second_person("The player's forecast is clear.") == "Your forecast is clear."
+    assert to_second_person("The player has no plan.") == "You have no plan."
+    cats, _ = validate_scores(
+        (("Evidence literacy", 25),),
+        [RawScore("Evidence literacy", 20, "The player cites the cash figures.", "")], "x",
+    )
+    assert cats[0]["rationale"] == "You cite the cash figures."
+
+
+def test_d7_forecast_clarity_uses_the_committed_forecast_pct() -> None:
+    from financequest.agents.campaign.narration import AgentNarration
+    from financequest.llm import get_node_llm
+
+    rubric = (("Forecast clarity", 15),)
+    decision = {"action": "invest", "amount_eur": 300, "forecast_pct": 40, "confidence": "medium"}
+    texts = {"evidence": "I read the cash flow ledger twice.", "reflection": "Next time cash first."}
+    # the evaluator sees the committed forecast
+    llm = get_node_llm({"campaign_xp": [S.XpOut(scores=[S.XpScore(category="Forecast clarity", score=12, rationale="You committed to a number.")])]})
+    AgentNarration(llm).xp(rubric, texts, decision)  # type: ignore[arg-type]
+    seen = " ".join(str(m.content) for m in llm.calls_for("campaign_xp")[0].messages)  # type: ignore[attr-defined]
+    assert "forecast 40%" in seen and "medium" in seen
+    # the degraded scorer names it too, never "no explicit probability"
+    out = AgentNarration(get_node_llm({"campaign_xp": [RuntimeError("down")]})).xp(rubric, texts, decision)  # type: ignore[arg-type]
+    assert "40%" in out[0].rationale and "no explicit" not in out[0].rationale.lower()
+    assert out[0].score == 15
+
+
+def test_d7_xp_prompt_demands_second_person_and_uses_forecast() -> None:
+    from financequest.agents.campaign import prompts
+
+    assert "second person" in prompts.XP and "Forecast clarity" in prompts.XP
+
+
+def test_d7_shown_horizon_and_time_skip_use_the_same_story_days(client, enron) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
+    from sse_helpers import post_sse
+    from test_campaign_api import new_player, start
+
+    h = new_player(client)
+    cid, state = start(client, h)
+    first_day = state["story_day"]
+    seen: dict[str, Any] = {}
+    for i in range(12):  # keep acting until the news fires
+        ev, _ = post_sse(client, f"/campaigns/{cid}/actions", h, {"text": f"look around {i}"})
+        news = next((c for n, c in ev if n == "card" and c["kind"] == "news"), None)
+        if news:
+            seen = news
+            break
+    assert seen, "the news card never fired"
+    after = client.get(f"/campaigns/{cid}", headers=h).json()
+    skip = int(seen["time_skip_label"].split()[0])
+    assert skip == after["story_day"] - first_day  # the label is the clock's own jump
+    assert f"{after['scenario']['horizon_label']}".startswith("about ")
+
+
+# ---- D8: every campaign location has someone to talk to ------------------------------------------
+def test_d8_every_campaign_location_has_a_character(world: SimpleNamespace) -> None:  # noqa: F811
+    ctx = world.ctx()
+    seeds = [s["key"] for s in ctx.pack.seeds]
+    assert "exchange_steps" in seeds
+    for key in seeds:
+        here = [c for c in ctx.pack.characters if c.location.removeprefix("campaign:") == key]
+        assert here, f"nobody at {key}"
+    local = next(c for c in ctx.pack.characters if c.location.endswith("exchange_steps"))
+    evid = {e.id for e in ctx.pack.evidence if e.location.removeprefix("campaign:") == "exchange_steps"}
+    assert {i for ids in local.may_reveal.values() for i in ids} <= evid  # only what is already there
+    assert "Enron" not in local.name + local.role
+
+
+def test_d8_arrival_names_who_is_there_and_offers_to_ask(world: SimpleNamespace) -> None:  # noqa: F811
+    from sse_helpers import post_sse
+    from test_campaign_api import loc_id
+
+    state = world.client.get(f"/campaigns/{world.cid}", headers=world.h).json()
+    local = next(c for c in world.ctx().pack.characters if c.location.endswith("exchange_steps"))
+    _, done = post_sse(world.client, f"/campaigns/{world.cid}/move", world.h,
+                       {"location_id": loc_id(state, "exchange_steps")})  # fmt: skip
+    assert local.name in done["text"]
+    assert any(s.startswith(f"Ask {local.name}") for s in done["suggestions"])
