@@ -292,8 +292,10 @@ def _plan_normal_turn(
 
 _EXPLORE_RE = re.compile(
     r"\b(explore|exploring|travel|travelling|visit|leave|walk|wander|journey|go to|going to|"
-    r"head to|head over|head back|talk to|speak to|speak with|meet|new (?:place|places|location|"
-    r"locations|area|areas)|elsewhere|somewhere else|other (?:place|places|locations))\b"
+    r"head to|head over|head back|talk (?:to|with)|talking (?:to|with)|speak (?:to|with)|chat with|meet|"
+    r"(?:more|other|new|another|some) (?:npcs?|people|persons?|characters?|locals?|traders?|"
+    r"merchants?|witnesses?|someone|place|places|location|locations|area|areas)|"
+    r"elsewhere|somewhere else|someone else)\b"
 )
 
 
@@ -315,6 +317,10 @@ def _plan_scene_answer(
         # The model called it a decision but found no buy/sell/hold in it and neither did the
         # parser: it isn't an answer to the scene, so let the Master handle it as a normal turn.
         if reply.kind == "decision" and no_trade_words and reply.action not in ("buy", "sell", "hold"):
+            return _normal_turn_work(nar, ctx, text)
+        # A "hold" must be said: the model read "I want to talk with more NPCs" as holding.
+        # Without hold/wait/keep/pass wording (and no buy/sell), it is not an answer to the scene.
+        if reply.kind == "decision" and reply.action == "hold" and no_trade_words:
             return _normal_turn_work(nar, ctx, text)
         return reply
 
