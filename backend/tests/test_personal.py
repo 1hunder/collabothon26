@@ -334,3 +334,29 @@ def test_documents_are_saved_to_storage(client: TestClient, fake_mode: None) -> 
     st = get_storage()
     for name in ("case.md", "prices.csv", "manifest.json"):
         assert st.exists(f"quests/{job['id']}/{name}")
+
+
+def test_a_failed_daily_quest_is_not_restarted_by_polling(
+    client: TestClient, fake_mode: None
+) -> None:
+    """Regression: the page polls POST /quests/daily; a failed job used to start a new company on
+    every poll. Only the regenerate button may start again."""
+    from financequest.db.models_personal import GenerationJob
+
+    h = _player(client)
+    first = client.post("/quests/daily", headers=h).json()
+    _wait_ready(client, h, first["id"])
+    with Session(get_engine()) as s:
+        job = s.get(GenerationJob, __import__("uuid").UUID(first["id"]))
+        assert job is not None
+        job.status, job.step = "failed", "Failed"
+        s.add(job)
+        s.commit()
+    for _ in range(3):
+        again = client.post("/quests/daily", headers=h).json()
+        assert again["id"] == first["id"] and again["status"] == "failed"
+    with Session(get_engine()) as s:
+        n = len(s.exec(text("select id from generation_job")).all())
+    assert n == 1  # nothing new was started
+    regen = client.post("/quests/daily?regenerate=true", headers=h).json()
+    assert regen["id"] != first["id"]
