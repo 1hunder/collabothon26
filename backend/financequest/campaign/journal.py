@@ -32,16 +32,12 @@ def backlog(events: list[Event]) -> list[dict[str, Any]]:
             out.append({"seq": e.seq, "speaker": "You", "text": p.get("text", "")})
         elif e.type in ("dm_reply", "buddy_a"):
             who = "CommerzBuddy" if e.type == "buddy_a" else p.get("speaker", "Campaign Master")
-<<<<<<< HEAD
             # the event id is the reply's audio id (GET /tts/{id}): a resumed screen can still
             # play the server voice instead of the browser's
-            out.append({"seq": e.seq, "speaker": who, "text": p.get("text", ""), "audio_text_id": e.id})
-=======
-            entry = {"seq": e.seq, "speaker": who, "text": p.get("text", "")}
+            entry = {"seq": e.seq, "speaker": who, "text": p.get("text", ""), "audio_text_id": e.id}
             if p.get("speaker_kind") == "npc":
                 entry["speaker_kind"] = "npc"
             out.append(entry)
->>>>>>> origin/main
         elif e.type == "buddy_q":
             out.append({"seq": e.seq, "speaker": "You (to Buddy)", "text": p.get("text", "")})
     return out
