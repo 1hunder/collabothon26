@@ -554,7 +554,8 @@ def test_sse_event_order_and_headers(world: SimpleNamespace) -> None:
     assert order[0] == "status" and ev[0][1] == {"state": "writing"}
     assert order[-1] == "done" and order[-2] == "state"
     first_token = order.index("token")
-    assert set(order[1:first_token]) == set() and set(order[first_token:-2]) <= {"token", "card"}
+    # the speaker is announced right before the first token (name tab correct from the start)
+    assert order[1:first_token] == ["speaker"] and set(order[first_token:-2]) <= {"token", "card"}
     done = ev[-1][1]
     assert streamed_text(ev) == done["text"] and done["speaker"] and len(done["suggestions"]) == 3
     assert len(done["text"].split()) <= 150 and done["text"].strip().endswith("?")
