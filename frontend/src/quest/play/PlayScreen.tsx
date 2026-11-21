@@ -371,6 +371,12 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const inChoices = current !== null && advancedKey === current.key;
   const locKey = location?.key;
 
+  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
+    (state.phase !== 'lost' && current?.speaker === DM_NAME);
+  const mascot = !sheet && activeOverlay.kind === 'none' && (
+    <BuddyMascot onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />
+  );
+
   const dialogue = ((): React.ReactNode => {
     if (state.phase === 'lost') {
       return (
@@ -400,6 +406,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     if (inChoices) {
       return (
         <ChoiceList
+          mascot={mascot}
+          suggestions={current.suggestions}
           prompt={c.market_scene ? 'What do you do with your coins?' : undefined}
           purse={c.market_scene ? c.purse : undefined}
           canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
@@ -438,10 +446,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       </>
     );
   })();
-
-  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
-    (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
-  const showMascot = (masterSpeaking || inChoices) && !sheet && activeOverlay.kind === 'none';
 
   const openHotspot = (t: HotspotTarget): void => {
     stopVoice();
@@ -531,7 +535,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       ) : (
         <div className="relative">
           {dialogue}
-          {showMascot && <BuddyMascot onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />}
+          {!inChoices && masterSpeaking && mascot}
         </div>
       )}
     </VnStage>

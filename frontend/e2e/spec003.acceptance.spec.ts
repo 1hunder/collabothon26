@@ -23,7 +23,7 @@ async function newHero(page: Page, cls: RegExp, name = 'Lena'): Promise<void> {
 
 async function readUntilChoices(page: Page): Promise<void> {
   for (let i = 0; i < 60; i++) {
-    if ((await page.getByRole('region', { name: 'Your turn' }).count()) > 0) return;
+    if ((await page.getByRole('region', { name: 'Choices' }).count()) > 0) return;
     if ((await page.getByRole('dialog', { name: 'Dice check' }).count()) > 0) return;
     if ((await page.getByRole('article', { name: 'Breaking news' }).count()) > 0) return;
     const title = page.getByTestId('title-card');
@@ -42,6 +42,7 @@ async function goTo(page: Page, place: string): Promise<void> {
 }
 
 async function typeAction(page: Page, text: string): Promise<void> {
+  await page.getByRole('button', { name: 'Write your own action…' }).click();
   await page.getByRole('textbox').fill(text);
   await page.getByRole('button', { name: 'Send' }).click();
   await readUntilChoices(page);
