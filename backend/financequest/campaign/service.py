@@ -345,11 +345,16 @@ def purse(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
 
 
 def scenes_opened(db: Session, cid: uuid.UUID) -> list[str]:
-    return [
-        str((e.payload or {}).get("beat"))
-        for e in campaign_events(db, cid)
-        if e.type == "market_scene"
-    ]
+    """Beats of the scenes opened so far. A decision scene the player passed (they went elsewhere)
+    does not count as held: it is owed again, so the forecast can still be sealed."""
+    held: list[str] = []
+    for e in campaign_events(db, cid):
+        beat = str((e.payload or {}).get("beat"))
+        if e.type == "market_scene":
+            held.append(beat)
+        elif e.type == "scene_passed" and beat == "decision" and "decision" in held:
+            held.remove("decision")
+    return held
 
 
 def due_beat(db: Session, run: CampaignRun, pack: Pack, *, news_now: bool, asked: bool,
@@ -359,7 +364,11 @@ def due_beat(db: Session, run: CampaignRun, pack: Pack, *, news_now: bool, asked
     if run.phase != "play" or run.market_scene or run.pending or news_now:
         return None
     held = scenes_opened(db, run.id)
-    if "decision" not in held and investigation_done(db, run, pack) and (asked or run.news_shown):
+    passed = any(e.type == "scene_passed" and (e.payload or {}).get("beat") == "decision"
+                 for e in campaign_events(db, run.id))  # fmt: skip
+    if "decision" not in held and investigation_done(db, run, pack) and (
+        asked or (run.news_shown and not passed)  # a passed decision comes back only when asked
+    ):
         return "decision"
     if "decision" in held:
         return None

@@ -1,5 +1,6 @@
+import buddySprite from '../../assets/commerzbuddy-frames-gif/frame_15.png';
+import './BuddyMascot.css';
 import type { DmStream } from '../../api/useDmStream';
-import BuddyToken from './BuddyToken';
 import DialogueBox, { BUDDY_NAME, type VoiceKind } from './DialogueBox';
 import { BUDDY_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
 
@@ -17,8 +18,7 @@ interface BuddySceneProps {
 }
 
 /**
- * CommerzBuddy on call: the token sits beside the dialogue box, Buddy speaks under the verdigris
- * name tab, and a question box is open. Closing keeps the typed draft (sessionStorage).
+ * Closing the chat keeps the typed draft in sessionStorage.
  */
 export default function BuddyScene({ stream, onClose, onPageShown, onAsked, screen }: BuddySceneProps): React.JSX.Element {
   const [draft, setDraft] = useSessionDraft(BUDDY_DRAFT_KEY);
@@ -39,7 +39,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
 
   return (
     <section aria-label="CommerzBuddy" className="relative">
-      <BuddyToken size={64} className="absolute -top-[72px] right-6 animate-summon motion-reduce:animate-none" />
+      <img src={buddySprite} alt="" draggable={false} className="buddy-mascot" />
       {state.phase === 'lost' ? (
         <div role="alert" className="mx-3 rounded-lg bg-quest-lapis/95 p-4 font-quest text-quest-vellum">
           <p>CommerzBuddy lost the thread.</p>

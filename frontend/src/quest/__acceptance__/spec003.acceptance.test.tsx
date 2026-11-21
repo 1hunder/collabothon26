@@ -31,7 +31,7 @@ import DialogueBox from '../play/DialogueBox';
 import DiceMoment, { TUMBLE_MS, type DiceApi } from '../play/DiceMoment';
 import ChoiceList from '../play/ChoiceList';
 import { artSrc } from '../play/artSrc';
-import { readParchment, readToChoices, setupPlay, skipTitle, typeSend } from '../play/playTestUtils';
+import { readParchment, readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
 import SceneArt from '../play/SceneArt';
 import Commit from '../screens/Commit';
 import Debrief from '../screens/Debrief';
@@ -75,13 +75,16 @@ async function enterTavern(user: User): Promise<void> {
   await readToChoices(user);
   await skipTitle(user);
 }
-async function send(user: User, name: string | RegExp): Promise<void> {
-  await typeSend(user, String(name));
+async function typeText(user: User, text: string): Promise<void> {
+  await user.type(screen.getByRole('textbox'), text);
+  await user.click(screen.getByRole('button', { name: 'Send' }));
+}
+async function send(user: User, text: string): Promise<void> {
+  await typeText(user, text);
   await readToChoices(user);
 }
 async function typeAction(user: User, text: string, stopAt?: () => boolean): Promise<void> {
-  await user.type(screen.getByRole('textbox'), text);
-  await user.click(screen.getByRole('button', { name: 'Send' }));
+  await typeText(user, text);
   await readToChoices(user, stopAt);
 }
 async function goTo(user: User, place: string): Promise<void> {
@@ -139,14 +142,14 @@ describe('2.1 First entry: create your hero', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/quest/disclosure'));
     expect(readDb().hero).toMatchObject({ name: 'Lena', class: 'analyst' });
   });
-  it('2.1-AC6 a player with a hero opens the disclosure directly', async () => {
+  it('2.1-AC6 a player with a hero opens play directly', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'guardian' });
     const router = renderRoutes(
-      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/disclosure', <QuestDisclosure />) }, { path: '/quest/hero/new', element: <p>creation</p> }],
+      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/disclosure', <QuestDisclosure />) }, { path: '/quest/play', element: <p>playing</p> }, { path: '/quest/hero/new', element: <p>creation</p> }],
       ['/quest'],
     );
-    expect(await screen.findByRole('button', { name: 'Got it' })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/quest/disclosure');
+    expect(await screen.findByText('playing')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/play');
     expect(screen.queryByText('creation')).not.toBeInTheDocument();
   });
   it('2.1-AC7 after a finished campaign a new one keeps name, class and total XP, and HP starts fresh', () => {
@@ -200,18 +203,15 @@ describe('2.3 Choosing the quest', () => {
   const routes = [guard('/quest/disclosure', <QuestDisclosure />), guard('/quest/play', <PlayScreen />)];
   beforeEach(() => void fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' }));
 
-  it('2.3-AC2 the disclosure opens directly and "Got it" opens the first scene', async () => {
+  it('2.3-AC2 starting opens the first scene directly', async () => {
     renderRoutes(routes, ['/quest/disclosure']);
-    expect(await screen.findByText(/This story is real market history\. We've hidden the company's name, the dates and the price level\. You'll find out who it was at the end\./)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
   });
   it('2.3-AC3 the opening scene is in the Tavern with the Tavern background and the briefing', async () => {
     renderRoutes(routes, ['/quest/disclosure']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     await screen.findByTestId('name-tab');
     expect(screen.getAllByText('Tavern').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
+    expect(await screen.findByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Gilded Tavern/);
   });
@@ -246,33 +246,34 @@ describe('2.4 Scenes and turns', () => {
     await userEvent.click(box);
     expect(screen.getByText('2 / 3')).toBeInTheDocument();
   });
-  it('2.4-AC4 after the last page: "What would you do?" with only a text box (no preset options)', async () => {
+  it('2.4-AC4 after the last page: "What would you do?" and a text input, no suggestion buttons', async () => {
     setupPlay('analyst');
     await readToChoices(userEvent.setup());
-    const list = screen.getByRole('region', { name: 'Choices' });
-    expect(within(list).getByLabelText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['Send']);
+    const list = screen.getByRole('region', { name: 'Your turn' });
+    expect(within(list).getByText('What would you do?')).toBeInTheDocument();
+    expect(within(list).getByRole('textbox')).toBeInTheDocument();
+    expect(within(list).queryByRole('button', { name: 'Write your own action…' })).not.toBeInTheDocument();
     for (const s of readDb().campaign?.suggestions ?? []) expect(within(list).queryByRole('button', { name: s })).not.toBeInTheDocument();
   });
-  it('2.4-AC5 a written action is sent as typed', async () => {
+  it('2.4-AC5 typing an action and pressing Send sends it', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await send(user, 'Ask the barkeep what people say about the guild');
     expect(readDb().play?.events.some((e) => e.type === 'action' && e.text === 'Ask the barkeep what people say about the guild')).toBe(true);
   });
-  it('2.4-AC6 the text box and its send button are shown straight away', async () => {
+  it('2.4-AC6 the text box and send button are always there', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-      expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
   });
   it('2.4-AC7 the send button is disabled for an empty or whitespace-only text box', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     await user.type(screen.getByRole('textbox'), '    ');
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
@@ -281,14 +282,14 @@ describe('2.4 Scenes and turns', () => {
     setupPlay('analyst');
     await enterTavern(user);
     vi.spyOn(sse, 'postSse').mockImplementation(() => new Promise<void>(() => undefined));
-    await typeSend(user, 'Ask the barkeep what people say about the guild');
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     expect(screen.getByRole('status')).toHaveTextContent('The Campaign Master is writing…');
   });
   it('2.4-AC8b the reply then appears in the dialogue box and the earlier turn is in the backlog', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await typeSend(user, 'Ask the barkeep what people say about the guild');
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     await user.click(await screen.findByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/scholar|figures|crowd/);
     await readToChoices(user);
@@ -326,7 +327,7 @@ describe('2.4 Scenes and turns', () => {
     setupPlay('analyst');
     await enterTavern(user);
     const spy = vi.spyOn(sse, 'postSse').mockImplementation(() => new Promise<void>(() => undefined));
-    await typeSend(user, 'Walk to Market Square and study the price board');
+    await typeText(user, 'Walk to Market Square and study the price board');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(FIRST_EVENT_TIMEOUT_MS);
     });
@@ -352,15 +353,14 @@ describe('2.4 Scenes and turns', () => {
       writeDb(db);
     }
   }
-  it('2.4-AC14 once every reachable clue is shown, "I\'m ready to decide" appears below the text box', async () => {
+  it('2.4-AC14 once every reachable clue is shown, "I\'m ready to decide" appears under the text input', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     readyToDecide();
     await send(user, 'Walk to Market Square and study the price board');
-    const list = screen.getByRole('region', { name: 'Choices' });
-    const labels = within(list).getAllByRole('button').map((b) => b.textContent);
-    expect(labels).toEqual(['Send', "I'm ready to decide"]);
+    const list = screen.getByRole('region', { name: 'Your turn' });
+    expect(within(list).getByRole('button', { name: "I'm ready to decide" })).toBeInTheDocument();
   });
   it('2.4-AC15 typing "I want to decide" makes the Campaign Master ask "Ready to make your decision?" with the button', async () => {
     const user = userEvent.setup();
@@ -646,7 +646,7 @@ describe('2.6 Locations', () => {
     await readToChoices(user);
     expect(screen.queryByTestId('scene-art')).not.toBeInTheDocument();
     expect(screen.getAllByText('The Lamp Works').length).toBeGreaterThan(0);
-    expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your turn' })).toBeInTheDocument();
   });
   it('2.6-AC12 ready campaign art replaces the placeholder (served by the API)', () => {
     expect(artSrc(loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'ready' }))).toMatch(/\/locations\/abc\/art$/);
@@ -683,14 +683,13 @@ describe('2.7 CommerzBuddy', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: /Buddy/ })).toBeVisible(), { timeout: 1500 });
     }
   });
-  it('2.7-AC2 tapping Buddy summons the token, the tab reads "CommerzBuddy" and a text box opens', async () => {
+  it('2.7-AC2 tapping Buddy opens the CommerzBuddy tab and question box', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await user.click(choiceButton('Buddy'));
     expect(screen.getByTestId('name-tab')).toHaveTextContent('CommerzBuddy');
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toBeInTheDocument();
-    expect(document.querySelector('svg.animate-summon')).not.toBeNull();
   });
   it('2.7-AC3 Buddy answers "What is a drawdown?" in plain language within 120 words', async () => {
     const user = userEvent.setup();
@@ -729,7 +728,7 @@ describe('2.7 CommerzBuddy', () => {
     await user.click(choiceButton('Buddy'));
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawd');
     await user.click(screen.getByRole('button', { name: 'Close Buddy' }));
-    expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your turn' })).toBeInTheDocument();
     await user.click(choiceButton('Buddy'));
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toHaveValue('What is a drawd');
   });
@@ -889,10 +888,10 @@ describe('2.10 Voice narration', () => {
   };
   const spoken = (i: { calls: string[] }) => i.calls.filter((c) => c.startsWith('speak:'));
 
-  it('2.10-AC1 a player who never touched voice: Got it unlocks sound and the opening is read, voice shown on', async () => {
-    fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' });
-    renderRoutes([guard('/quest/disclosure', <QuestDisclosure />), guard('/quest/play', <PlayScreen />)], ['/quest/disclosure']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
+  it('2.10-AC1 a player who never touched voice: Begin unlocks sound and the opening is read, voice shown on', async () => {
+    renderRoutes([{ path: '/quest/hero/new', element: <HeroCreate /> }, { path: '/quest/disclosure', element: <p>starting</p> }], ['/quest/hero/new']);
+    await userEvent.click(screen.getByRole('radio', { name: /Guardian/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     expect(unlockVoice).toHaveBeenCalled();
     cleanup();
     const impl = fakeImpl();
@@ -906,7 +905,7 @@ describe('2.10 Voice narration', () => {
     const impl = fakeImpl();
     withVoice(impl);
     await enterTavern(user);
-    await typeSend(user, 'Ask the barkeep what people say about the guild');
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     await user.click(await screen.findByTestId('dialogue-box'));
     await waitFor(() => expect(spoken(impl).length).toBeGreaterThan(1));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/./);
@@ -949,7 +948,7 @@ describe('2.10 Voice narration', () => {
     withVoice(impl);
     await enterTavern(user);
     const before = impl.calls.filter((c) => c === 'stop').length;
-    await typeSend(user, 'Ask the barkeep what people say about the guild');
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     expect(impl.calls.filter((c) => c === 'stop').length).toBeGreaterThan(before);
   });
   it('2.10-AC7 Buddy is read with the Buddy voice, different from the Campaign Master voice', async () => {
@@ -978,7 +977,7 @@ describe('2.10 Voice narration', () => {
     const impl = fakeImpl();
     withVoice(impl);
     await enterTavern(user);
-    await typeSend(user, 'Ask the barkeep what people say about the guild');
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     await user.click(await screen.findByTestId('dialogue-box'));
     await waitFor(() => expect(spoken(impl).length).toBeGreaterThan(1));
   });
@@ -1342,12 +1341,28 @@ describe('2.17 Focus and items', () => {
     setupPlay('guardian');
     expect(await screen.findByText('Focus: 3')).toBeInTheDocument();
   });
-  it('2.17-AC2 the choices offer no "Ask for a hint" and no "Chase a bonus lead"', async () => {
+  it('2.17-AC2 "Ask for a hint" names where a clue waits and the status shows one Focus less', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    expect(screen.queryByRole('button', { name: 'Ask for a hint' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Chase a bonus lead' })).not.toBeInTheDocument();
+    await user.click(choiceButton('Ask for a hint'));
+    await readToChoices(user);
+    expect(screen.getByText('Focus: 2')).toBeInTheDocument();
+    expect(readDb().play?.events.find((e) => e.type === 'dm_reply' && String(e.text).includes('Library'))).toBeTruthy();
+  });
+  it('2.17-AC3 "Chase a bonus lead" opens a difficulty 18 check and the status shows one Focus less', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    await user.click(choiceButton('Chase a bonus lead'));
+    const dice = await screen.findByRole('dialog', { name: 'Dice check' });
+    expect(within(dice).getByText(/Difficulty 18/)).toBeInTheDocument();
+    expect(screen.getByText('Focus: 2')).toBeInTheDocument();
+  });
+  it('2.17-AC4 with 0 Focus both Focus buttons are disabled', () => {
+    render(<ChoiceList canDecide={false} focusLeft={0} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Ask for a hint' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Chase a bonus lead' })).toBeDisabled();
   });
   it('2.17-AC5 finishing with 70 XP or more lists the "Ratio Lens" on the hero screen with its description', async () => {
     seedCampaign({ phase: 'xp', heroClass: 'analyst', decision: investDecision });
@@ -1408,8 +1423,8 @@ describe('2.18 Look and feel', () => {
     expect(fonts['quest-title']?.[0]).toBe('Pirata One');
     render(<DialogueBox speaker="Campaign Master" text="Hello there." onAdvance={() => undefined} />);
     expect(screen.getByTestId('dialogue-text').className).toMatch(/font-quest\b/);
-    render(<ChoiceList canDecide={false} onSend={vi.fn()} onDecide={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Send' }).className).toMatch(/font-quest-sans/);
+    render(<ChoiceList canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Ask for a hint' }).className).toMatch(/font-quest-sans/);
   });
   it('2.18-AC3 the die tumbles for about one second before the result is shown', () => {
     expect(TUMBLE_MS).toBeGreaterThanOrEqual(800);

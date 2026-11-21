@@ -63,7 +63,7 @@ class TurnOut(BaseModel):
 class DecideOut(BaseModel):
     """The player's written answer in a decision scene. The engine clamps every amount."""
 
-    kind: Literal["decision", "question"] = "decision"
+    kind: Literal["decision", "question", "other"] = "decision"
     action: Literal["buy", "sell", "hold"] | None = None
     amount_eur: int | None = Field(default=None, description="Euro amount named, whole number")
     portion: Literal["all", "most", "half", "some"] | None = None

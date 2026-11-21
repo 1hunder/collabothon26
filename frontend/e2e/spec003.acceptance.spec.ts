@@ -18,13 +18,12 @@ async function newHero(page: Page, cls: RegExp, name = 'Lena'): Promise<void> {
   await page.getByLabel('Name').fill(name);
   await page.getByRole('radio', { name: cls }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL(/\/quest\/play$/);
 }
 
 async function readUntilChoices(page: Page): Promise<void> {
   for (let i = 0; i < 60; i++) {
-    if ((await page.getByRole('region', { name: 'Choices' }).count()) > 0) return;
+    if ((await page.getByRole('region', { name: 'Your turn' }).count()) > 0) return;
     if ((await page.getByRole('dialog', { name: 'Dice check' }).count()) > 0) return;
     if ((await page.getByRole('article', { name: 'Breaking news' }).count()) > 0) return;
     const title = page.getByTestId('title-card');
@@ -165,12 +164,15 @@ test.describe('spec 003 user flows', () => {
     await expect(page.getByRole('button', { name: 'Voice', exact: true })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('2.17-AC2 the choices are a text box only: no hint and no bonus lead', tag, async ({ page }) => {
+  test('2.17-AC2/AC3 hint and bonus lead each cost one Focus', tag, async ({ page }) => {
     await newHero(page, /Guardian/);
     await readUntilChoices(page);
-    await expect(page.getByRole('textbox')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Ask for a hint' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Chase a bonus lead' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Ask for a hint' }).click();
+    await readUntilChoices(page);
+    await expect(page.getByRole('button', { name: 'Hero status' })).toContainText('Focus: 2');
+    await page.getByRole('button', { name: 'Chase a bonus lead' }).click();
+    await expect(dice(page)).toContainText('Difficulty 18');
+    await expect(page.getByRole('button', { name: 'Hero status' })).toContainText('Focus: 1');
   });
 
   test('2.7-AC1b Buddy is reachable from the commit screen', tag, async ({ page }) => {

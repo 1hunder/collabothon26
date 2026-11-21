@@ -26,7 +26,7 @@ export function setupPlay(heroClass: HeroClass = 'analyst', props: React.Compone
   );
 }
 
-const choices = (): HTMLElement | null => screen.queryByRole('region', { name: 'Choices' });
+const choices = (): HTMLElement | null => screen.queryByRole('region', { name: 'Your turn' });
 
 /** Tap through every page of the current reply until the choices appear (or an overlay opens). */
 export async function readToChoices(user: UserEvent, stopAt: () => boolean = () => false): Promise<void> {
@@ -37,14 +37,6 @@ export async function readToChoices(user: UserEvent, stopAt: () => boolean = () 
     if (box) await user.click(box);
     else await new Promise((r) => window.setTimeout(r, 10));
   }
-}
-
-/** Writes an action in the text box and sends it (the choices are an input field only). */
-export async function typeSend(user: UserEvent, text: string): Promise<void> {
-  const box = await screen.findByRole('textbox');
-  await user.clear(box);
-  await user.type(box, text);
-  await user.click(screen.getByRole('button', { name: 'Send' }));
 }
 
 export async function skipTitle(user: UserEvent): Promise<void> {

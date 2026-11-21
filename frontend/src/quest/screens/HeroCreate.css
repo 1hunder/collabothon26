@@ -46,7 +46,11 @@
   border-color: #ffdd82;
   box-shadow: 0 0 12px #dc963caa, inset 0 0 0 2px #745025;
 }
-.class-art { display: block; aspect-ratio: 1.32; }
+.class-art {
+  width: 100%;
+  aspect-ratio: 1.32;
+  object-fit: contain;
+}
 .class-title { font-size: clamp(1.65rem, 7vw, 2.2rem); line-height: 1.05; }
 .class-rule { margin: .25rem 0; }
 .class-rule::before, .class-rule::after { width: 20%; }

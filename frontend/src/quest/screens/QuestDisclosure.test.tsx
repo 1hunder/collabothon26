@@ -40,35 +40,38 @@ function setup(newHero = false) {
 }
 
 describe('QuestDisclosure', () => {
-  it('returns to the saved character when disclosure follows hero creation', async () => {
-    setup(true);
-    await screen.findByRole('button', { name: 'Got it' });
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByRole('textbox', { name: 'Name' })).toHaveValue('Mira');
-    expect(screen.getByRole('radio', { name: /The Guardian/ })).toBeChecked();
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByRole('button', { name: 'Got it' })).toBeInTheDocument();
-  });
-
-  it('shows disclosure before creating a campaign with no interests', async () => {
+  it('starts a campaign without a confirmation step', async () => {
     setup();
-    expect(await screen.findByText(/This story is real market history/)).toBeInTheDocument();
-    expect(readDb().campaign).toBeNull();
-    expect(getQuestMeta().disclosureSeen).toBe(false);
-    await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(await screen.findByText('play screen')).toBeInTheDocument();
     expect(readDb().campaign?.interests).toEqual([]);
-    expect(getQuestMeta()).toMatchObject({ disclosureSeen: true, campaignId: readDb().campaign?.id });
+    expect(getQuestMeta()).toMatchObject({ campaignId: readDb().campaign?.id });
+  });
+
+  it('lets the player retry a failed campaign start', async () => {
+    const request = client.request;
+    let attempts = 0;
+    const spy = vi.spyOn(client, 'request').mockImplementation((method, path, body) => {
+      if (method === 'POST' && path === '/campaigns' && ++attempts === 1) {
+        return Promise.reject(new Error('Offline'));
+      }
+      return request(method, path, body);
+    });
+    try {
+      setup();
+      await userEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+      expect(await screen.findByText('play screen')).toBeInTheDocument();
+      expect(attempts).toBe(2);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
 describe('QuestDisclosure with a personal quest picked on the card', () => {
-  it('names it, sends its scenario and interest, and clears the pick', async () => {
+  it('sends its scenario and interest, and clears the pick', async () => {
     setQuestPick({ scenarioId: 'fixture-lumen', category: 'music', categoryLabel: 'Music & streaming' });
     const spy = vi.spyOn(client, 'request');
     setup();
-    expect(await screen.findByText(/Your quest is ready: Music & streaming/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(await screen.findByText('play screen')).toBeInTheDocument();
     expect(spy).toHaveBeenCalledWith('POST', '/campaigns', { interests: ['Music'], scenario_id: 'fixture-lumen' });
     expect(getQuestPick()).toBeNull();

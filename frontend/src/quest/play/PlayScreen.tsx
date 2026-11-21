@@ -9,6 +9,7 @@ import { useVoice } from '../../voice';
 import { inertVoice } from '../../voice/context';
 import Backlog from './Backlog';
 import BreakingNewsCard from './BreakingNewsCard';
+import BuddyMascot from './BuddyMascot';
 import BuddyScene from './BuddyScene';
 import { normalizeCard, type QuestCard } from './cards';
 import { MarketMoment, TradeReceipt } from './DecisionCards';
@@ -326,6 +327,16 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     }
   };
 
+  const bonusLead = async (): Promise<void> => {
+    try {
+      const card = normalizeCard(await request<Record<string, unknown>>('POST', `${base}/focus/bonus-lead`));
+      refresh();
+      if (card?.kind === 'dice') setOverlay({ kind: 'dice', card });
+    } catch {
+      refresh();
+    }
+  };
+
   const toggleVoice = (): void => {
     if (onToggleVoice) onToggleVoice();
     else if (hasProvider) voiceApi.toggle();
@@ -392,8 +403,15 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           prompt={c.market_scene ? 'What do you do with your coins?' : undefined}
           purse={c.market_scene ? c.purse : undefined}
           canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
+          focusLeft={c.focus_left}
+          bonusLeadAvailable={c.bonus_lead_available}
           onSend={sendAction}
           onDecide={() => void decide()}
+          onHint={() => {
+            stopVoice();
+            dm.send({}, `${base}/focus/hint`);
+          }}
+          onBonusLead={() => void bonusLead()}
         />
       );
     }
@@ -420,6 +438,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       </>
     );
   })();
+
+  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
+    (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
+  const showMascot = masterSpeaking && !sheet && activeOverlay.kind === 'none';
 
   const openHotspot = (t: HotspotTarget): void => {
     stopVoice();
@@ -512,7 +534,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       {buddyOpen ? (
         <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
-        dialogue
+        <div className="relative">
+          {dialogue}
+          {showMascot && <BuddyMascot onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />}
+        </div>
       )}
     </VnStage>
   );
