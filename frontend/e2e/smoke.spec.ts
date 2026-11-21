@@ -168,15 +168,15 @@ const leaveText = 'Leave the quest? You can continue where you left off.';
 test('Overview Start opens the quest without shell chrome; close dialog Stay and Leave work', async ({ page }) => {
   await unlock(page);
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await expect(page).toHaveURL(/\/quest$/);
-  await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+  await expect(page).toHaveURL(/\/quest\/hero\/new$/);
+  await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   await expect(page.getByRole('navigation')).toHaveCount(0);
   await page.getByRole('button', { name: 'Close quest' }).click();
   await expect(page.getByText(leaveText)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Leave' })).toBeVisible();
   await page.getByRole('button', { name: 'Stay' }).click();
   await expect(page.getByText(leaveText)).toHaveCount(0);
-  await expect(page).toHaveURL(/\/quest$/);
+  await expect(page).toHaveURL(/\/quest\/hero\/new$/);
   await page.getByRole('button', { name: 'Close quest' }).click();
   await page.getByRole('button', { name: 'Leave' }).click();
   await expect(page).toHaveURL(/\/overview$/);
@@ -186,8 +186,8 @@ test('Overview Start opens the quest without shell chrome; close dialog Stay and
 test('StartDepot quest entry: browser back shows the leave dialog, Leave returns to StartDepot', async ({ page }) => {
   await openStartDepotFromOverview(page);
   await page.getByRole('button', { name: 'Start your first quest' }).click();
-  await expect(page).toHaveURL(/\/quest$/);
-  await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+  await expect(page).toHaveURL(/\/quest\/hero\/new$/);
+  await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   // The router registers its blocker in an effect after the first paint; let two frames pass before going back.
   await page.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
   await page.goBack();
@@ -198,7 +198,7 @@ test('StartDepot quest entry: browser back shows the leave dialog, Leave returns
 });
 
 async function leaveQuest(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   await page.getByRole('button', { name: 'Close quest' }).click();
   await page.getByRole('button', { name: 'Leave' }).click();
   await expect(page).toHaveURL(/\/overview$/);
@@ -217,8 +217,8 @@ test('unfinished quest: Overview and StartDepot cards show Continue, balances un
   await expect(page.getByText('Quest in progress')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start your first quest' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page).toHaveURL(/\/quest$/);
-  await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+  await expect(page).toHaveURL(/\/quest\/hero\/new$/);
+  await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
 });
 
 test('unfinished quest survives a reload; corrupt storage falls back to Start', async ({ page }) => {
@@ -231,12 +231,27 @@ test('unfinished quest survives a reload; corrupt storage falls back to Start', 
   await unlock(page);
   await expect(page.getByText('Quest in progress')).toBeVisible();
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   await leaveQuest(page);
-  await page.evaluate("localStorage.setItem('fq.quest.v1', '{bad')");
+  await page.evaluate("localStorage.setItem('fq.quest.v2', '{bad')");
   await page.reload();
   await unlock(page);
   await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible();
   await expect(page.getByText('Quest in progress')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('new player: hero creation, interests, disclosure note, then play', async ({ page }) => {
+  await unlock(page);
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Begin' })).toBeDisabled();
+  await page.getByRole('radio', { name: /Analyst/ }).click();
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page).toHaveURL(/\/quest\/interests$/);
+  await expect(page.getByRole('button', { name: 'Find my quest' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Tech' }).click();
+  await page.getByRole('button', { name: 'Find my quest' }).click();
+  await page.getByRole('button', { name: 'Got it' }).click();
+  await expect(page).toHaveURL(/\/quest\/play$/);
+  await expect(page.getByRole('navigation', { name: 'Quest dock' })).toBeVisible();
 });

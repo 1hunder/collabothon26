@@ -1,0 +1,207 @@
+# Spec 003: Final wire contract (backend <-> frontend)
+
+- **Status:** implemented in `backend/financequest` and verified by `backend/tests/test_api_contract.py` plus a live run (see the end).
+- **Sources:** tech spec §2.5 (003), §2.5 (002), `context/product/shared-contracts-002-003.md`, and what the frontend (`frontend/src/api`, `quest/play`, `quest/screens`) expects.
+- **Rule used to settle a field:** the spec wins where it is specific; where the spec is silent the frontend's shape wins if it is reasonable (it is the only reader of the field); a field that carries a number the player sees is a JSON number computed by the server (the frontend never calculates a figure).
+
+## 0. Common rules
+
+| Topic | Contract |
+|---|---|
+| Session | `POST /session` -> `{session_id}`. Every other endpoint needs header `X-Session-Id`; missing or unknown -> **401** (the client re-creates its session once). Exceptions without the header: `GET /locations/{id}/art`, `GET /tts/{id}` (browser `<img>`/`<audio>`), `/healthz`, `GET /scenarios/playable`, `GET /scenario/{id}/view`. |
+| Error envelope | **Every** error, including framework errors, is `{"error": {"code", "message", ...extra}}`. Extra keys: `fields` (422, `{field: message}`), `campaign_id` (409 `campaign_in_progress`), `alt_source` (409 `already_resolved`). The frontend today only reads the HTTP status (401 Unauthorized, 403 RevealLocked, 404 NotFound, 409 Conflict, 422 Validation). |
+| Status codes | 404 unknown or foreign campaign; 409 wrong phase / not ready / roll open / no Focus; 422 validation; 403 only `GET /scenario/{id}/reveal` before decision + `debrief_complete`. |
+| Numbers | Anything shown to the player as a price or amount of money is a JSON **number** (computed with `Decimal` server side, serialised at the edge, at most 4 decimals, always <= 10,000). Exception: the spec 002 endpoints `/scenario/{id}/view` and `/scenario/{id}/reveal` keep **decimal strings** (see D14). |
+| Time | Story days and labels only ("Day 91", "75 days later…"). The only wall-clock value on the wire is `finished_at` (a date, in the hero history). |
+| Cards | A card is `{kind: "dice" \| "news", ...}`. `kind` is the only discriminator, in SSE `card` events and in JSON responses alike (the pending-roll marker in `pending` keeps `type: "roll"`). |
+| Idempotency | `client_msg_id` on `actions`, `move`, `buddy` makes a repeat replay the stored reply (same text, same `audio_text_id`, `replayed: true`). |
+| IDs | UUID strings, except `audio_text_id` (integer event id). |
+
+## 1. Session and hero
+
+| Method, path | Request | Response |
+|---|---|---|
+| `POST /session` | - | `{session_id}` |
+| `GET /hero` | - | `Hero` or 404 `no_hero` |
+| `POST /hero` | `{name, class}` with `class` in `guardian \| analyst \| investigator` | 201 `Hero`; 409 `hero_exists`; 422 `invalid_name` (2-20 chars, letters, digits, space, `-`, `'`) or `validation_error` (bad class) |
+
+```
+Hero = {
+  name, class, total_xp,
+  items: [{id, key, name, description}],        // id == key, e.g. "ratio_lens"; same id as campaign.hero.items[]
+  history: [{campaign_id, interests[], total_xp, decision|null, result_pct|null, finished_at: "YYYY-MM-DD"}],
+  active_campaign_id: uuid | null
+}
+```
+
+## 2. Campaign state
+
+`POST /campaigns` (`{interests: string[]}`, 201) and `GET /campaigns/{id}` return the same `CampaignState`. `POST` also: 409 `hero_required`; 409 `campaign_in_progress` (+ `campaign_id`).
+
+```
+CampaignState = {
+  id, scenario_id, phase, status: "active"|"finished", version,
+  scenario: {title, company_name, trade, horizon_label, budget_eur, currency, spread_available},
+  hero: {name, class, total_xp, items: string[]},            // item ids
+  hp, hp_eur, focus_left, rerolls_left, keen_eye_left, bonus_lead_available,
+  budget_eur, horizon_days, offers_spread,                    // flat, used by the commit screen
+  turn_count, checkpoint, story_day, story_day_label ("Day 91"),
+  news_shown, news: {headline, summary} | null,
+  current_location_id | null,
+  locations: [{id, key, name, description, fixed, art_status: "placeholder"|"pending"|"ready"|"failed", visited}],
+  backlog: [{seq, speaker, text}],         // speaker: "You" | "You (to Buddy)" | "CommerzBuddy" | the reply's name tab ("Campaign Master" or a character)
+  clues: [{clue_id, source, title, text}],
+  library: {documents: [{id, title, entries: [{id, title, text}]}],
+            company_card: {name, trade, size, key_figures: [{id, label, value, period, explain?}]}},   // explain only with Ratio Lens; value may be a string
+  price_board: [{day, open, high, low, close}],               // numbers, cut at story today
+  characters: [{id, name, role, location}],
+  challenges: [{id, title, dc, state: "open"|"rolling"|"final", optional, result, location}],
+  pending: {type: "roll", challenge_id, state: "offered"|"rolling"} | null,
+  can_decide, opening_done,
+  suggestions: string[],                   // NEW: suggestions of the latest Campaign Master reply, for resuming
+  commit_draft: {action?, amount_eur?, evidence?, forecast_pct?, confidence?} | null,
+  rumours?: string[],                      // only with Rumour Ledger
+  outcome?: Outcome   (phase >= reveal), debrief?: Debrief (phase >= debrief), xp?: Xp (phase >= xp)
+}
+```
+
+Phases (server): `setup -> play <-> commit -> timeskip -> reveal -> debrief -> company -> xp -> done`. `reflect` exists in the enum but the server never stores it (the frontend moves to `/quest/reflect` on its own; a reload there lands on `/quest/debrief`, which is acceptable).
+
+Phase transitions made by endpoints: `opening` (setup -> play); `PUT commit-draft` (play -> commit); `POST resume-play` (commit -> play); `lock` (play|commit -> timeskip); `GET reveal` (timeskip -> reveal); `debrief` (timeskip|reveal -> debrief); `reflection` (-> company); `xp` (-> xp); `finish` (-> done, hero's `active_campaign_id` cleared).
+
+## 3. SSE endpoints
+
+`POST` with `Content-Type: application/json`; response `text/event-stream`. Errors found before streaming (wrong phase, unknown ids, empty text) are plain JSON errors with the status code; errors during streaming are an `error` event.
+
+| Path | Body | Notes |
+|---|---|---|
+| `/campaigns/{id}/opening` | - | Idempotent: after the first run it replays the stored opening. |
+| `/campaigns/{id}/actions` | `{text, client_msg_id?}` | Turn. 409 `roll_open` while a roll is open. |
+| `/campaigns/{id}/move` | `{location_id, client_msg_id?}` | Turn. |
+| `/campaigns/{id}/narrate-roll` | `{roll_id}` | Only for a final roll (409 otherwise); replays when repeated. |
+| `/campaigns/{id}/buddy` | `{text, client_msg_id?, screen?}` | Not a turn. `screen`: `market_square`, `library`, `document:<id>`, `commit`. |
+| `/campaigns/{id}/focus/hint` | - | Spends 1 Focus atomically with the stored hint. |
+| `/campaigns/{id}/debrief` | - | Needs a locked decision (409 `not_locked`). Replays the stored debrief. |
+
+**Events, in this order**
+
+| Event | Data |
+|---|---|
+| `status` | `{state: "writing"}` (immediately). |
+| `token` | `{text}` (a word plus trailing whitespace; sent only after the reply passed the guards and was stored). |
+| `card` | zero or more: dice `{kind:"dice", roll_id, challenge_id, title, dc, bonus: 2, keen_eye_available, keen_eye_left}` or news `{kind:"news", headline, summary, time_skip_label, story_day, framing, framing_audio_text_id}`. |
+| `state` | `{can_decide, turn_count, focus_left, rerolls_left, keen_eye_left, story_day, checkpoint, news_shown, phase, current_location_id, art_ready: [location ids]}` (debrief: `{phase}` only). |
+| `done` | see below. |
+| `error` | `{code, message}`, e.g. `lost_thread`. The stream ends. |
+| `: ping` | comment heartbeat every 5 s (ignored by the parser). |
+
+**`done` payload** (all Campaign Master and Buddy replies): `text`, `speaker`, `audio_text_id`, plus the same fields as `state` (so `can_decide` is always present), `degraded` (templated fallback used) and, per endpoint:
+
+| Endpoint | Extra `done` fields |
+|---|---|
+| opening | `suggestions[3]`, `opening: true` |
+| actions, move | `suggestions[3]`, `show_decide`, `location {id,key,name} \| null`, `first_visit` (moves; else null), `news_text` (the news framing, only when a news card was sent, also on replay), `intent`, `clue_ids_given`, `speaker_id`, `nothing_more_to_uncover`, `card`/`news` (copies of the cards) |
+| narrate-roll | `suggestions[3]`, `roll_id` |
+| buddy | `mood`, `intent` (speaker is `CommerzBuddy`) |
+| hint | `suggestions[3]`, `hint_location` (key or null) |
+| debrief | `sound_reasoning, overlooked, luck, forecast_line, reflection_question, whatif[]` (the Debrief shape below), plus `text` (spoken form), `phase` |
+
+Clients must ignore unknown `done` fields.
+
+## 4. JSON play endpoints
+
+| Method, path | Request | Response |
+|---|---|---|
+| `POST /campaigns/{id}/rolls` | `{challenge_id, mode: "normal"\|"advantage"}` | `RollResult` |
+| `POST /campaigns/{id}/rolls/{rid}/reroll` | - | `RollResult` (final) |
+| `POST /campaigns/{id}/rolls/{rid}/accept` | - | `RollResult` (final) |
+| `POST /campaigns/{id}/focus/bonus-lead` | - | dice card `{kind:"dice", ..., focus_left}`; 409 `no_focus`, `bonus_used`, `roll_open` |
+| `GET /campaigns/{id}/journal` | - | `{entries: [{seq, type, ts, ...payload}]}` (also when finished; non-final dice rolls omitted) |
+| `PUT /campaigns/{id}/commit-draft` | any subset of `{action, amount_eur, evidence, forecast_pct, confidence}` (`{}` allowed; legacy key `decision` is read as `action`) | **204**. Requires `can_decide`; moves phase `play -> commit`; 409 `locked` after the lock, 409 `not_ready` before the player may decide. |
+| `POST /campaigns/{id}/resume-play` | - | `{phase: "play", commit_draft}`; only from `commit` or `play`. |
+| `POST /campaigns/{id}/lock` | `CommitRequest` | `Outcome`; idempotent (a second call returns the first outcome); 422 `invalid_commit` + `fields` |
+| `GET /campaigns/{id}/reveal` | - | `Outcome` (moves `timeskip -> reveal`); 409 `not_locked` |
+| `POST /campaigns/{id}/reflection` | `{text}` (>= 10 chars after trim) | `{scenario_id}`; writes `debrief_complete`; phase `company`; idempotent; 422 `too_short` |
+| `POST /campaigns/{id}/xp` | - | `Xp`; 409 until the reflection exists; idempotent |
+| `POST /campaigns/{id}/finish` | - | `{total_xp, new_item: {id,key,name,description} \| null}`; idempotent; 409 until XP exists |
+| `GET /locations/{id}/art` | - | `image/webp` (404 until `art_status` is `ready`) |
+| `GET /tts/{audio_text_id}?voice=dm\|buddy` | - | `audio/wav` of the stored, guarded text |
+
+```
+RollResult = {roll_id, challenge_id, title, dice[], used, bonus: 2, total, dc, result: "success"|"setback",
+              final, options: ("continue"|"reroll"|"accept")[], rerolled, rerolls_left, keen_eye_left, alt_source|null}
+
+CommitRequest = {action: "invest"|"dont_invest"|"wait"|"spread", amount_eur?: int (1..budget, invest|spread only),
+                 evidence: string (>= 20 chars trimmed), forecast_pct: 0..100 step 5, confidence: "low"|"medium"|"high"}
+
+Outcome = {                                      // POST lock and GET reveal
+  locked_at: "Day 91, evening",                  // story moment, never a wall-clock time
+  horizon_days, horizon_label ("about 75 days"), time_skip_label ("75 days later…"), decision_day,
+  series: [{story_day, price}],                  // through the horizon; only after a decision exists
+  action, amount_eur,
+  breakdown: {starting_budget, cash_kept, invested, value_now, fees, final_value, pl_eur, pl_pct},
+  hp_before, hp_after, investment_return_pct, currency_note, phase
+}
+
+Debrief = {sound_reasoning, overlooked, luck, forecast_line, reflection_question,
+           whatif: [{key: "dont_invest"|"half"|"all"|"spread"|"yours", label, final_value, pct, hp_after, is_yours}]}
+
+Xp = {categories: [{name, score, max, rationale, quote}], total}    // 5 categories, rubric from the manifest
+```
+
+## 5. Spec 002 endpoints used by the quest
+
+| Method, path | Response |
+|---|---|
+| `GET /scenarios/playable` | `[{id, industry_shown, source}]` |
+| `GET /scenario/{id}/view` | `{id, invented_name, industry_shown, story_today, beats[{story_day, headline, facts[]}], chart[{story_day, price: "decimal string"}], company_card}` |
+| `POST /scenario/{id}/events` | `{id, type}` (201) |
+| `GET /scenario/{id}/reveal` | 403 `reveal_locked` until a decision and `debrief_complete` exist. `{real_name, ticker, start_date, end_date, series[{date, price: "decimal string"}], news_points[{story_day, real_date, real_price: "decimal string", headline}], what_changed[], n_guessers}` |
+
+## 6. Divergences found and how each was settled
+
+| # | Where | Frontend expected | Backend had | Resolution |
+|---|---|---|---|---|
+| D1 | SSE `status` | `{state}` | `{status}` | **Backend changed** to `{state: "writing"}`. |
+| D2 | Cards | `kind` | `type` | **Backend changed** to `kind` (SSE cards, bonus-lead response, stored events). `pending.type` stays. |
+| D3 | `GET /hero` `items[]` | `{id, name, description}` | `{key, description}` | **Backend changed**: `{id, key, name, description}`. |
+| D4 | `GET /hero` `history[]` | `{campaign_id, interests, total_xp, decision, result_pct, finished_at}` | `{campaign_id, date, interests, decision, pnl_pct, xp}` (strings) | **Backend changed** to the frontend names; `result_pct` is a number. |
+| D5 | `finish.new_item` | `{id, name, description}` object | item key string | **Backend changed** to the object. |
+| D6 | Commit request key | `action` | `decision` | **Backend changed**: `action` is canonical (the `decision` DB column is `Decision.action`); `decision` is still read as an alias. 422 `fields` key is `action`. |
+| D7 | Lock / reveal outcome | `locked_at` (story label), `series[{story_day, price}]`, `breakdown{starting_budget, cash_kept, invested, value_now, fees, final_value, pl_eur, pl_pct}` as numbers | ISO wall-clock `locked_at`, `chart[{day, close}]`, `breakdown{cash, final, pnl, pnl_pct, budget}` as strings | **Backend changed** to the frontend shape. The wall-clock timestamp was also a (minor) real-time leak next to "story days only". |
+| D8 | What-if rows | `{key: dont_invest\|half\|all\|spread\|yours, label, final_value, pct, is_yours}` numbers | `{key: dont\|...\|choice, final, pnl_pct, hp_after, is_choice}` strings | **Backend changed** at the wire only (`whatif_out`); the engine, the stored rows and the agent context keep their own format. |
+| D9 | Price board rows | numbers | strings | **Backend changed** at the wire only (`board_out`); agents still receive the strings their allowlist is built from. |
+| D10 | Library entries | `{id, title, text}` | whole evidence record incl. `checkpoint`, `key`, `location` | **Backend changed**: only `id, title, text` leave the server (no checkpoint names, no key-evidence flag). |
+| D11 | Resume suggestions | `suggestions?` in `CampaignState` | missing | **Backend added**, derived from the latest `dm_reply` in the event log (no new column). |
+| D12 | Commit screen fields | top-level `budget_eur`, `horizon_days`, `offers_spread` | only in `scenario{}` | **Backend added** the three flat fields (`scenario{}` kept). |
+| D13 | Errors | status only | framework errors (401, bad UUID 422, 404 route) were `{detail}` | **Backend changed**: every error is the spec envelope; 422 carries `fields`. |
+| D14 | Spec 002 view/reveal prices | `number` (`StoryPoint.price`, `RealPoint.price`, `NewsPoint.real_price`) | decimal strings | **Kept strings** (owner Davyd, tested contract, real prices should not lose precision); frontend coerces (see F1). `id` was missing from `/view`: **backend added**. |
+| D15 | `done` details | `speaker, suggestions, show_decide, location, first_visit, news_text, audio_text_id, can_decide` | all present except `news_text` on a replayed reply (the state delta, incl. `can_decide`, was already in `done`) | **Backend changed**: `news_text` also on replay. |
+| D16 | Hint reply | `suggestions` | none | **Backend added** to the stored hint reply. |
+| D17 | `PUT commit-draft` from play | moves phase to `commit` | already did | **No change**; verified. |
+| D18 | `POST resume-play` | not called by the frontend | exists | **No backend change**; frontend must call it (F2). |
+| D19 | `CampaignState.resources` | typed (deprecated) | not sent | **No backend change**; frontend drops the type (F4). |
+| D20 | Hero class wire values | `guardian\|analyst\|investigator` | same | Match; no change. |
+| D21 | `art_status` | `pending\|ready\|failed` | also `placeholder` (fixed locations before any art) | **Frontend** adds `placeholder` (F5). Fixed locations use bundled backgrounds anyway. |
+| D22 | `locked_at` in `CampaignState` | not read | real ISO timestamp | **Backend removed** it from the state. |
+| D23 | Phase `reflect` | in `CampaignPhase` | never stored | **Accepted**; see §2. |
+
+## 7. Frontend changes required (for the next frontend pass)
+
+| # | File | Change |
+|---|---|---|
+| F1 | `frontend/src/api/client.ts` (`api.view`, `api.reveal`) | Convert the decimal strings of spec 002 responses to numbers right after the fetch: `chart[].price`, `series[].price`, `news_points[].real_price` -> `Number(x)`. Without it `formatStoryNumber('31.95')` throws a `RangeError` (it requires a number) and the StoryChart gets strings. Update `types.ts` comments accordingly. |
+| F2 | `frontend/src/api/campaign.ts` + `frontend/src/quest/screens/Commit.tsx` (`back()`) | Add `resumePlay(id)` = `POST /campaigns/{id}/resume-play` and call it after `saveCommitDraft` before navigating to `/quest/play`. Today only the cache is patched to `play`, so the server stays in `commit` and a reload sends the player back to the commit screen. Update the fixture (`fixtures/index.ts`) to flip the phase back to `play` on that route. |
+| F3 | `frontend/src/api/fixtures/index.ts`, `play.ts` | Align the fixtures with the final shapes: `lock`/`reveal` add `horizon_label`, `time_skip_label`, `action`, `amount_eur`, `investment_return_pct`, `phase`; whatif rows add `hp_after`; the 409 for "not ready" on `commit-draft`. The core shapes already match. |
+| F4 | `frontend/src/api/types.ts` | Remove `CampaignState.resources` and `HeroResources` (the server sends the flat fields only); make `budget_eur`, `horizon_days`, `offers_spread` required, `suggestions` required (`string[]`); add `status`, `version`, `checkpoint`, `characters`, optional `outcome`; `Outcome` extra optional fields from §4. |
+| F5 | `frontend/src/api/types.ts` | `ArtStatus = 'placeholder' \| 'pending' \| 'ready' \| 'failed'`; `NewsCard` optional `framing`, `framing_audio_text_id`; `TurnExtras` optional `can_decide`, `hint_location`, `roll_id`, `mood`, `degraded`, `replayed`. |
+| F6 | `frontend/src/quest/screens/Commit.tsx` (`TimeSkip`) | Optional: show `res.time_skip_label` from the lock response instead of building `"{days} days later…"`. |
+| F7 | `frontend/src/quest/screens/WhatAreYouInto.tsx` | Optional: on 409 `campaign_in_progress` (`error.campaign_id`) refetch the hero and resume instead of showing the generic failure. `request()` would need to keep the parsed `error` body on `ApiError` (`code`, `fields`). |
+| F8 | `frontend/src/quest/play/LibrarySheet.tsx` | Optional: key figures arrive with string values (`"100789"`) from reference packs; format numeric strings with `formatStoryNumber(Number(v))`. |
+| F9 | `frontend/src/api/sse.ts` | No change required (it already ignores comments and unknown fields); `done` of `debrief` is read as `DebriefData` and now matches. |
+
+## 8. Verification
+
+- `backend/tests/test_api_contract.py`: error envelope (401, 404, 422 with `fields`), hero shape, SSE `status`/`done` fields and resume `suggestions`, news card `kind` and `news_text` on replay, commit-draft/resume-play/lock/reveal flow and the outcome shape.
+- Existing suites updated for D1-D10 (`test_campaign_api.py`, `test_campaign_agents.py`, `test_scenarios_api.py`).
+- Live run against uvicorn (`FAKE_LLM=1`, port 8015) on the approved Enron pack, session through finish: in the task report.

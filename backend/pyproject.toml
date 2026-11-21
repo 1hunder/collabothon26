@@ -1,0 +1,62 @@
+[project]
+name = "financequest"
+version = "0.1.0"
+description = "FinanceQuest backend"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "sqlmodel",
+  "psycopg[binary]>=3",
+  "alembic",
+  "pydantic>=2",
+  "pydantic-settings",
+  "typer",
+  "httpx",
+  "sse-starlette",
+  "jinja2",
+  "langgraph",
+  "langchain-anthropic",
+  "anthropic",
+  "google-genai",
+  "pandas",
+  "pyarrow",
+  "yfinance",
+  "pillow>=13.0.0",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "hypothesis", "ruff", "mypy"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["financequest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["regression: acceptance-level test kept for long-term regression"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+exclude = ["financequest/db/migrations/versions/"]
+
+[tool.ruff.lint.per-file-ignores]
+"financequest/db/migrations/versions/*" = ["E501", "I001", "UP", "F401"]
+"financequest/campaign/*" = ["E501"]
+"financequest/agents/*" = ["E501"]
+"financequest/api/sse.py" = ["E501"]
+"tests/test_campaign_agents.py" = ["E501"]
+"financequest/api/routers/campaigns.py" = ["E501"]
