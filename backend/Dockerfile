@@ -14,10 +14,11 @@ RUN if [ -f uv.lock ]; then uv sync --frozen --no-dev --no-install-project; \
 # Application (package incl. migrations and fixtures)
 COPY alembic.ini ./
 COPY financequest ./financequest
+COPY start.sh ./start.sh
 RUN if [ -f uv.lock ]; then uv sync --frozen --no-dev; else uv sync --no-dev; fi
 
 RUN mkdir -p /app/data && useradd --system --uid 10001 --no-create-home app && chown -R app /app
 USER app
 
 EXPOSE 8000
-CMD ["uvicorn", "financequest.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/start.sh"]
