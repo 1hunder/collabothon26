@@ -14,7 +14,7 @@ const beatTitle: Record<MarketCard['beat'], string> = {
 export function offerTerms(offer: Pick<Offer, 'kind' | 'terms'>): string {
   const t = offer.terms;
   if (offer.kind === 'loan') {
-    return `Up to ${formatEur(Number(t.principal_eur))} now, ${t.interest_pct}% flat interest: repay ${formatEur(Number(t.repay_eur))} ${t.due}.`;
+    return `Up to ${formatEur(Number(t.principal_eur))} now, ${Math.round(Number(t.interest_pct))}% flat interest: repay ${formatEur(Number(t.repay_eur))} ${t.due}.`;
   }
   return `Buys back up to ${formatEur(Number(t.max_eur))} of your coins at ${t.price}.`;
 }

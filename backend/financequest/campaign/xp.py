@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from financequest.agents.campaign.guards import ident_violations
+
 DEFAULT_RUBRIC: tuple[tuple[str, int], ...] = (
     ("Evidence quality", 25),
     ("Risk identification", 25),
@@ -109,7 +111,7 @@ def validate_scores(
         quote = r.quote if r else ""
         if quote and not quote_in(quote, player_text):
             quote, rationale = "", NEUTRAL
-        if _BAD.search(rationale):
+        if _BAD.search(rationale) or ident_violations(rationale):
             rationale = NEUTRAL
         total += score
         out.append(

@@ -41,7 +41,7 @@ describe('Commit (SealScroll)', () => {
     setup();
     const list = await screen.findByRole('region', { name: 'Your decisions' });
     expect(list).toHaveTextContent('Day 2');
-    expect(list).toHaveTextContent('Put in €200.00');
+    expect(list).toHaveTextContent('Put in €200');
     expect(list).toHaveTextContent('I put 200 coins in, the guild looks strong.');
     expect(list).toHaveTextContent('Day 83');
     expect(list).toHaveTextContent('Held');
@@ -102,8 +102,8 @@ describe('Commit budget after damage', () => {
     writeDb({ ...db, campaign: { ...db.campaign!, hp_eur: 150, purse: { cash_eur: 0, position_eur: 400 } as never } });
     cleanup();
     renderRoutes([{ path: '/quest/commit', element: <PhaseGuard screen="/quest/commit"><Commit /></PhaseGuard> }], ['/quest/commit']);
-    expect(await screen.findByTestId('budget')).toHaveTextContent('€150.00');
-    expect(screen.getByRole('alert')).toHaveTextContent('more than your budget of €150.00');
+    expect(await screen.findByTestId('budget')).toHaveTextContent('€150');
+    expect(screen.getByRole('alert')).toHaveTextContent('more than your budget of €150');
     await user.click(screen.getByRole('radio', { name: 'High' }));
     expect(lockButton()).toBeDisabled();
   });
@@ -117,7 +117,7 @@ describe('Commit budget after damage', () => {
     writeDb({ ...db, campaign: { ...db.campaign!, hp_eur: 100 } });
     await user.click(lockButton());
     await user.click(screen.getByRole('button', { name: 'Lock' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('more than your budget of €100.00');
+    expect(await screen.findByRole('alert')).toHaveTextContent('more than your budget of €100');
     expect(screen.queryByText('Could not lock your decision. Please try again.')).not.toBeInTheDocument();
   });
 });

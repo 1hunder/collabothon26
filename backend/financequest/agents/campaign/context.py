@@ -16,7 +16,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from financequest.agents.campaign.guards import build_allowlist
+from financequest.agents.campaign.guards import build_allowlist, whole
 from financequest.campaign import clock, rules
 from financequest.campaign.events import campaign_events
 from financequest.campaign.pack import Pack
@@ -158,7 +158,7 @@ def screen_data(content: dict[str, Any], screen: str | None) -> dict[str, Any] |
         return None
     if screen in ("market_square", "price_board"):
         rows = content["chart"][-12:]
-        return {"view": "Market Square price board", "rows": rows, "summary": chart_summary(content)}
+        return {"view": "Market Square price board", "rows": rows, "summary": chart_summary(content)}  # noqa: E501
     if screen == "library":
         return {
             "view": "Library",
@@ -181,18 +181,76 @@ def screen_data(content: dict[str, Any], screen: str | None) -> dict[str, Any] |
 
 
 def chart_summary(content: dict[str, Any]) -> dict[str, Any] | None:
-    """Engine-computed facts about the visible price board, so agents never calculate."""
+    """Engine-computed facts about the visible price board, so agents never calculate. Every
+    figure is a whole number: that is how the player sees it and how the agents quote it."""
     rows = content["chart"]
     if len(rows) < 2:
         return None
     closes = [Decimal(r["close"]) for r in rows]
     first, last = closes[0], closes[-1]
-    change = ((last / first - 1) * 100).quantize(Decimal("0.1")) if first else Decimal(0)
+    change = ((last / first - 1) * 100) if first else Decimal(0)
     return {
-        "first_day": rows[0]["day"], "last_day": rows[-1]["day"], "first_close": str(first),
-        "last_close": str(last), "highest_close": str(max(closes)), "lowest_close": str(min(closes)),
-        "change_pct": str(change),
+        "first_day": rows[0]["day"], "last_day": rows[-1]["day"], "first_close": whole(first),
+        "last_close": whole(last), "highest_close": whole(max(closes)),
+        "lowest_close": whole(min(closes)), "change_pct": whole(change),
     }  # fmt: skip
+
+
+def summary_sentence(summ: dict[str, Any]) -> str:
+    """The board summary as plain words: no field names for a model to echo."""
+    pct = int(summ["change_pct"])
+    way = "rose" if pct > 0 else "fell" if pct < 0 else "stayed level"
+    return (
+        f"From story day {summ['first_day']} to story day {summ['last_day']} the price {way} "
+        f"from a first close of {summ['first_close']} to a last close of {summ['last_close']}"
+        + (f", a change over the period shown of {abs(pct)} percent" if pct else "")
+        + f". Highest close {summ['highest_close']}, lowest close {summ['lowest_close']}."
+    )
+
+
+def _row_line(r: dict[str, Any]) -> str:
+    return f"day {r['day']}: open {whole(r['open'])}, high {whole(r['high'])}, low {whole(r['low'])}, close {whole(r['close'])}"
+
+
+def render_screen(screen: dict[str, Any]) -> str:
+    """What the player has open, as sentences and plain labels (never a dumped dict)."""
+    lines = [f"The player is looking at: {screen['view']}."]
+    if screen.get("rows"):
+        lines.append("Recent price board rows:")
+        lines += [f"- {_row_line(r)}" for r in screen["rows"]]
+    if screen.get("summary"):
+        lines.append(summary_sentence(screen["summary"]))
+    if screen.get("documents"):
+        lines.append("Documents: " + "; ".join(d["title"] for d in screen["documents"]) + ".")
+    if screen.get("company_card"):
+        card = screen["company_card"]
+        lines.append(f"Company card: {card['name']}, {card['trade']}. {card.get('size', '')}")
+        lines += [f"- {f['label']}: {f['value']}" for f in card["key_figures"]]
+    for e in screen.get("entries") or []:
+        lines.append(f"- {e['title']}: {e['text']}")
+    return "\n".join(lines)
+
+
+_OUTCOME_EUR = (
+    ("cash", "cash kept"), ("invested", "euros invested"), ("value_now", "value of the coins now"),
+    ("final", "final purse"), ("pnl", "gain or loss in euros"),
+)  # fmt: skip
+
+
+def render_outcome(o: dict[str, Any]) -> str:
+    """The locked result as plain sentences, whole numbers, no field names."""
+    parts = [
+        f"decision: {o['action']}", f"amount: {whole(o['amount_eur'])} euros",
+        f"budget: {whole(o['budget'])} euros",
+    ]
+    parts += [f"{label}: {whole(o[k])} euros" for k, label in _OUTCOME_EUR if o.get(k) is not None]
+    if o.get("pnl_pct") is not None:
+        parts.append(f"gain or loss in percent: {whole(o['pnl_pct'])} percent")
+    if o.get("hp_before") is not None:
+        parts.append(f"budget bar before: {o['hp_before']}, after: {o['hp_after']}")
+    if o.get("loan_repay") is not None:
+        parts.append(f"loan to repay: {whole(o['loan_repay'])} euros")
+    return "Result of the decision: " + "; ".join(parts) + "."
 
 
 def outcome_facts(db: Session, run: CampaignRun) -> tuple[dict[str, Any] | None, list[dict[str, Any]] | None, int | None, list[str]]:
@@ -427,11 +485,11 @@ def stable_prefix(ctx: AgentContext) -> str:
             f"{ch['id']} | {ch['name']} | {ch['role']} | {ch['location']} | "
             f"{', '.join(ch['may_reveal'])} | never: {'; '.join(ch['never'])}"
         )
-    lines += ["", "## Price board (story day: open/high/low/close)"]
-    lines += [f"{r['day']}: {r['open']}/{r['high']}/{r['low']}/{r['close']}" for r in c["chart"]]
+    lines += ["", "## Price board (whole numbers)"]
+    lines += [f"- {_row_line(r)}" for r in c["chart"]]
     summ = chart_summary(c)
     if summ:
-        lines.append(f"Board summary (engine computed): {summ}")
+        lines.append(f"Board summary (engine computed): {summary_sentence(summ)}")
     if c["news"]:
         lines += ["", f"## Breaking news (shown): {c['news']['headline']}. {c['news']['summary']}"]
     lines += ["", "## Encounters"]
@@ -480,12 +538,12 @@ def purse_lines(ctx: AgentContext) -> list[str]:
         return []
     p = ctx.purse
     lines = [
-        f"Purse (engine computed, euros): cash {p['cash_eur']}, coins in the company worth "
-        f"{p['position_eur']}, total {p['total_eur']}."
+        f"Purse (engine computed, euros): cash {whole(p['cash_eur'])}, coins in the company worth "
+        f"{whole(p['position_eur'])}, total {whole(p['total_eur'])}."
     ]
     for d in ctx.decisions:
         lines.append(
-            f"Decision on {d['day_label']} ({d['beat']}): {d['action']} {d['amount_eur']} euros. "
+            f"Decision on {d['day_label']} ({d['beat']}): {d['action']} {whole(d['amount_eur'])} euros. "
             f"In their words: \"{d['text']}\""
             + (f". Their reasons: \"{d['reasoning']}\"" if d.get("reasoning") else "")
         )
@@ -493,8 +551,8 @@ def purse_lines(ctx: AgentContext) -> list[str]:
         lines.append("Investment decisions so far: none.")
     if p.get("loan"):
         lines.append(
-            f"The hero owes a loan from {p['loan']['lender']}: {p['loan']['principal_eur']} euros "
-            f"taken, {p['loan']['repay_eur']} euros to repay at the end of the horizon."
+            f"The hero owes a loan from {p['loan']['lender']}: {whole(p['loan']['principal_eur'])} euros "
+            f"taken, {whole(p['loan']['repay_eur'])} euros to repay at the end of the horizon."
         )
     if ctx.scene:
         lines.append(f"A decision scene is open ({ctx.scene.get('beat')}): the hero owes an answer.")
@@ -532,9 +590,9 @@ def build_messages(
     ])  # fmt: skip
     body = [facts_block(ctx)]
     if ctx.screen:
-        body.append(f"# What the player has open right now (gated data)\n{ctx.screen}")
+        body.append(f"# What the player has open right now (gated data)\n{render_screen(ctx.screen)}")
     if ctx.outcome:
-        body.append(f"# Result (after the lock; engine computed)\n{ctx.outcome}")
+        body.append(f"# Result (after the lock; engine computed)\n{render_outcome(ctx.outcome)}")
     if hist := history_block(ctx, buddy):
         body.append(hist)
     if extra:
