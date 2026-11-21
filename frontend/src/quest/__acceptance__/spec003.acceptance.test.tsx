@@ -31,7 +31,7 @@ import DialogueBox from '../play/DialogueBox';
 import DiceMoment, { TUMBLE_MS, type DiceApi } from '../play/DiceMoment';
 import ChoiceList from '../play/ChoiceList';
 import { artSrc } from '../play/artSrc';
-import { readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
+import { readParchment, readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
 import SceneArt from '../play/SceneArt';
 import Commit from '../screens/Commit';
 import Debrief from '../screens/Debrief';
@@ -610,7 +610,7 @@ describe('2.6 Locations', () => {
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
     expect(within(board).queryByRole('rowheader', { name: '61' })).not.toBeInTheDocument();
   });
@@ -623,8 +623,9 @@ describe('2.6 Locations', () => {
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
     const lib = await screen.findByRole('dialog', { name: 'Library' });
-    expect(within(lib).getByText('Guild ledger, year one')).toBeInTheDocument();
-    expect(within(lib).queryByText('Quarterly loss notice')).not.toBeInTheDocument();
+    const text = await readParchment(user, lib);
+    expect(text).toContain('Guild ledger, year one');
+    expect(text).not.toContain('Quarterly loss notice');
   });
   it('2.6-AC7 a character speaks under their own name on the tab', () => {
     render(<DialogueBox speaker="Mira Fen" text="I have read every ledger twice." onAdvance={() => undefined} />);
@@ -872,14 +873,14 @@ describe('2.9 In-period news event', () => {
     await user.click(within(await screen.findByRole('article', { name: 'Breaking news' })).getByRole('button', { name: 'Continue' }));
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '84');
     await user.click(within(board).getByRole('button', { name: /Close/ }));
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
-    expect(within(await screen.findByRole('dialog', { name: 'Library' })).getByText('Quarterly loss notice')).toBeInTheDocument();
+    expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('Quarterly loss notice');
   });
 });
 
@@ -1372,7 +1373,7 @@ describe('2.16 Safeguards', () => {
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     const storyToday = readDb().campaign?.story_day ?? 0;
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', String(storyToday));
     expect(readDb().campaign?.price_board.every((p) => p.day <= storyToday)).toBe(true);
@@ -1436,7 +1437,7 @@ describe('2.17 Focus and items', () => {
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
-    expect(within(await screen.findByRole('dialog', { name: 'Library' })).getByText('How many barrels were sold in a year.')).toBeInTheDocument();
+    expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('How many barrels were sold in a year.');
   });
   it('2.17-AC8 an item changes no figure on screen: starting HP and euros are the same with an item', async () => {
     seedCampaign({ phase: 'play', heroClass: 'analyst' });

@@ -105,8 +105,8 @@ test('Enron campaign: hero to reveal to finish, all figures from the server', as
   await openMapAndGo(page, 'Market Square');
   await finishReading(page);
   await page.getByRole('button', { name: 'Price board' }).click();
-  await expect(page.getByRole('dialog', { name: 'Price board' })).toBeVisible();
-  await page.getByRole('dialog', { name: 'Price board' }).getByRole('button', { name: /^Close/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Market stall' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Market stall' }).getByRole('button', { name: /^Close/ }).click();
 
   // Library: documents
   await openMapAndGo(page, 'Library');

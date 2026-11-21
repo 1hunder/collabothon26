@@ -36,6 +36,10 @@ export default {
           '60%': { transform: 'translateY(-6px) rotateY(540deg) scale(1.08)', opacity: '1' },
           '100%': { transform: 'none', opacity: '1' },
         },
+        'hotspot-pulse': {
+          '0%': { boxShadow: '0 0 0 0 rgba(201,162,39,0.7)', borderColor: 'rgba(201,162,39,0.9)' },
+          '100%': { boxShadow: '0 0 0 14px rgba(201,162,39,0)', borderColor: 'rgba(201,162,39,0)' },
+        },
         'seal-press': {
           '0%': { transform: 'scale(2.2)', opacity: '0' },
           '60%': { transform: 'scale(0.9)', opacity: '1' },
@@ -43,6 +47,7 @@ export default {
         },
       },
       animation: {
+        'hotspot-pulse': 'hotspot-pulse 1.6s ease-out 3',
         'seal-press': 'seal-press 700ms ease-out forwards',
         bob: 'bob 1.4s ease-in-out infinite',
         tumble: 'tumble 1s cubic-bezier(0.3, 0.7, 0.2, 1) both',

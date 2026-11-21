@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { fixtureResponse, resetFixtureDb } from '../../api/fixtures';
@@ -42,4 +42,17 @@ export async function readToChoices(user: UserEvent, stopAt: () => boolean = () 
 export async function skipTitle(user: UserEvent): Promise<void> {
   const card = screen.queryByTestId('title-card');
   if (card) await user.click(card);
+}
+
+/** Pages through the Library parchment from the first page and returns the text of every page. */
+export async function readParchment(user: UserEvent, dialog: HTMLElement): Promise<string> {
+  const d = within(dialog);
+  while (!(d.getByRole('button', { name: 'Previous page' }) as HTMLButtonElement).disabled) await user.click(d.getByRole('button', { name: 'Previous page' }));
+  let text = '';
+  for (;;) {
+    text += ` ${d.getByTestId('parchment-page').textContent ?? ''}`;
+    const next = d.getByRole('button', { name: 'Next page' }) as HTMLButtonElement;
+    if (next.disabled) return text;
+    await user.click(next);
+  }
 }
