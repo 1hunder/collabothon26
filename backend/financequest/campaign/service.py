@@ -120,9 +120,10 @@ def hero_out(db: Session, hero: Hero, player: Player) -> dict[str, Any]:
 
 
 # ---- loading ------------------------------------------------------------------------------
-def lock_run(db: Session, cid: uuid.UUID, sid: uuid.UUID) -> CampaignRun:
-    run = db.exec(select(CampaignRun).where(CampaignRun.id == cid).with_for_update()).first()
-    if run is None or run.player_id != sid:
+def owned_run(db: Session, cid: uuid.UUID, sid: uuid.UUID, *, write: bool) -> CampaignRun:
+    stmt = select(CampaignRun).where(CampaignRun.id == cid, CampaignRun.player_id == sid)
+    run = db.exec(stmt.with_for_update() if write else stmt).first()
+    if run is None:
         raise ApiError(404, "not_found", "Campaign not found")
     return run
 
@@ -135,13 +136,9 @@ def load(
     db: Session, cid: uuid.UUID, sid: uuid.UUID, write: bool = True
 ) -> tuple[CampaignRun, Pack, Hero]:
     """The campaign of this session (row-locked when ``write``), its pack and its hero."""
-    if write:
-        run = lock_run(db, cid, sid)
-    else:
-        found = db.get(CampaignRun, cid)
-        if found is None or found.player_id != sid:
-            raise ApiError(404, "not_found", "Campaign not found")
-        run = found
+    run = owned_run(db, cid, sid, write=write)
+    if run.status == "abandoned":
+        raise ApiError(404, "not_found", "Campaign not found")
     hero = db.get(Hero, run.hero_id)
     assert hero is not None
     return run, pack_of(db, run), hero
@@ -276,10 +273,10 @@ def pick_scenario(db: Session) -> tuple[Scenario, Pack]:
 
 
 def create_campaign(db: Session, sid: uuid.UUID, interests: list[str]) -> CampaignRun:
-    player = ensure_player(db, sid)
     hero = get_hero(db, sid)
     if hero is None:
         raise ApiError(409, "hero_required", "Create your hero first")
+    player = db.exec(select(Player).where(Player.id == sid).with_for_update()).one()
     if player.active_campaign_id:
         active = db.get(CampaignRun, player.active_campaign_id)
         if active and active.status == "active":
@@ -329,6 +326,20 @@ def create_campaign(db: Session, sid: uuid.UUID, interests: list[str]) -> Campai
     db.add(player)
     db.commit()
     return run
+
+
+def abandon_campaign(db: Session, cid: uuid.UUID, sid: uuid.UUID) -> None:
+    run = owned_run(db, cid, sid, write=True)
+    if run.status != "active":
+        return
+    player = db.exec(select(Player).where(Player.id == sid).with_for_update()).one()
+    if player.active_campaign_id == run.id:
+        player.active_campaign_id = None
+        db.add(player)
+    run.status = "abandoned"
+    touch(run)
+    db.add(run)
+    db.commit()
 
 
 # ---- rolls ------------------------------------------------------------------------------------

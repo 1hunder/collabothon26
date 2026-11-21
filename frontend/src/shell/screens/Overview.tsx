@@ -30,7 +30,7 @@ export default function Overview(): React.JSX.Element {
       <QuickActions />
       <QuestCard
         variant="overview"
-        onStart={() => void navigate('/quest', { state: { origin: location.pathname } })}
+        onStart={(path) => void navigate(path, { state: { origin: location.pathname } })}
         onContinue={(path) => void navigate(path, { state: { origin: location.pathname } })}
       />
     </div>

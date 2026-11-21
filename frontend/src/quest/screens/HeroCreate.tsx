@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCreateHero } from '../../api/campaign';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useChooseHeroClass, useCreateHero, useHero } from '../../api/campaign';
 import { ApiError } from '../../api/client';
 import type { HeroClass } from '../../api/types';
 import { NAME_MAX, validateName, type NameError } from '../lib/heroName';
+import type { QuestEntryState } from '../setupNavigation';
 
 const nameMessages: Record<NonNullable<NameError>, string> = {
   length: 'Name must be 2–20 characters.',
@@ -38,24 +39,42 @@ const classes: readonly ClassCard[] = [
   },
 ];
 
-export default function HeroCreate(): React.JSX.Element {
+export default function HeroCreate({ chooseClass = false }: { chooseClass?: boolean }): React.JSX.Element {
   const navigate = useNavigate();
+  const entry = useLocation().state as QuestEntryState | null;
+  const hero = useHero();
   const createHero = useCreateHero();
+  const updateClass = useChooseHeroClass();
+  const savedHero = chooseClass || entry?.newHero ? hero.data : null;
+  const reviewOnly = Boolean(savedHero) && !chooseClass;
+  const continueToDisclosure = (): void => {
+    void navigate('/quest/disclosure', { replace: true, state: { ...entry, newHero: !chooseClass, chooseClass } });
+  };
   const [name, setName] = useState('Lena');
   const [heroClass, setHeroClass] = useState<HeroClass | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const nameError = validateName(name);
-  const canBegin = nameError === null && heroClass !== null && !createHero.isPending;
+  const selectedClass = heroClass ?? savedHero?.class;
+  const pending = createHero.isPending || updateClass.isPending;
+  const canBegin = Boolean(selectedClass) && (savedHero ? !pending : nameError === null && !pending);
 
   const begin = async (): Promise<void> => {
-    if (heroClass === null || nameError !== null) return;
+    if (reviewOnly) {
+      continueToDisclosure();
+      return;
+    }
+    if (!selectedClass || !canBegin) return;
     setFailed(null);
     try {
-      await createHero.mutateAsync({ name: name.trim(), class: heroClass });
-      void navigate('/quest/interests', { replace: true, state: { newHero: true } });
+      if (chooseClass) {
+        if (selectedClass !== savedHero?.class) await updateClass.mutateAsync(selectedClass);
+      } else {
+        await createHero.mutateAsync({ name: name.trim(), class: selectedClass });
+      }
+      continueToDisclosure();
     } catch (e: unknown) {
       if (e instanceof ApiError && e.kind === 'Conflict') void navigate('/quest', { replace: true });
-      else setFailed('Could not create your hero. Please try again.');
+      else setFailed(chooseClass ? 'Could not save your class. Please try again.' : 'Could not create your hero. Please try again.');
     }
   };
 
@@ -67,7 +86,7 @@ export default function HeroCreate(): React.JSX.Element {
         void begin();
       }}
     >
-      <h1 className="font-quest-title text-4xl text-quest-gilt">Create your hero</h1>
+      <h1 className="font-quest-title text-4xl text-quest-gilt">{chooseClass ? 'Choose your class' : 'Create your hero'}</h1>
       <div>
         <label htmlFor="hero-name" className="mb-1 block font-quest-sans text-sm text-quest-vellum-dim">
           Name
@@ -75,7 +94,8 @@ export default function HeroCreate(): React.JSX.Element {
         <input
           id="hero-name"
           type="text"
-          value={name}
+          value={savedHero?.name ?? name}
+          readOnly={Boolean(savedHero)}
           maxLength={NAME_MAX}
           autoComplete="off"
           onChange={(e) => setName(e.target.value)}
@@ -91,13 +111,14 @@ export default function HeroCreate(): React.JSX.Element {
       </div>
       <div role="radiogroup" aria-label="Choose your class" className="space-y-3">
         {classes.map((c) => {
-          const selected = heroClass === c.id;
+          const selected = selectedClass === c.id;
           return (
             <button
               key={c.id}
               type="button"
               role="radio"
               aria-checked={selected}
+              disabled={reviewOnly || pending}
               onClick={() => setHeroClass(c.id)}
               className={`block w-full rounded-lg border-2 p-4 text-left ${
                 selected
@@ -122,7 +143,7 @@ export default function HeroCreate(): React.JSX.Element {
         disabled={!canBegin}
         className="min-h-11 w-full rounded-md bg-quest-verdigris px-5 font-quest-sans text-lg font-bold text-quest-vellum disabled:opacity-40"
       >
-        Begin
+        {savedHero ? 'Continue' : 'Begin'}
       </button>
     </form>
   );

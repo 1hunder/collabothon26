@@ -29,7 +29,7 @@ export default function StartDepot(): React.JSX.Element {
       </ul>
       <QuestCard
         variant="depot"
-        onStart={() => void navigate('/quest', { state: { origin: location.pathname } })}
+        onStart={(path) => void navigate(path, { state: { origin: location.pathname } })}
         onContinue={(path) => void navigate(path, { state: { origin: location.pathname } })}
       />
       <button

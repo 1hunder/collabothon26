@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-rout
 import { createQueryClient } from '../api/queryClient';
 
 /** Render routes in a memory router with a fresh QueryClient. */
-export function renderRoutes(routes: RouteObject[], initialEntries: string[]): ReturnType<typeof createMemoryRouter> {
+export function renderRoutes(routes: RouteObject[], initialEntries: NonNullable<Parameters<typeof createMemoryRouter>[1]>["initialEntries"]): ReturnType<typeof createMemoryRouter> {
   const router = createMemoryRouter(routes, { initialEntries });
   render(
     <QueryClientProvider client={createQueryClient()}>

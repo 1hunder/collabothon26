@@ -33,6 +33,10 @@ export async function fetchHero(): Promise<Hero | null> {
   }
 }
 
+export function abandonCampaign(id: string): Promise<void> {
+  return request('POST', `/campaigns/${id}/abandon`);
+}
+
 export function useHero() {
   return useQuery({ queryKey: queryKeys.hero, queryFn: fetchHero });
 }
@@ -41,6 +45,14 @@ export function useCreateHero() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (req: CreateHeroRequest) => request<Hero>('POST', '/hero', req),
+    onSuccess: (hero) => qc.setQueryData(queryKeys.hero, hero),
+  });
+}
+
+export function useChooseHeroClass() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (heroClass: CreateHeroRequest['class']) => request<Hero>('PATCH', '/hero', { class: heroClass }),
     onSuccess: (hero) => qc.setQueryData(queryKeys.hero, hero),
   });
 }
@@ -60,8 +72,6 @@ export function useCreateCampaign() {
     onSuccess: (campaign) => {
       setCampaign(campaign.id, campaign.scenario_id);
       qc.setQueryData(queryKeys.campaign(campaign.id), campaign);
-      // The hero cache is updated when the player dismisses the disclosure note, so the phase
-      // guard on the interests screen does not redirect before it is shown.
     },
   });
 }

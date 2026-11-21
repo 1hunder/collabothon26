@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureResponse, resetFixtureDb } from '../../api/fixtures';
 import { readDb, writeDb } from '../../api/fixtures/db';
 import * as sse from '../../api/sse';
-import type { CampaignState, DiceCard, PlayLocation, RollResult } from '../../api/types';
+import type { CampaignState, DiceCard, RollResult } from '../../api/types';
 import { FIRST_EVENT_TIMEOUT_MS } from '../../api/useDmStream';
 import { investDecision, seedCampaign } from '../../test/seedCampaign';
 import config from '../../../tailwind.config';
@@ -30,9 +30,7 @@ import BuddyScene from '../play/BuddyScene';
 import DialogueBox from '../play/DialogueBox';
 import DiceMoment, { TUMBLE_MS, type DiceApi } from '../play/DiceMoment';
 import ChoiceList from '../play/ChoiceList';
-import { artSrc } from '../play/artSrc';
 import { readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
-import SceneArt from '../play/SceneArt';
 import Commit from '../screens/Commit';
 import Debrief from '../screens/Debrief';
 import HeroCreate from '../screens/HeroCreate';
@@ -40,7 +38,7 @@ import HeroScreen from '../screens/HeroScreen';
 import Outcome from '../screens/Outcome';
 import Reflect from '../screens/Reflect';
 import RevealRoute from '../screens/RevealRoute';
-import WhatAreYouInto from '../screens/WhatAreYouInto';
+import QuestDisclosure from '../screens/QuestDisclosure';
 import Xp from '../screens/Xp';
 import PlayScreen from '../play/PlayScreen';
 import QuestLayout from '../QuestLayout';
@@ -99,7 +97,7 @@ const guard = (path: string, el: ReactNode) => ({ path, element: <PhaseGuard scr
 describe('2.1 First entry: create your hero', () => {
   const heroRoutes = [
     { path: '/quest/hero/new', element: <HeroCreate /> },
-    { path: '/quest/interests', element: <p>interests screen</p> },
+    { path: '/quest/disclosure', element: <p>disclosure screen</p> },
   ];
   it('2.1-AC1 a player with no hero sees "Create your hero": name Lena, three class cards, Begin disabled', async () => {
     const entry = [{ path: '/quest', element: <QuestEntry /> }, ...heroRoutes];
@@ -133,26 +131,26 @@ describe('2.1 First entry: create your hero', () => {
     await userEvent.click(screen.getAllByRole('radio')[1]!);
     expect(screen.getByRole('button', { name: 'Begin' })).toBeEnabled();
   });
-  it('2.1-AC5 tapping Begin opens "What are you into?"', async () => {
+  it('2.1-AC5 tapping Begin opens the disclosure', async () => {
     const router = renderRoutes(heroRoutes, ['/quest/hero/new']);
     await userEvent.click(screen.getByRole('radio', { name: /Analyst/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/interests'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/disclosure'));
     expect(readDb().hero).toMatchObject({ name: 'Lena', class: 'analyst' });
   });
-  it('2.1-AC6 a player with a hero skips creation: "Welcome back, <name>" and "What are you into?"', async () => {
+  it('2.1-AC6 a player with a hero opens the disclosure directly', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'guardian' });
     const router = renderRoutes(
-      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/interests', <WhatAreYouInto />) }, { path: '/quest/hero/new', element: <p>creation</p> }],
+      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/disclosure', <QuestDisclosure />) }, { path: '/quest/hero/new', element: <p>creation</p> }],
       ['/quest'],
     );
-    expect(await screen.findByText('Welcome back, Mira')).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/quest/interests');
+    expect(await screen.findByRole('button', { name: 'Got it' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/disclosure');
     expect(screen.queryByText('creation')).not.toBeInTheDocument();
   });
   it('2.1-AC7 after a finished campaign a new one keeps name, class and total XP, and HP starts fresh', () => {
     seedCampaign({ phase: 'xp', heroClass: 'guardian', decision: investDecision });
-    const fin = fixtureResponse('POST', '/campaigns/fixture-campaign/finish') as { total_xp: number };
+    const fin = fixtureResponse('POST', `/campaigns/${readDb().campaign!.id}/finish`) as { total_xp: number };
     const camp = fixtureResponse('POST', '/campaigns', { interests: ['Music'] }) as CampaignState;
     expect(camp.hero).toMatchObject({ name: 'Lena', class: 'guardian', total_xp: fin.total_xp });
     expect([camp.hp, camp.hp_eur]).toEqual([120, 1200]);
@@ -198,31 +196,19 @@ describe('2.2 Classes', () => {
 // 2.3 Choosing the quest
 // ================================================================================================
 describe('2.3 Choosing the quest', () => {
-  const routes = [guard('/quest/interests', <WhatAreYouInto />), guard('/quest/play', <PlayScreen />)];
+  const routes = [guard('/quest/disclosure', <QuestDisclosure />), guard('/quest/play', <PlayScreen />)];
   beforeEach(() => void fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' }));
 
-  it('2.3-AC1 shows exactly the six interests and a disabled "Find my quest"', async () => {
-    renderRoutes(routes, ['/quest/interests']);
-    await screen.findByText('Welcome back, Mira');
-    expect(screen.getAllByRole('button', { pressed: false }).map((b) => b.textContent)).toEqual(['Gaming', 'Fashion', 'Sports', 'Mobility', 'Music', 'Tech']);
-    expect(screen.getByRole('button', { name: 'Find my quest' })).toBeDisabled();
-  });
-  it('2.3-AC2 Find my quest shows the disclosure note; "Got it" opens the opening scene', async () => {
-    renderRoutes(routes, ['/quest/interests']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Gaming' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Find my quest' }));
+  it('2.3-AC2 the disclosure opens directly and "Got it" opens the first scene', async () => {
+    renderRoutes(routes, ['/quest/disclosure']);
     expect(await screen.findByText(/This story is real market history\. We've hidden the company's name, the dates and the price level\. You'll find out who it was at the end\./)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
   });
-  it('2.3-AC3 the opening scene is in the Tavern with the Tavern background and the briefing', async () => {
-    renderRoutes(routes, ['/quest/interests']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Tech' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Find my quest' }));
+  it('2.3-AC3 the opening scene opens with the Tavern briefing', async () => {
+    renderRoutes(routes, ['/quest/disclosure']);
     await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     await screen.findByTestId('name-tab');
-    expect(screen.getAllByText('Tavern').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Gilded Tavern/);
   });
@@ -232,11 +218,10 @@ describe('2.3 Choosing the quest', () => {
 // 2.4 Scenes and turns
 // ================================================================================================
 describe('2.4 Scenes and turns', () => {
-  it('2.4-AC1 a scene shows the location background and the "Campaign Master" name tab', async () => {
+  it('2.4-AC1 a scene shows the shared quest background and the "Campaign Master" name tab', async () => {
     setupPlay('analyst');
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
-    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
-    expect(screen.getByTestId('scene-art').parentElement).toHaveClass('absolute', 'inset-0');
+    expect(screen.getByTestId('vn-stage')).toHaveClass('quest-background');
   });
   it('2.4-AC2 a reply over 50 words is split into pages with "1 / 3" and "▼"', async () => {
     const sentence = (n: number, t: string) => `${Array.from({ length: n }, (_, i) => `${t}${i}`).join(' ')}.`;
@@ -566,13 +551,13 @@ describe('2.6 Locations', () => {
     expect(within(map).getByRole('button', { name: /Tavern/ })).toHaveTextContent('you are here');
     expect(within(map).getByRole('button', { name: /Lamp Works/ })).toHaveTextContent('this tale only');
   });
-  it('2.6-AC2 tapping another location changes the background and the Campaign Master describes it, no dice', async () => {
+  it('2.6-AC2 the Campaign Master describes a new location over the shared background', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await goTo(user, 'Library');
     await skipTitle(user);
-    await waitFor(() => expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/library.webp'));
+    expect(screen.getByTestId('vn-stage')).toHaveClass('quest-background');
     await user.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Library/);
     expect(screen.queryByRole('dialog', { name: 'Dice check' })).not.toBeInTheDocument();
@@ -641,39 +626,16 @@ describe('2.6 Locations', () => {
     const card = within(await screen.findByRole('dialog', { name: 'Library' })).getByRole('region', { name: 'Company card' });
     for (const t of ['Lumenvale Guild', 'Lantern oil and lighting', 'About 4,200 workers', 'Barrels sold']) expect(card).toHaveTextContent(t);
   });
-  const loc = (o: Partial<PlayLocation>): PlayLocation => ({ id: 'l1', key: 'tavern', name: 'Tavern', description: '', fixed: true, art_status: 'placeholder', visited: true, ...o });
-  it('2.6-AC9 when a constant background file is missing, a plain backdrop with the location name remains', () => {
-    render(<SceneArt location={loc({})} />);
-    fireEventError(screen.getByTestId('scene-art'));
-    expect(screen.queryByTestId('scene-art')).not.toBeInTheDocument();
-    expect(screen.getByText('Tavern')).toBeInTheDocument();
-  });
-  it('2.6-AC10 the Tavern shows the same background file in every campaign', () => {
-    expect(artSrc(loc({ id: 'campaign-A-tavern' }))).toBe('/backgrounds/tavern.webp');
-    expect(artSrc(loc({ id: 'campaign-B-tavern' }))).toBe('/backgrounds/tavern.webp');
-  });
-  it('2.6-AC11 a campaign location with pending art shows the placeholder with its name and the player can act', async () => {
+  it('2.6-AC11 a campaign location with pending art still supports actions', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await goTo(user, 'Lamp Works');
     await skipTitle(user);
     await readToChoices(user);
-    expect(screen.queryByTestId('scene-art')).not.toBeInTheDocument();
-    expect(screen.getAllByText('The Lamp Works').length).toBeGreaterThan(0);
     expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
   });
-  it('2.6-AC12 ready campaign art replaces the placeholder (served by the API)', () => {
-    expect(artSrc(loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'ready' }))).toMatch(/\/locations\/abc\/art$/);
-    expect(artSrc(loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'pending' }))).toBeNull();
-    render(<SceneArt location={loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'ready' })} />);
-    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', expect.stringMatching(/\/locations\/abc\/art$/));
-  });
 });
-
-function fireEventError(el: HTMLElement): void {
-  act(() => void el.dispatchEvent(new Event('error')));
-}
 
 // ================================================================================================
 // 2.7 CommerzBuddy
@@ -904,11 +866,10 @@ describe('2.10 Voice narration', () => {
   };
   const spoken = (i: { calls: string[] }) => i.calls.filter((c) => c.startsWith('speak:'));
 
-  it('2.10-AC1 a player who never touched voice: Find my quest unlocks sound and the opening is read, voice shown on', async () => {
+  it('2.10-AC1 a player who never touched voice: Got it unlocks sound and the opening is read, voice shown on', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' });
-    renderRoutes([guard('/quest/interests', <WhatAreYouInto />)], ['/quest/interests']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Gaming' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Find my quest' }));
+    renderRoutes([guard('/quest/disclosure', <QuestDisclosure />), guard('/quest/play', <PlayScreen />)], ['/quest/disclosure']);
+    await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     expect(unlockVoice).toHaveBeenCalled();
     cleanup();
     const impl = fakeImpl();
@@ -1036,7 +997,7 @@ describe('2.11 Hero status', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/quest/hero'));
     cleanup();
     seedCampaign({ phase: 'xp', heroClass: 'analyst', decision: investDecision });
-    fixtureResponse('POST', '/campaigns/fixture-campaign/finish');
+    fixtureResponse('POST', `/campaigns/${readDb().campaign!.id}/finish`);
     renderRoutes([{ path: '/quest/hero', element: <HeroScreen /> }], ['/quest/hero']);
     expect(await screen.findByText('Second Look — reroll one failed dice check per campaign')).toBeInTheDocument();
     const history = screen.getByRole('heading', { name: 'Learning history' }).parentElement as HTMLElement;
@@ -1045,7 +1006,7 @@ describe('2.11 Hero status', () => {
   });
   it('2.11-AC3b each finished campaign in the learning history lists its date', async () => {
     seedCampaign({ phase: 'xp', heroClass: 'analyst', decision: investDecision });
-    fixtureResponse('POST', '/campaigns/fixture-campaign/finish');
+    fixtureResponse('POST', `/campaigns/${readDb().campaign!.id}/finish`);
     const finished = readDb().hero?.history[0]?.finished_at;
     renderRoutes([{ path: '/quest/hero', element: <HeroScreen /> }], ['/quest/hero']);
     const history = (await screen.findByRole('heading', { name: 'Learning history' })).parentElement as HTMLElement;
@@ -1413,7 +1374,7 @@ describe('2.17 Focus and items', () => {
   });
   it('2.17-AC5 finishing with 70 XP or more lists the "Ratio Lens" on the hero screen with its description', async () => {
     seedCampaign({ phase: 'xp', heroClass: 'analyst', decision: investDecision });
-    fixtureResponse('POST', '/campaigns/fixture-campaign/finish');
+    fixtureResponse('POST', `/campaigns/${readDb().campaign!.id}/finish`);
     renderRoutes([{ path: '/quest/hero', element: <HeroScreen /> }], ['/quest/hero']);
     expect(await screen.findByText('Ratio Lens')).toBeInTheDocument();
     expect(screen.getByText('Ratio Lens').parentElement?.textContent?.length).toBeGreaterThan('Ratio Lens'.length);

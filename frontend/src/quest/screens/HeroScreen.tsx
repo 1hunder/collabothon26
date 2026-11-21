@@ -52,7 +52,8 @@ export default function HeroScreen(): React.JSX.Element {
             {h.history.map((e) => (
               <li key={e.campaign_id} className="rounded-md border border-quest-lapis p-2">
                 {e.finished_at ? <time dateTime={e.finished_at} className="block text-sm text-quest-vellum-dim">{e.finished_at}</time> : null}
-                <span>{e.interests.join(', ')}</span> · <span>{e.total_xp} XP</span>
+                {e.interests.length > 0 && <>{e.interests.join(', ')} · </>}
+                <span>{e.total_xp} XP</span>
                 {e.decision ? <span> · {e.decision}</span> : null}
                 {typeof e.result_pct === 'number' ? <span> · {e.result_pct.toFixed(1)}%</span> : null}
                 <Link to={`/quest/journal/${e.campaign_id}`} className="block text-quest-verdigris-light underline">

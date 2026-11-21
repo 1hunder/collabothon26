@@ -1,9 +1,11 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetFixtureDb } from '../../api/fixtures';
+import { fixtureResponse, resetFixtureDb } from '../../api/fixtures';
 import { renderRoutes } from '../testUtils';
 import { validateName } from '../lib/heroName';
+import PhaseGuard from '../PhaseGuard';
+import { HERO_CLASS_PATH } from '../setupNavigation';
 import HeroCreate from './HeroCreate';
 
 beforeEach(() => {
@@ -16,7 +18,7 @@ function setup() {
   return renderRoutes(
     [
       { path: '/quest/hero/new', element: <HeroCreate /> },
-      { path: '/quest/interests', element: <p>interests screen</p> },
+      { path: '/quest/disclosure', element: <p>disclosure screen</p> },
     ],
     ['/quest/hero/new'],
   );
@@ -78,11 +80,30 @@ describe('HeroCreate', () => {
     expect(screen.getByRole('button', { name: 'Begin' })).toBeEnabled();
   });
 
-  it('Begin creates the hero and opens interests', async () => {
+  it('Begin creates the hero and opens the disclosure', async () => {
     const router = setup();
     await userEvent.click(screen.getByRole('radio', { name: /Investigator/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
-    expect(await screen.findByText('interests screen')).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/quest/interests');
+    expect(await screen.findByText('disclosure screen')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/disclosure');
+  });
+
+  it('lets a returning hero select a different class before the next game', async () => {
+    const hero = fixtureResponse('POST', '/hero', { name: 'Mira', class: 'guardian' });
+    const router = renderRoutes(
+      [
+        { path: HERO_CLASS_PATH, element: <PhaseGuard screen={HERO_CLASS_PATH}><HeroCreate chooseClass /></PhaseGuard> },
+        { path: '/quest/disclosure', element: <p>disclosure screen</p> },
+      ],
+      [HERO_CLASS_PATH],
+    );
+    expect(await screen.findByRole('heading', { name: 'Choose your class' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Mira');
+    expect(screen.getByRole('radio', { name: /Guardian/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: /Analyst/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('disclosure screen')).toBeInTheDocument();
+    expect(router.state.location.state).toMatchObject({ chooseClass: true });
+    expect(fixtureResponse('GET', '/hero')).toEqual({ ...hero as object, class: 'analyst' });
   });
 });

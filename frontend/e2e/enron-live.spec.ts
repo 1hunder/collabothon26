@@ -85,14 +85,11 @@ test('Enron campaign: hero to reveal to finish, all figures from the server', as
   await page.getByRole('button', { name: /StartDepot/ }).click();
   await page.getByRole('button', { name: /^Start/ }).click();
 
-  // Hero + interests + disclosure
+  // Hero + disclosure
   await expect(page.getByRole('heading', { name: 'Create your hero' })).toBeVisible();
   await page.getByLabel('Name').fill('Tester');
   await page.getByRole('radio', { name: /Analyst/ }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(page.getByRole('heading', { name: 'What are you into?' })).toBeVisible();
-  await page.getByRole('button', { name: 'Tech' }).click();
-  await page.getByRole('button', { name: 'Find my quest' }).click();
   await expect(hasText(page, /real market history/)).toBeVisible();
   await page.getByRole('button', { name: 'Got it' }).click();
 

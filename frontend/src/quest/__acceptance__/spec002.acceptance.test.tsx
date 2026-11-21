@@ -16,7 +16,7 @@ import RevealGuard from '../RevealGuard';
 import { clearQuest } from '../questStore';
 import { formatStoryDay, formatStoryNumber } from '../lib/storyNumber';
 import Reveal from '../screens/Reveal';
-import WhatAreYouInto from '../screens/WhatAreYouInto';
+import QuestDisclosure from '../screens/QuestDisclosure';
 import { renderRoutes } from '../testUtils';
 
 vi.mock('../components/StoryChart', () => ({
@@ -141,10 +141,10 @@ describe('2.7 disclosure note (@spec: 002-anonymization-reid-gate @regression)',
     return renderRoutes(
       [
         {
-          path: '/quest/interests',
+          path: '/quest/disclosure',
           element: (
-            <PhaseGuard screen="/quest/interests">
-              <WhatAreYouInto />
+            <PhaseGuard screen="/quest/disclosure">
+              <QuestDisclosure />
             </PhaseGuard>
           ),
         },
@@ -157,14 +157,12 @@ describe('2.7 disclosure note (@spec: 002-anonymization-reid-gate @regression)',
           ),
         },
       ],
-      ['/quest/interests'],
+      ['/quest/disclosure'],
     );
   }
 
   it('2.7.1 starting a mission shows the note with a Got it button before the first story beat', async () => {
     setup();
-    await userEvent.click(await screen.findByRole('button', { name: 'Gaming' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Find my quest' }));
     expect(
       await screen.findByText(
         "This story is real market history. We've hidden the company's name, the dates and the price level. You'll find out who it was at the end.",
@@ -176,8 +174,6 @@ describe('2.7 disclosure note (@spec: 002-anonymization-reid-gate @regression)',
 
   it('2.7.2 tapping Got it closes the note and the story intro appears', async () => {
     setup();
-    await userEvent.click(await screen.findByRole('button', { name: 'Gaming' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Find my quest' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     expect(await screen.findByText('story intro')).toBeInTheDocument();
     expect(screen.queryByText(/This story is real market history/)).not.toBeInTheDocument();

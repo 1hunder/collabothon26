@@ -20,6 +20,6 @@ export function phaseToPath(phase: CampaignPhase): string {
     case 'xp':
       return '/quest/xp';
     case 'done':
-      return '/quest/interests';
+      return '/quest/disclosure';
   }
 }

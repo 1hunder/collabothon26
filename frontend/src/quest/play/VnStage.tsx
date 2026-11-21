@@ -1,9 +1,6 @@
 import { useEffect } from 'react';
-import type { PlayLocation } from '../../api/types';
-import SceneArt from './SceneArt';
 
 interface VnStageProps {
-  location: PlayLocation | undefined;
   /** Hero status along the top (leaves room for the quest layout's close button). */
   status: React.ReactNode;
   /** Contextual button row under the status (price board, documents). */
@@ -32,16 +29,15 @@ function useVisualViewportHeight(): void {
   }, []);
 }
 
-/** The visual-novel scene: a full-height stack of art, status, dialogue or choices, and the dock. */
-export default function VnStage({ location, status, chips, dock, overlays, children }: VnStageProps): React.JSX.Element {
+/** The visual-novel scene: a full-height stack of status, dialogue or choices, and the dock. */
+export default function VnStage({ status, chips, dock, overlays, children }: VnStageProps): React.JSX.Element {
   useVisualViewportHeight();
   return (
     <div
       data-testid="vn-stage"
       style={{ height: 'var(--vvh, 100dvh)' }}
-      className="fixed left-1/2 top-0 z-10 w-full max-w-[430px] -translate-x-1/2 overflow-hidden bg-quest-lapis-deep font-quest text-quest-vellum"
+      className="quest-background fixed left-1/2 top-0 z-10 w-full max-w-[430px] -translate-x-1/2 overflow-hidden bg-quest-lapis-deep font-quest text-quest-vellum"
     >
-      <SceneArt location={location} />
       <header className="absolute inset-x-0 top-0 z-[5] px-5 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         {status}
         {chips ? <div className="mt-2 flex gap-2">{chips}</div> : null}

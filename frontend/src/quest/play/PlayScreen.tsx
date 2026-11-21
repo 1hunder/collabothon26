@@ -348,7 +348,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
 
   return (
     <VnStage
-      location={location}
       status={<HeroStatus campaign={c} onOpen={() => void navigate('/quest/hero')} />}
       chips={chips}
       dock={

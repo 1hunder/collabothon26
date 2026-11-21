@@ -1,0 +1,314 @@
+Last login: Fri Nov 20 12:29:54 on ttys000
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~
+$ ls                                                                 [20:55:53]
+allclasses-index.html        member-search-index.js
+allpackages-index.html       module-search-index.js
+Applications                 Movies
+CLionProjects                Music
+collabathon                  overview-summary.html
+com                          overview-tree.html
+constant-values.html         package-search-index.js
+db-derby-10.14.2.0-bin       payara
+derby_data                   Pictures
+Desktop                      Public
+Documents                    PyCharmMiscProject
+Downloads                    resource-files
+element-list                 RiderProjects
+google-hackathon-beszketnyky script-files
+help-doc.html                search.html
+IdeaProjects                 serialized-form.html
+index-files                  tag-search-index.js
+index.html                   type-search-index.js
+legal                        vscode
+Library
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~
+$ cd collabathon                                                     [20:56:04]
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~/collabathon
+$ gh repo clone 1hunder/collabothon26                                [20:56:23]
+Клонування в "collabothon26"..
+remote: Enumerating objects: 301, done.
+remote: Counting objects: 100% (301/301), done.
+remote: Compressing objects: 100% (262/262), done.
+remote: Total 301 (delta 33), reused 290 (delta 26), pack-reused 0 (from 0)
+Отримання об’єктів: 100% (301/301), 589.33 КіБ | 3.18 МіБ/с, готово.
+Розв’язання дельт: 100% (33/33), готово.
+
+
+A new release of gh is available: 2.100.0 → 2.105.0
+To upgrade, run: brew upgrade gh
+https://github.com/cli/cli/releases/tag/v2.105.0
+
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~/collabathon
+$ docker --version                                                    [9:55:01]
+docker compose version
+zsh: command not found: docker
+zsh: command not found: docker
+FAIL
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~/collabathon
+$ brew install --cask docker-desktop                                 [10:03:00]
+==> Auto-updating Homebrew...
+Adjust how often this is run with HOMEBREW_AUTO_UPDATE_SECS or disable with
+HOMEBREW_NO_AUTO_UPDATE. Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`).
+Warning: No remote 'origin' in /opt/homebrew/Library/Taps/dmytrogolubtsov/homebrew-local-sfml, skipping update!
+Warning: No remote 'origin' in /opt/homebrew/Library/Taps/my/homebrew-sfml, skipping update!
+==> Auto-updated Homebrew!
+Updated 2 taps (homebrew/core and homebrew/cask).
+==> New Formulae
+abtop                                    nelm@1
+agent-desktop                            netbird
+agent-manager                            ng-log
+all-smi                                  noodle
+android-file-transfer-linux              openfasttrace
+annotsv                                  openshell
+apkid                                    openssh-sk-provider
+arcane-cli                               openssl@3.6
+arm-optimized-routines                   otel-tui
+ascelerate                               packslip
+bashka                                   pdfcraft-cli
+baysor                                   peekaboo
+bend                                     percona-server@8.4
+beszel                                   percona-xtrabackup@8.4
+beszel-agent                             pg_activity
+bitbucket-cli                            photocraft-cli
+blint                                    php@8.5
+bqlog                                    planetiler
+buildkite                                plink1
+calcure                                  portop
+ccmux                                    postgresql@19
+cellpose                                 pypy3.12
+chisel-ubuntu                            python-gdbm@3.15
+confluence-markdown-exporter             python-tk@3.15
+csound-plugins                           python@3.15
+ctcache                                  qdl
+curl-impersonate                         rea
+cx                                       regenie
+cymbal                                   roborev
+ddns-updater                             rustqc
+deja                                     ryl
+dep-scan                                 sac
+designcraft-cli                          safe-chain
+diffle                                   sbom-tools
+dnswire                                  sbomasm
+doltlite                                 sbomqs
+dotnet@10                                sdrmm
+drydock                                  slivar
+emeraldian                               smbclient-ng
+engram                                   sniffles
+entire-cli                               sofka
+erpc                                     somalier
+fastplong                                spidermonkey@140
+filmcraft-cli                            sping
+gam                                      sqlmux
+gitea-cli                                ssh-tpm-agent
+gitea-importer                           strobealign
+globus-cli                               svt-jpegxs
+go-arch-lint                             taoup
+goda                                     tcltls
+godu                                     tennis
+goleft                                   termaid
+goose-lang                               tfswitch
+gridcraft-cli                            tidemail
+hidapitester                             tinycbor
+hoppr                                    tinyframe
+icu4c@79                                 titus
+ketch                                    toit
+knife                                    tpcgen-cli
+kontext                                  tsuzuri
+krunkit                                  tunnelite
+kubectl-radar                            typdiff
+libgovirt                                unixcw
+libklvanc                                upki
+libkrun                                  upmd
+libkrunfw                                uutils-grep
+libpkl                                   uutils-sed
+licensee                                 vcfexpress
+lightcraft-cli                           vectorcraft-cli
+llamastash                               vortix
+localsend-cli                            wavemon
+lovable-oj                               wordcraft-cli
+lsoff                                    workmux
+mailtrap-local                           worldmonitor
+maki                                     xfr
+mariadb@12.3                             xgrammar
+mcpc                                     xwpe
+mdspan                                   zig@0.16
+memex                                    ziggy
+modflow6                                 zmij
+morphe                                   zvec-grep
+muvm
+==> New Casks
+activitywatch@experimental               max-messages
+agent-orchestrator                       mcplinker
+agentiloop-agent                         mdhero
+airbuild                                 mindroom
+alfred@5                                 mistral-vibe-app
+amp-app                                  multidock
+anydrag                                  muse
+ardia                                    napari
+argo-books                               nebius
+artcraft                                 network-weather
+artcraft-launcher                        nextdns-app
+audioroute                               nextpad++
+auto-tune-central                        nod
+azure-cli                                nodeterm
+bambu-studio@beta                        notational-velocity
+beat-link-trigger                        notomo
+betteraudio                              nvalt
+bettermacwidgets                         nvidia-pair
+biscotti                                 obelisk
+bitmuse                                  oleafly
+blave                                    omniwm@canary
+blick                                    open-screen-sharing
+buholaunchpad                            openclip
+buildin                                  opencodex
+byos                                     opendisk
+bytemail                                 opendisplay-receiver
+cadcraft                                 openframe-console
+caldera-amp                              openplc-editor
+calyx                                    openscreen
+capso                                    pake-app
+clamshell                                parallels@26
+claudoscope                              pdfcraft
+cleeen                                   peel
+cline-app                                pen
+clipboard-remote                         petal
+codeburn-app                             photocraft
+colamd                                   phtv
+crest                                    picmal
+crest-browser                            picsart-ai-playground
+cuadriver                                plane
+cyd                                      plezy
+deckcraft                                portkiller
+deepseek-harness                         prusaslicer@preview
+designcraft                              pulse
+deutschlandgpt                           purge
+deviceshelf                              qoder
+devtools                                 read-ai
+diri                                     realtek-rtl815x-ethernet
+distill-web-monitor                      receipts-space
+dotnet-sdk@10                            recordly
+doubaoime                                relay
+effectcraft                              rencal
+emeet-studio                             reolink
+emeetlink                                rew
+expose                                   robbietilton-compositor
+figcraft                                 ruffle
+filmcraft                                rustgis
+fl-studio                                ruswitcher
+fleet-desktop                            sable
+fluxer                                   sacnview
+font-agrave-pro                          saega
+font-aptos                               sandisk
+font-chunkfive                           screendrop
+font-dinish                              screenshot-remote
+font-firjar                              sdrmm-app
+font-geist-serif                         search-browser
+font-google-sans                         setshot
+font-ioskeley-mono-term-nerd-font        sidebarfavorites-manager
+font-lexica-ultralegible                 sidex
+font-libron                              snapline
+font-madhuban                            solidcraft
+font-mengshen-handwritten                solidtime
+font-nordwand-mono                       sononym
+font-pennstander                         sound-studio
+font-redaction                           soundcraft
+font-redaction-10                        spencer
+font-redaction-100                       spotify-soloist
+font-redaction-20                        sprites
+font-redaction-35                        ssl-360
+font-redaction-50                        ssl-download-manager
+font-redaction-70                        stashcat
+font-xmind                               status-trio
+fore-studio-vitals                       superhuman-docs
+forel                                    supertab
+freellmapi                               swi-prolog-app
+ftop                                     swiftcord
+gallery-remote                           switchbar
+genoffice                                tab-finder
+ghostex                                  taperlabs-shadow
+gitdifferent                             tapmap
+gridcraft                                task-manager-tmog
+hagimimonitordirect                      teamwork-graph-cli
+herdr-app                                telari
+highball                                 telegram@beta
+hol-guard                                tencent-yingyongbao
+holst                                    tendedero
+hoptodesk                                texpile
+hora-calendar                            textus
+hotkeyclash                              thinkrail
+hyperframes                              threat-dragon
+hyprmac                                  time-messenger
+ideashell                                tine
+ideashell-cn                             tinycast
+image-optimizer                          tinycast@beta
+incy                                     tldv
+jellybox                                 tnas-pc
+jlcone                                   tracexy
+jpki                                     tree-outliner
+junie                                    tungsten-edge
+kaku                                     tutti
+kero                                     upload-remote
+keyboop                                  vectorcraft
+keyecho                                  vercel
+kiwidesk                                 vernier-instrumental-analysis
+kkterm                                   volumehud
+kugelblitz                               wallpapermachine
+lap                                      wblock
+lattice                                  weftcut
+lightcraft                               wheelwizard
+littlebird                               wiso-steuer-2027
+local-studio                             wordcraft
+lody                                     writer
+look                                     xcasca
+lumo                                     yandex-document
+macdirstat                               yap-app
+mactoy                                   zeal
+magpie                                   zed-delta
+manus-cue                                zephium
+markpad
+
+You have 33 outdated formulae and 1 outdated cask installed.
+
+Error: Unexpected method 'postflight_steps' called on Cask docker-desktop.
+Follow the instructions here:
+  https://github.com/Homebrew/homebrew-cask#reporting-bugs
+==> Downloading https://desktop.docker.com/mac/main/arm64/245822/Docker.dmg
+######################################################################### 100.0%
+==> Installing Cask docker-desktop
+brew update
+Error: Unexpected method 'postflight_steps' called on Cask docker-desktop.
+Follow the instructions here:
+  https://github.com/Homebrew/homebrew-cask#reporting-bugs
+==> Purging files for version 4.99.0,245822 of Cask docker-desktop
+Error: It seems the symlink source '/Applications/Docker.app/Contents/Resources/etc/docker.bash-completion' is not there.
+FAIL
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~/collabathon
+$ brew update                                                                            [10:10:11]
+==> Updating Homebrew...
+Warning: No remote 'origin' in /opt/homebrew/Library/Taps/dmytrogolubtsov/homebrew-local-sfml, skipping update!
+Warning: No remote 'origin' in /opt/homebrew/Library/Taps/my/homebrew-sfml, skipping update!
+Already up-to-date.
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~/collabathon
+$ brew install --cask docker-desktop                                                                                                                                                                       [10:13:50]
+Error: Unexpected method 'postflight_steps' called on Cask docker-desktop.
+Follow the instructions here:
+  https://github.com/Homebrew/homebrew-cask#reporting-bugs
+==> Downloading https://desktop.docker.com/mac/main/arm64/245822/Docker.dmg
+Already downloaded: /Users/dmytrogolubtsov/Library/Caches/Homebrew/downloads/fa892bc6397cae84ee049fdbeef1bd93de1aeaba72b9ddea703b8d3a551c9ade--Docker.dmg
+==> Installing Cask docker-desktop
+Error: Unexpected method 'postflight_steps' called on Cask docker-desktop.
+Follow the instructions here:
+  https://github.com/Homebrew/homebrew-cask#reporting-bugs
+==> Purging files for version 4.99.0,245822 of Cask docker-desktop
+Error: It seems the symlink source '/Applications/Docker.app/Contents/Resources/etc/docker.bash-completion' is not there.
+FAIL
+
+dmytrogolubtsov@Dmytros-MacBook-Pro: ~/collabathon
+$ ls -d /Applications/Docker.app             

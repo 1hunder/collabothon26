@@ -64,10 +64,10 @@ describe('PlayScreen: scene and hero status', () => {
     expect(await screen.findByText('Keen Eye: 1')).toBeInTheDocument();
   });
 
-  it('draws the plain backdrop with the location name when there is no art yet', async () => {
+  it('uses the shared quest background in the opening scene', async () => {
     setupPlay('analyst');
     await screen.findByTestId('name-tab');
-    expect(screen.getAllByText('Tavern').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('vn-stage')).toHaveClass('quest-background');
   });
 });
 
