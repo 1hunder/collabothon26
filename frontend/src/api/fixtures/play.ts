@@ -277,6 +277,30 @@ function openingSse(): string[] {
   return out;
 }
 
+/** Fixture art for a generated place turns ready a few seconds after it is created. */
+const FIXTURE_ART_MS = 6_000;
+
+/** Called on every campaign GET: pending art whose time has come becomes ready. */
+export function fixtureSettleArt(): void {
+  const db = readDb();
+  const due = db.play?.artReadyAt;
+  if (!db.campaign || !due) return;
+  let changed = false;
+  for (const l of db.campaign.locations) {
+    const at = due[l.id];
+    if (l.art_status === 'pending' && at !== undefined && Date.now() >= at) {
+      l.art_status = 'ready';
+      changed = true;
+    }
+  }
+  if (changed) writeDb(db);
+}
+
+function npcReply(x: Ctx, npcName: string, text: string, extra: Record<string, unknown> = {}): { speaker: string; extras: Record<string, unknown> } {
+  addEvent(x.play, 'dm_reply', { speaker: npcName, text });
+  return { speaker: npcName, extras: { speaker: npcName, speaker_kind: 'npc', escalated: false, ...extra } };
+}
+
 function actionSse(body: { text?: string; client_msg_id?: string }): string[] {
   const x = ctx();
   const key = body.client_msg_id ? `actions:${body.client_msg_id}` : null;
@@ -301,12 +325,54 @@ function actionSse(body: { text?: string; client_msg_id?: string }): string[] {
     showDecide = x.c.clues.length >= 2 && x.c.news_shown;
     reply = showDecide ? 'Ready to make your decision?' : 'Not yet. There is still something to uncover first. What would you do?';
   }
+  const here = x.c.locations.find((l) => l.id === x.c.current_location_id);
+  const done: Record<string, unknown> = { speaker: 'Campaign Master', speaker_kind: 'master', escalated: false, hp_change: null };
+  let speaker = 'Campaign Master';
+  let suggestions = ['Check the ledger for anything odd', 'Visit Market Square', 'Ask the scholar what a write-down is'];
+  if (/docks?|warehouse/i.test(text) && !wantsRoll && !wantsDecide) {
+    // The Master invents a place with its own NPC; art is painted in the background.
+    const id = 'docks-warehouse';
+    let made = x.c.locations.find((l) => l.id === id);
+    if (!made) {
+      made = { id, key: id, name: 'The Docks Warehouse', description: 'Crates stamped with the guild seal tower over a damp stone floor.', fixed: false, art_status: 'pending', visited: true, npc: { id: 'orrin-vale', name: 'Orrin Vale', role: 'harbour clerk' }, generated: true };
+      x.c.locations.push(made);
+      x.play.artReadyAt = { ...(x.play.artReadyAt ?? {}), [id]: Date.now() + FIXTURE_ART_MS };
+    }
+    made.visited = true;
+    x.c.current_location_id = id;
+    const intro = 'You slip into the Docks Warehouse. A tired man looks up from a tally board. "Orrin Vale, harbour clerk. Not many come asking after the guild\'s crates. What do you want to know?"';
+    const r = npcReply(x, 'Orrin Vale', intro);
+    reply = intro;
+    speaker = r.speaker;
+    Object.assign(done, r.extras, {
+      location: { id, key: id, name: made.name },
+      new_location: { id, key: id, name: made.name, description: made.description, art_status: made.art_status, npc: made.npc },
+    });
+    suggestions = ['Ask Orrin about the guild\'s crates', 'Ask how busy the docks are', 'Return to the Tavern'];
+  } else if (/vault|break in|steal|smash|threaten/i.test(text) && !wantsRoll && !wantsDecide) {
+    // Reckless: the Master steps in and the hero pays for it.
+    const delta = -5;
+    x.c.hp += delta;
+    x.c.hp_eur = x.c.hp * 10;
+    reply = 'The guards are faster than you hoped. A cudgel finds your ribs before you reach the door, and your purse is lighter for the trouble. What would you do?';
+    Object.assign(done, {
+      speaker_kind: 'master',
+      escalated: here?.npc !== undefined && here.npc !== null,
+      hp_change: { delta, reason: 'The vault guards caught you', hp: x.c.hp, hp_eur: x.c.hp_eur },
+    });
+    addEvent(x.play, 'hp_change', { delta, reason: 'The vault guards caught you' });
+  } else if (here?.npc && !wantsRoll && !wantsDecide) {
+    reply = `"Good question," says ${here.npc.name}. "The crates left for the guild's rival twice this month, and nobody signed for them." What would you do?`;
+    const r = npcReply(x, here.npc.name, reply);
+    speaker = r.speaker;
+    Object.assign(done, r.extras);
+    suggestions = ['Ask who signed for the crates', 'Return to the Tavern'];
+  }
   const news = countTurn(x);
-  addEvent(x.play, 'dm_reply', { speaker: 'Campaign Master', text: reply });
-  const suggestions = ['Check the ledger for anything odd', 'Visit Market Square', 'Ask the scholar what a write-down is'];
+  if (speaker === 'Campaign Master') addEvent(x.play, 'dm_reply', { speaker, text: reply });
   x.c.suggestions = suggestions;
   if (news) cards.push(news.card);
-  const out = remember(x, key, script(reply, { speaker: 'Campaign Master', suggestions, show_decide: showDecide, ...(news ? { news_text: news.text } : {}) }, cards));
+  const out = remember(x, key, script(reply, { ...done, suggestions, show_decide: showDecide, ...(news ? { news_text: news.text } : {}) }, cards));
   save(x);
   return out;
 }

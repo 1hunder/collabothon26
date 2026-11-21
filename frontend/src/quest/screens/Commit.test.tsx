@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readDb } from '../../api/fixtures/db';
+import { readDb, writeDb } from '../../api/fixtures/db';
 import { seedCampaign } from '../../test/seedCampaign';
 import PhaseGuard from '../PhaseGuard';
 import { renderRoutes } from '../testUtils';
@@ -91,6 +91,34 @@ describe('Commit (SealScroll)', () => {
     expect(readDb().decision).toMatchObject({ forecast_pct: 50, confidence: 'high' });
     await user.click(skip);
     await waitFor(() => expect(router.state.location.pathname).toBe('/quest/outcome'));
+  });
+});
+
+describe('Commit budget after damage', () => {
+  it('uses the current hp_eur as the budget and blocks Lock when the position is over it', async () => {
+    const user = userEvent.setup();
+    setup();
+    const db = readDb();
+    writeDb({ ...db, campaign: { ...db.campaign!, hp_eur: 150, purse: { cash_eur: 0, position_eur: 400 } as never } });
+    cleanup();
+    renderRoutes([{ path: '/quest/commit', element: <PhaseGuard screen="/quest/commit"><Commit /></PhaseGuard> }], ['/quest/commit']);
+    expect(await screen.findByTestId('budget')).toHaveTextContent('€150.00');
+    expect(screen.getByRole('alert')).toHaveTextContent('more than your budget of €150.00');
+    await user.click(screen.getByRole('radio', { name: 'High' }));
+    expect(lockButton()).toBeDisabled();
+  });
+
+  it('handles a 422 amount_over_budget from the server', async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(await screen.findByRole('radio', { name: 'High' }));
+    const db = readDb();
+    // the server sees damage the screen has not: Lock is refused
+    writeDb({ ...db, campaign: { ...db.campaign!, hp_eur: 100 } });
+    await user.click(lockButton());
+    await user.click(screen.getByRole('button', { name: 'Lock' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('more than your budget of €100.00');
+    expect(screen.queryByText('Could not lock your decision. Please try again.')).not.toBeInTheDocument();
   });
 });
 

@@ -266,10 +266,54 @@ def trades_of(db: Session, cid: uuid.UUID) -> list[Trade]:
 
 
 def position_of(run: CampaignRun, trades: list[Trade]) -> ledger.Position:
+    lost = Decimal(run.loss_unapplied_cents) / 100  # damage taken since the last decision
     if not trades:
-        return ledger.Position(Decimal(run.hp_start * 10))
+        return ledger.Position(Decimal(run.hp_start * 10) - lost)
     last = trades[-1]
-    return ledger.Position(Decimal(last.cash_after_cents) / 100, Decimal(last.shares_after))
+    return ledger.Position(Decimal(last.cash_after_cents) / 100 - lost, Decimal(last.shares_after))
+
+
+# ---- damage: HP is the budget bar (1 HP = 10 euros) -------------------------------------------
+HP_EUR = 10
+MAX_HP_LOSS_TURN = 10
+MAX_HP_LOSS_SHARE = Decimal("0.3")  # of the starting HP, over the whole quest
+HP_FLOOR = 10
+
+
+def hp_now(run: CampaignRun) -> int:
+    return run.hp_start - run.hp_lost
+
+
+def budget_now(run: CampaignRun) -> Decimal:
+    """The investable budget: starting purse minus the damage taken (what lock and the result
+    maths use)."""
+    return Decimal(hp_now(run) * HP_EUR)
+
+
+def hp_change_out(delta: int, reason: str, run: CampaignRun) -> dict[str, Any]:
+    hp = hp_now(run)
+    return {"delta": delta, "reason": reason, "hp": hp, "hp_eur": hp * HP_EUR}
+
+
+def apply_hp_loss(
+    db: Session, run: CampaignRun, pack: Pack, loss: int, reason: str
+) -> dict[str, Any] | None:
+    """The engine clamps what the Campaign Master asks for: at most 10 HP a turn, at most 30% of
+    the starting HP over the quest, never below 10 HP, never more than the cash in the purse, and
+    never once the decision is locked. Persists the run field and an ``hp_change`` event."""
+    if run.phase not in ("play", "commit"):
+        return None
+    cap_total = int(run.hp_start * MAX_HP_LOSS_SHARE) - run.hp_lost
+    cap_floor = hp_now(run) - HP_FLOOR
+    cap_cash = int(position_of(run, trades_of(db, run.id)).cash // HP_EUR)
+    n = max(0, min(int(loss), MAX_HP_LOSS_TURN, cap_total, cap_floor, cap_cash))
+    if n <= 0:
+        return None
+    run.hp_lost += n
+    run.loss_unapplied_cents += n * HP_EUR * 100
+    out = hp_change_out(-n, reason.strip(), run)
+    append_event(db, run, "hp_change", out)
+    return out
 
 
 def _eur(x: Decimal) -> float:
@@ -369,6 +413,7 @@ def record_decision(
     )  # fmt: skip
     db.add(trade)
     run.market_scene = None
+    run.loss_unapplied_cents = 0  # the damage is now part of this trade's cash_after
     db.flush()
     append_event(db, run, "trade", {
         "seq": trade.seq, "beat": trade.beat, "action": trade.action,
@@ -637,7 +682,7 @@ def validate_commit(
 
 def ledger_result(run: CampaignRun, pack: Pack, trades: list[Trade]) -> ledger.LedgerResult:
     """The final result of every decision together, valued at the horizon close."""
-    return ledger.result(Decimal(run.hp_start * 10), position_of(run, trades), pack.end_close)
+    return ledger.result(budget_now(run), position_of(run, trades), pack.end_close)
 
 
 def evidence_text(trades: list[Trade], note: str) -> str:
@@ -662,7 +707,7 @@ def reveal_payload(
         "action": dec.action,
         "amount_eur": (dec.amount_cents or 0) // 100,
         "breakdown": {
-            "starting_budget": float(Decimal(run.hp_start * 10).quantize(portfolio.CENTS)),
+            "starting_budget": float(budget_now(run).quantize(portfolio.CENTS)),
             "cash_kept": num(oc.cash), "invested": num(oc.invested), "value_now": num(oc.value_now),
             "fees": num(oc.fees), "final_value": num(oc.final), "pl_eur": num(oc.pnl),
             "pl_pct": num(oc.pnl_pct),
@@ -685,6 +730,10 @@ def lock_decision(
         assert oc is not None
         return existing, oc
     require_phase(run, "play", "commit")
+    over = body.get("amount_cents")
+    if isinstance(over, int | float) and not isinstance(over, bool) \
+            and over > hp_now(run) * HP_EUR * 100:
+        raise ApiError(422, "amount_over_budget", "That is more than your budget now")
     if not decide_ready(db, run, pack):
         raise ApiError(409, "not_ready", "Keep investigating first")
     clean, errs = validate_commit(body, run, pack)
@@ -732,7 +781,7 @@ def debrief_facts(
         else ledger.fill_row(pack.rows, pack.decision_day).close
     )  # fmt: skip
     rows = ledger.whatif_rows(
-        Decimal(run.hp_start * 10), ledger_result(run, pack, trades),
+        budget_now(run), ledger_result(run, pack, trades),
         Decimal(trades[0].price) if trades and trades[0].price else None, decision_price,
         pack.end_close,
     )  # fmt: skip
@@ -891,6 +940,40 @@ def latest_suggestions(events: list[Event]) -> list[str]:
     return []
 
 
+# ---- Master-created places ----------------------------------------------------------------------
+def npc_out(loc: Location) -> dict[str, str] | None:
+    n = loc.npc if isinstance(loc.npc, dict) else None
+    return {"id": n["id"], "name": n["name"], "role": n["role"]} if n else None
+
+
+def generated_count(db: Session, cid: uuid.UUID) -> int:
+    return sum(1 for x in locations(db, cid) if x.generated)
+
+
+def create_generated_location(
+    db: Session, run: CampaignRun, spec: dict[str, Any]
+) -> Location | None:
+    """Adds the validated place and its NPC to the campaign; None once the cap is reached."""
+    from financequest.agents.campaign.context import MAX_GENERATED
+
+    have = locations(db, run.id)
+    if sum(1 for x in have if x.generated) >= MAX_GENERATED:
+        return None
+    taken = {x.key for x in have}
+    slug = "".join(c if c.isalnum() else "_" for c in spec["name"].lower()).strip("_")[:40] or "place"
+    key, n = f"gen_{slug}", 2
+    while key in taken:
+        key, n = f"gen_{slug}_{n}", n + 1
+    npc = {**spec["npc"], "id": f"npc-{uuid.uuid4().hex[:8]}"}
+    row = Location(
+        campaign_id=run.id, key=key, fixed=False, generated=True, name=spec["name"],
+        description=spec["description"], art_subject=spec["art_subject"], npc=npc,
+    )  # fmt: skip
+    db.add(row)
+    db.flush()
+    return row
+
+
 # ---- state ------------------------------------------------------------------------------------
 def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     hero = db.get(Hero, run.hero_id)
@@ -901,7 +984,7 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     events = campaign_events(db, run.id)
     revealed = phase_at_least(run, "reveal")
     oc = db.get(Outcome, run.id) if revealed else None
-    hp = oc.hp_after if oc else run.hp_start
+    hp = oc.hp_after if oc else hp_now(run)
     docs = []
     by_id = {
         e["id"]: {k: e[k] for k in ("id", "title", "text")} for e in content["evidence"]
@@ -932,14 +1015,15 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         },
         "hero": {"name": hero.name, "class": hero.hero_class, "total_xp": hero.total_xp,
                  "items": sorted(items)},
-        "hp": hp, "hp_eur": hp * 10, "focus_left": run.focus_left, "rerolls_left": run.rerolls_left,
+        "hp": hp, "hp_eur": hp * HP_EUR, "hp_start": run.hp_start, "focus_left": run.focus_left, "rerolls_left": run.rerolls_left,
         "keen_eye_left": run.keen_eye_left, "bonus_lead_available": not run.bonus_lead_used,
         "turn_count": run.turn_count, "checkpoint": run.checkpoint, "story_day": run.clock_day,
         "story_day_label": clock.day_label(run.clock_day), "news_shown": run.news_shown,
         "news": content["news"], "current_location_id": str(run.current_location_id) if run.current_location_id else None,
         "locations": [
             {"id": str(loc.id), "key": loc.key, "name": loc.name, "description": loc.description,
-             "fixed": loc.fixed, "art_status": loc.art_status, "visited": loc.visited}
+             "fixed": loc.fixed, "art_status": loc.art_status, "visited": loc.visited,
+             "generated": loc.generated, "npc": npc_out(loc)}
             for loc in locations(db, run.id)
         ],
         "backlog": backlog(events),

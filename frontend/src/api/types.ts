@@ -264,6 +264,13 @@ export interface FinishResult {
 
 export type ArtStatus = 'placeholder' | 'pending' | 'ready' | 'failed';
 
+/** The one character that lives at a generated location. */
+export interface LocationNpc {
+  id: string;
+  name: string;
+  role: string;
+}
+
 export interface PlayLocation {
   id: string;
   /** tavern | market_square | library for the fixed ones; a slug for campaign locations */
@@ -273,6 +280,10 @@ export interface PlayLocation {
   fixed: boolean;
   art_status: ArtStatus;
   visited: boolean;
+  /** The NPC who lives here (generated locations); null or absent elsewhere. */
+  npc?: LocationNpc | null;
+  /** True for a location the Campaign Master created mid-story. */
+  generated?: boolean;
 }
 
 export interface BacklogEntry {
@@ -493,8 +504,33 @@ export interface RollResult {
 }
 
 /** Extra fields of a `done` event for a Campaign Master turn. */
+export interface HpChange {
+  /** Negative: HP lost (1 HP = €10). */
+  delta: number;
+  reason: string;
+  hp: number;
+  hp_eur: number;
+}
+
+/** A place the Campaign Master created mid-story; the player has already moved there. */
+export interface NewLocation {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  art_status: ArtStatus;
+  npc: LocationNpc;
+}
+
+export type SpeakerKind = 'npc' | 'master' | 'buddy';
+
 export interface TurnExtras {
   speaker?: string;
+  speaker_kind?: SpeakerKind;
+  /** The Campaign Master took over from the NPC in this reply. */
+  escalated?: boolean;
+  hp_change?: HpChange | null;
+  new_location?: NewLocation | null;
   suggestions?: string[];
   show_decide?: boolean;
   location?: { id: string; key: string; name: string };

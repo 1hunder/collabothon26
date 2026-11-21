@@ -12,6 +12,7 @@ import asyncio
 import io
 import logging
 import re
+import threading
 import uuid
 from collections.abc import Awaitable, Callable, Iterable
 from pathlib import Path
@@ -192,6 +193,20 @@ def start_art_job(location_id: uuid.UUID, leak_terms: Iterable[str] = ()) -> asy
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return task
+
+
+def start_art_job_in_thread(location_id: uuid.UUID, leak_terms: Iterable[str] = ()) -> None:
+    """For callers without a running event loop (the SSE commit phase runs in a worker thread):
+    the job runs on its own loop in a daemon thread. Failure keeps the placeholder."""
+    terms = list(leak_terms)
+
+    def _run() -> None:
+        try:
+            asyncio.run(run_art_job(location_id, terms))
+        except Exception:
+            log.warning("art job crashed for %s", location_id, exc_info=True)
+
+    threading.Thread(target=_run, daemon=True, name=f"art-{location_id}").start()
 
 
 async def rescan_pending(

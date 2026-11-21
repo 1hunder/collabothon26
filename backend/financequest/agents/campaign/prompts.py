@@ -60,6 +60,12 @@ Reply format for a narrated turn:
   shareholder, a rival trader sneers at an empty purse, the hero feels the news more when their
   coins are in the company), but never call a decision wise or foolish and never hint at how it
   will turn out.
+- hp_loss and hp_reason: HP is the hero's budget bar (1 HP is 10 euros). Most turns lose nothing:
+  leave hp_loss 0. Set hp_loss from 1 to 10 only when the story really costs the hero money: a
+  budget loss that happens in the scene (a bribe demanded, a fee, a stolen purse), or an incorrect
+  or reckless decision showing its cost. Never as punishment for asking questions, exploring, or
+  being cautious. When hp_loss is above 0 the text MUST state it plainly ("You lose 3 HP: ...")
+  with the reason, and hp_reason gives the same reason in a short phrase.
 - calls_for_decision: set it to true only when your scene naturally puts an investment choice in
   front of the hero (a broker offers shares, the market opens in a panic, a partner asks whether
   they are in) and no decision scene is open. The interface then opens the decision scene."""
@@ -109,7 +115,22 @@ judgment. Intents:
   NAME the player wrote ("Ask Ren Tal ..." is Ren Tal), even if the character is somewhere else;
   never pick a character from a role word or a topic (such as "guild") when another character is
   named. If no one is named, prefer a character who is at the current location.
-- move: the player wants to go to a listed location (set location_key).
+- move: the player wants to go to a listed location (set location_key). Any phrasing of going,
+  heading, walking, returning, visiting, "let's go to", "take me to", "back to", "off to" a place
+  that exists in the Locations list is a move, even without the exact name. Match by meaning:
+  market, market square, exchange, trading floor, square, price board -> the market square;
+  library, archive, archives, records, ledgers room, documents -> the library; tavern, inn, pub,
+  bar, common room, "where we started" -> the tavern; guild hall, hall, council chamber, treasurer's
+  seat -> the guild hall. Use the location's key exactly as listed. Asking about a place without
+  going there ("what is in the library?") is not a move; wanting to go there is.
+- new_location: the player wants to go to or visit a place that is NOT in the Locations list and
+  that the story could plausibly contain (a counterparty's office, a warehouse, a ship, a regulator's
+  chamber, a rival's counting house, the docks). Fill new_location with: name (2 to 5 words),
+  description (1-2 sentences, fictional world), art_subject (a scene for a painter: architecture,
+  light, objects; NO text, lettering, logos, people or faces), npc {name: an invented fantasy name,
+  role: short, persona: two sentences on manner and attitude}. Never use a real person, company or
+  place. Do NOT use new_location when the facts say the cap of created places is reached, when a
+  listed location would do (use move), or when the player only asks a question about a place.
 - decision_intent: the player says they are ready to decide, invest or commit.
 - off_topic: unrelated to the investigation (jokes, small talk, other topics).
 - free: everything else (reading, asking what something means, looking at the chart or documents).
@@ -156,7 +177,11 @@ story, to "you".
 At most 120 words, ending with a question.
 - success: narrate how the hero finds the clue, using the clue text from the facts.
 - setback: narrate a complication and name the alternative source given in the facts, so the player
-  knows where the same essential information can be found. Never say the information is lost."""
+  knows where the same essential information can be found. Never say the information is lost.
+- hp_loss and hp_reason: usually 0. Only after a very bad result (the facts say it was a natural 1
+  or a risky action backfired) may the hero lose 1 to 10 HP (1 HP is 10 euros). Then the text MUST
+  state it plainly ("You lose 2 HP: ...") with the reason; hp_reason gives it in a short phrase.
+  A plain setback with no backfire loses nothing."""
 )
 
 NEWS = (
@@ -246,3 +271,28 @@ Classify the text for a financial-literacy game. Output three booleans:
 - predicts_future: it states or implies where the price or the company will go next.
 Describing evidence, definitions, questions back to the player, and past facts from the reference
 data are all fine (false)."""
+
+
+NPC = (
+    """\
+You are a non-player character in a financial-literacy visual novel, standing in a place the
+Campaign Master created. You answer the hero in character, in first person, speaking to "you",
+at most 120 words. Your name, role, persona and place are given below. Stay in the story world.
+You know only what the reference data lists as visible and only what is in your may-reveal list;
+you may state those facts, quoting any figure exactly as written there. Never produce a figure of
+your own and never explain what happens next in the market. You are not a financial adviser: if
+asked what to buy or sell, answer in character that it is the hero's own call, and ask what they
+have seen.
+Fields: text (your reply); suggestions (exactly 3 short actions, max 7 words each); clue_ids_given
+(ids from your may-reveal list that you clearly state in the text and the hero has not found yet);
+escalate and escalate_reason.
+Set escalate to true and give a short reason, with a brief in-character line (or an empty-handed
+shrug) in text, whenever the hero asks for something beyond you: wants to decide, invest or commit
+coins; wants to travel to another place; asks about evidence or people who are elsewhere, or
+about what you may not reveal; attempts something risky or skilled that needs a test of luck;
+asks something off-topic or about the game itself; or the scene has run its course. When you
+escalate the Campaign Master takes over the same action, so do not refuse it yourself.
+
+"""
+    + COMMON_RULES
+)

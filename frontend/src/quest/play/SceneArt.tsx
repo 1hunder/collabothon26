@@ -1,21 +1,25 @@
 import { useState } from 'react';
 import type { PlayLocation } from '../../api/types';
 import { artSrc } from './artSrc';
+import ExploringHorizons from './ExploringHorizons';
 
 interface SceneArtProps {
   location: PlayLocation | undefined;
+  /** A new location's art is still being painted: show the loading scene. */
+  exploring?: boolean;
 }
 
 /** Plain dark backdrop with the location name; the picture crossfades in once it has decoded. */
-export default function SceneArt({ location }: SceneArtProps): React.JSX.Element {
+export default function SceneArt({ location, exploring = false }: SceneArtProps): React.JSX.Element {
   const src = artSrc(location);
   return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden bg-gradient-to-b from-[#1d2547] via-[#191630] to-[#120f1a]">
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+    <div className="absolute inset-0 overflow-hidden bg-gradient-to-b from-[#1d2547] via-[#191630] to-[#120f1a]">
+      <div aria-hidden="true" className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
         <span className="font-quest-title text-[40px] text-quest-vellum/30">{location?.name ?? ''}</span>
       </div>
       {src !== null ? <FadeImage key={src} src={src} /> : null}
-      <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_50%_35%,transparent_40%,rgba(10,8,16,0.55)_100%),linear-gradient(to_bottom,rgba(10,8,16,0.35),transparent_22%,transparent_55%,rgba(10,8,16,0.85))]" />
+      {exploring ? <ExploringHorizons name={location?.name ?? ''} /> : null}
+      <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(90%_60%_at_50%_35%,transparent_40%,rgba(10,8,16,0.55)_100%),linear-gradient(to_bottom,rgba(10,8,16,0.35),transparent_22%,transparent_55%,rgba(10,8,16,0.85))]" />
     </div>
   );
 }

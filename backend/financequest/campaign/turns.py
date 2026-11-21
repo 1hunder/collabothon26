@@ -8,6 +8,7 @@ effects + the stored, guarded reply) the SSE driver runs. See ``stream.py``.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -29,6 +30,7 @@ from financequest.db.session import get_engine
 
 log = logging.getLogger("financequest.turns")
 TURN_BUDGET_S = 15.0
+NPC_BUDGET_S = 30.0  # the NPC answers first and may hand over to the Master in the same turn
 SETUP_BUDGET_S = 40.0
 DEBRIEF_BUDGET_S = 30.0
 SUMMARY_EVERY = 6
@@ -49,6 +51,13 @@ def state_delta(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "current_location_id": str(run.current_location_id) if run.current_location_id else None,
         "art_ready": [str(x.id) for x in locs if x.art_status == "ready"],
         "purse": service.purse(db, run, pack), "market_scene": service.scene_out(run),
+        "hp": service.hp_now(run), "hp_eur": service.hp_now(run) * service.HP_EUR,
+        "locations": [
+            {"id": str(x.id), "key": x.key, "name": x.name, "description": x.description,
+             "fixed": x.fixed, "art_status": x.art_status, "visited": x.visited,
+             "generated": x.generated, "npc": service.npc_out(x)}
+            for x in locs
+        ],
     }  # fmt: skip
 
 
@@ -58,12 +67,26 @@ def _finish(db: Session, run: CampaignRun) -> None:
     db.commit()
 
 
+def _speaker_kind(p: dict[str, Any]) -> str:
+    if p.get("speaker_kind"):
+        return str(p["speaker_kind"])
+    return "buddy" if p.get("speaker") == C.BUDDY_NAME else "master"
+
+
+def _done_fields(p: dict[str, Any]) -> dict[str, Any]:
+    """Fields every done payload carries (the contract): who spoke, damage, a created place."""
+    return {
+        "speaker_kind": _speaker_kind(p), "escalated": bool(p.get("escalated", False)),
+        "hp_change": p.get("hp_change"), "new_location": p.get("new_location"),
+    }
+
+
 def replay_streamed(db: Session, run: CampaignRun, pack: Pack, ev: Event) -> Streamed:
     """An idempotent repeat streams the stored, already guarded reply."""
     p = dict(ev.payload or {})
     delta = state_delta(db, run, pack)
     cards = [c for c in (p.get("card"), p.get("news"), p.get("scene")) if c]
-    done = {**p, "audio_text_id": ev.id, **delta, "replayed": True}
+    done = {**p, **_done_fields(p), "audio_text_id": ev.id, **delta, "replayed": True}
     if (p.get("news") or {}).get("framing"):
         done["news_text"] = p["news"]["framing"]
     return Streamed(text=str(p.get("text", "")), cards=cards, state=delta, done=done)
@@ -76,13 +99,58 @@ def _streamed(
     delta = state_delta(db, run, pack)
     return Streamed(
         text=str(p.get("text", "")), cards=cards, state=delta,
-        done={**p, "audio_text_id": ev.id, **delta},
+        done={**p, **_done_fields(p), "audio_text_id": ev.id, **delta},
     )  # fmt: skip
 
 
 def _gate_clue(pack: Pack, run: CampaignRun, clue_id: str) -> bool:
     ev = pack.evidence_by_id(clue_id)
     return ev is not None and gated_view(run).at_checkpoint(ev.checkpoint)
+
+
+# ---- damage and created places ----------------------------------------------------------------
+_HP_NUM = re.compile(r"\b\d+\s*HP\b")
+_HP_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+def reconcile_hp_text(text: str, applied: int) -> str:
+    """The text must say exactly what the engine applied after clamping: fix the number, or drop
+    the sentences that announce a loss that did not happen."""
+    if applied > 0:
+        return _HP_NUM.sub(f"{applied} HP", text)
+    parts = _HP_SENTENCE.split(text)
+    kept = [p for p in parts if not re.search(r"\bHP\b", p)]
+    return " ".join(kept) if kept else text
+
+
+def apply_damage(db: Session, run: CampaignRun, pack: Pack, reply: TurnReply) -> dict[str, Any] | None:
+    if reply.hp_loss <= 0:
+        return None
+    reason = reply.hp_reason
+    if not reason:  # fall back to the sentence that states the loss
+        reason = next((p.strip() for p in _HP_SENTENCE.split(reply.text) if "HP" in p), "A costly turn")
+    return service.apply_hp_loss(db, run, pack, reply.hp_loss, reason[:200])
+
+
+def art_enabled() -> bool:
+    s = get_settings()
+    return bool(s.fake_llm or s.google_genai_api_key)
+
+
+def start_generated_art(location_id: uuid.UUID, leak_terms: Any) -> None:
+    from financequest.media import art
+
+    art.start_art_job_in_thread(location_id, leak_terms)
+
+
+def new_location_out(db: Session, loc: Location, art_job: bool) -> dict[str, Any]:
+    if art_job:
+        loc.art_status = "pending"
+        db.add(loc)
+    return {
+        "id": str(loc.id), "key": loc.key, "name": loc.name, "description": loc.description,
+        "art_status": loc.art_status, "npc": service.npc_out(loc),
+    }  # fmt: skip
 
 
 # ==============================================================================================
@@ -202,6 +270,13 @@ def plan_action(
             commit=lambda reply: commit_decision(sid, cid, text, reply, msg=msg),
             deadline_s=TURN_BUDGET_S,
         )
+    if ctx.npc_here is not None:  # a Master-created place: its NPC answers, or hands over
+        ctx.with_deadline(NPC_BUDGET_S)
+        return StreamPlan(
+            cid, work=lambda: nar.npc_turn(ctx, text),
+            commit=lambda reply: commit_turn(sid, cid, reply, msg=msg, nar=nar),
+            after=lambda _: maybe_summarize(sid, cid, nar), deadline_s=NPC_BUDGET_S,
+        )  # fmt: skip
     return StreamPlan(
         cid, work=lambda: nar.turn(ctx, text),
         commit=lambda reply: commit_turn(sid, cid, reply, msg=msg, nar=nar),
@@ -250,10 +325,15 @@ def commit_turn(
         card: dict[str, Any] | None = None
         granted: list[str] = []
         kind, arrived_at = "action", None
+        art_start = art_enabled()
         loc = (
             service.location_by_key(db, run.id, reply.location_key)
             if reply.intent == "move" and reply.location_key else None
         )  # fmt: skip
+        created: Location | None = None
+        if reply.intent == "new_location" and reply.new_location:
+            created = service.create_generated_location(db, run, reply.new_location)
+            loc = created  # None when the cap was reached meanwhile: the reply stays a plain turn
         if reply.intent == "challenge" and reply.challenge_id:
             ch = db.get(Challenge, uuid.UUID(reply.challenge_id))
             if ch and ch.campaign_id == run.id and ch.state == "open" and gv.at_checkpoint(ch.checkpoint):
@@ -263,6 +343,11 @@ def commit_turn(
             append_event(db, run, "move", {"location_id": str(loc.id), "key": loc.key,
                                            "name": loc.name, "first_visit": first})  # fmt: skip
             kind, arrived_at = "move", loc.key
+            if created is not None:
+                append_event(db, run, "location_created", {
+                    "location_id": str(created.id), "key": created.key, "name": created.name,
+                    "npc": service.npc_out(created),
+                })  # fmt: skip
         else:
             for c in reply.clue_ids_given:
                 if _gate_clue(pack, run, c):
@@ -281,8 +366,14 @@ def commit_turn(
         text_out = reply.text
         if beat and reply.intent == "decision_intent":
             text_out = "Then the moment has come."
+        hp_change = apply_damage(db, run, pack, reply)
+        if reply.hp_loss > 0:
+            text_out = reconcile_hp_text(text_out, -hp_change["delta"] if hp_change else 0)
+        new_loc = new_location_out(db, created, art_start) if created is not None else None
         payload = {
             "text": text_out, "speaker": reply.speaker, "speaker_id": reply.speaker_id,
+            "speaker_kind": reply.speaker_kind, "escalated": reply.escalated,
+            "hp_change": hp_change, "new_location": new_loc,
             "intent": reply.intent, "suggestions": reply.suggestions,
             "clue_ids_given": granted if loc is not None else list(reply.clue_ids_given),
             "card": card, "news": news, "degraded": reply.degraded,
@@ -295,6 +386,9 @@ def commit_turn(
         _finish(db, run)
         assert ev.id is not None
         reply_id, news_card = ev.id, dict(news) if news else None
+        art_job = (created.id, pack.leak_terms) if created is not None and art_start else None
+    if art_job is not None:
+        start_generated_art(*art_job)
     cards: list[dict[str, Any]] = [card] if card else []
     if news_card:
         news_card = frame_news(sid, cid, reply_id, news_card, nar)
@@ -457,7 +551,11 @@ def plan_narrate_roll(sid: uuid.UUID, cid: uuid.UUID, roll_id: uuid.UUID) -> Str
     def commit(reply: TurnReply) -> Streamed:
         with _session() as db:
             run, pack, _ = service.load(db, cid, sid)
-            payload = {"text": reply.text, "speaker": C.DM_NAME, "roll_id": str(roll_id),
+            hp_change = apply_damage(db, run, pack, reply)
+            text = reconcile_hp_text(reply.text, -hp_change["delta"] if hp_change else 0) \
+                if reply.hp_loss > 0 else reply.text
+            payload = {"text": text, "speaker": C.DM_NAME, "roll_id": str(roll_id),
+                       "speaker_kind": "master", "hp_change": hp_change,
                        "degraded": reply.degraded, "suggestions": reply.suggestions}  # fmt: skip
             ev = append_event(db, run, "dm_reply", payload, key)
             _finish(db, run)
@@ -489,7 +587,8 @@ def plan_buddy(
     def commit(reply: TurnReply) -> Streamed:
         with _session() as db:
             run, pack, _ = service.load(db, cid, sid)
-            payload = {"text": reply.text, "speaker": C.BUDDY_NAME, "intent": reply.intent,
+            payload = {"text": reply.text, "speaker": C.BUDDY_NAME, "speaker_kind": "buddy",
+                       "hp_change": None, "intent": reply.intent,
                        "mood": reply.mood, "degraded": reply.degraded}  # fmt: skip
             ev = append_event(db, run, "buddy_a", payload, f"{msg}:a" if msg else None)
             _finish(db, run)
@@ -552,8 +651,9 @@ def _debrief_streamed(db: Session, run: CampaignRun, pack: Pack, deb: Any, ev: E
     text = service.debrief_text(parts, deb.forecast_line or "")
     return Streamed(
         text=text, state={"phase": run.phase},
-        done={**out, "text": text, "speaker": C.DM_NAME, "audio_text_id": ev.id if ev else None,
-              "phase": run.phase},
+        done={**out, "text": text, "speaker": C.DM_NAME, "speaker_kind": "master",
+              "escalated": False, "hp_change": None, "new_location": None,
+              "audio_text_id": ev.id if ev else None, "phase": run.phase},
     )  # fmt: skip
 
 

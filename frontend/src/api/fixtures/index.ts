@@ -18,7 +18,7 @@ import type {
 } from '../types';
 
 import { FixtureHttpError, classHp, readDb, writeDb } from './db';
-import { fixtureNewCampaign, fixturePlayResponse, fixturePlaySse } from './play';
+import { fixtureNewCampaign, fixturePlayResponse, fixturePlaySse, fixtureSettleArt } from './play';
 
 export { FixtureHttpError, resetFixtureDb } from './db';
 
@@ -234,6 +234,7 @@ function lock(body: unknown): unknown {
   const db = readDb();
   const d = body as CommitRequest;
   if (!db.campaign || !d?.confidence || typeof d.forecast_pct !== 'number') throw new FixtureHttpError(422);
+  if (investedBy(db.campaign.decisions ?? []) > db.campaign.hp_eur) throw new FixtureHttpError(422, 'amount_over_budget');
   writeDb({ ...db, decision: d, campaign: { ...db.campaign, phase: 'reveal' } });
   return outcomeFor(db.campaign.budget_eur ?? 1000, db.campaign.decisions ?? []);
 }
@@ -316,6 +317,7 @@ export function fixtureResponse(method: string, path: string, body?: unknown): u
   const abandon = /^\/campaigns\/([^/]+)\/abandon$/.exec(path);
   if (m === 'POST' && abandon) return abandonCampaign(abandon[1]!);
   if (m === 'GET' && /^\/campaigns\/[^/]+$/.test(path)) {
+    fixtureSettleArt();
     const { campaign } = readDb();
     if (!campaign || path !== `/campaigns/${campaign.id}`) throw new FixtureHttpError(404);
     return campaign;

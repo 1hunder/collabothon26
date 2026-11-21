@@ -4,10 +4,12 @@ import type { CampaignState, CommitRequest, Hero } from '../types';
 /** Thrown by fixture handlers to simulate a non-2xx response. */
 export class FixtureHttpError extends Error {
   readonly status: number;
-  constructor(status: number) {
+  readonly code?: string;
+  constructor(status: number, code?: string) {
     super(`Fixture HTTP ${status}`);
     this.name = 'FixtureHttpError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -35,6 +37,8 @@ export interface FixturePlay {
   rolls: Record<string, FixtureRoll>;
   /** stored SSE scripts keyed by path and client_msg_id, so "Try again" is idempotent */
   replays: Record<string, string>;
+  /** when a generated location's art turns ready (epoch ms), by location id */
+  artReadyAt?: Record<string, number>;
 }
 
 export interface FixtureDb {

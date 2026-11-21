@@ -27,6 +27,7 @@ from financequest.engine.gate import GatedView
 CHRONICLER = "chronicler"
 DM_NAME = "Campaign Master"
 BUDDY_NAME = "CommerzBuddy"
+MAX_GENERATED = 3  # places the Campaign Master may add to one campaign
 DM_TURNS = 8
 BUDDY_TURNS = 6
 
@@ -41,6 +42,7 @@ class AgentContext:
     rerolls_left: int
     keen_eye_left: int
     hp_start: int
+    hp_lost: int
     news_shown: bool
     opening_done: bool
     can_decide: bool
@@ -77,7 +79,19 @@ class AgentContext:
 
     @property
     def budget(self) -> int:
-        return self.hp_start * 10
+        """The investable budget now: the starting purse minus the damage taken."""
+        return (self.hp_start - self.hp_lost) * 10
+
+    @property
+    def npc_here(self) -> dict[str, Any] | None:
+        """The NPC of the Master-created place the hero is in, else None."""
+        here = self.current["key"] if self.current else None
+        loc = next((x for x in self.locations if x["key"] == here), None)
+        return loc["npc"] if loc and loc.get("generated") and loc.get("npc") else None
+
+    @property
+    def generated_count(self) -> int:
+        return sum(1 for x in self.locations if x.get("generated"))
 
     @property
     def locked(self) -> bool:
@@ -191,7 +205,7 @@ def outcome_facts(db: Session, run: CampaignRun) -> tuple[dict[str, Any] | None,
     if dec is None or oc is None:
         return None, None, None, []
     outcome = {
-        "action": dec.action, "amount_eur": (dec.amount_cents or 0) // 100, "budget": run.hp_start * 10,
+        "action": dec.action, "amount_eur": (dec.amount_cents or 0) // 100, "budget": (run.hp_start - run.hp_lost) * 10,
         "cash": oc.cash, "invested": oc.invested, "value_now": oc.value_now, "final": oc.final,
         "pnl": oc.pnl, "pnl_pct": oc.pnl_pct, "hp_before": oc.hp_before, "hp_after": oc.hp_after,
     }  # fmt: skip
@@ -242,12 +256,12 @@ def build_agent_context(
     return AgentContext(
         pack=pack, gv=gv, phase=run.phase, turn_count=run.turn_count, focus_left=run.focus_left,
         rerolls_left=run.rerolls_left, keen_eye_left=run.keen_eye_left, hp_start=run.hp_start,
-        news_shown=run.news_shown, opening_done=run.opening_done, can_decide=can_decide,
+        hp_lost=run.hp_lost, news_shown=run.news_shown, opening_done=run.opening_done, can_decide=can_decide,
         hero_name=hero.name, hero_class=hero.hero_class, content=content,
         current={"key": cur.key, "name": cur.name, "visited": cur.visited} if cur else None,
         locations=[
             {"id": str(x.id), "key": x.key, "name": x.name, "description": x.description,
-             "visited": x.visited, "fixed": x.fixed}
+             "visited": x.visited, "fixed": x.fixed, "generated": x.generated, "npc": x.npc}
             for x in locs
         ],
         found=found, challenges=chs,
@@ -278,6 +292,15 @@ def free_clues_at(ctx: AgentContext, loc_key: str) -> list[str]:
     ]
 
 
+def people_at(ctx: AgentContext, loc_key: str) -> list[dict[str, Any]]:
+    """Who can be questioned at a place: the pack's characters and the NPC of a created place."""
+    out = [c for c in ctx.content["characters"] if c["location"] == loc_key]
+    loc = next((x for x in ctx.locations if x["key"] == loc_key), None)
+    if loc and loc.get("generated") and loc.get("npc"):
+        out.append({"id": loc["npc"]["id"], "name": loc["npc"]["name"], "role": loc["npc"]["role"]})
+    return out
+
+
 def characters_here(ctx: AgentContext) -> list[dict[str, Any]]:
     here = ctx.current["key"] if ctx.current else None
     return [c for c in ctx.content["characters"] if c["location"] == here]
@@ -296,7 +319,17 @@ def reachable_clue_ids(ctx: AgentContext, speaker: str | None) -> set[str]:
     return set(free_clues_at(ctx, here)) | (set(ctx.found) & at_here)
 
 
+def npc_may_reveal(ctx: AgentContext) -> list[str]:
+    """What a Master-created NPC may reveal: free evidence already unlocked at the current
+    checkpoint (the gated content holds nothing later), minus what a dice check guards."""
+    gated = rules.gated_clue_ids(ctx.pack)
+    return [e["id"] for e in ctx.content["evidence"] if e["id"] not in gated]
+
+
 def speaker_name(ctx: AgentContext, speaker: str | None) -> str:
+    npc = ctx.npc_here
+    if npc and speaker == npc["id"]:
+        return str(npc["name"])
     ch = ctx.character(speaker) if speaker and speaker != CHRONICLER else None
     return ch["name"] if ch else DM_NAME
 
@@ -323,7 +356,7 @@ def figure_texts(ctx: AgentContext) -> list[str]:
 def free_numbers(ctx: AgentContext, typed: str = "") -> list[Any]:
     p = ctx.pack
     nums: list[Any] = [
-        2, 20, ctx.hp_start, ctx.budget, ctx.turn_count, ctx.turn_count + 1, ctx.focus_left,
+        2, 20, ctx.hp_start, ctx.budget, ctx.hp_start * 10, ctx.hp_start - ctx.hp_lost, ctx.turn_count, ctx.turn_count + 1, ctx.focus_left,
         ctx.rerolls_left, ctx.keen_eye_left, ctx.gv.clock_day, p.horizon_days, *rules.DC_TABLE.values(),
         rules.BONUS_DC, rules.NEWS_TURNS, rules.NEWS_MARKET_TURNS, 70, 100, 150,
     ]  # fmt: skip
@@ -423,6 +456,9 @@ def facts_block(ctx: AgentContext) -> str:
         f"Clues not found yet (never quote their text): {'; '.join(unfound) or 'none'}.",
         f"Challenges: {'; '.join(chs) or 'none'}.",
         f"Player may decide now: {ctx.can_decide}.",
+        f"HP (the budget bar, 1 HP is 10 euros): {ctx.hp_start - ctx.hp_lost} of {ctx.hp_start}; "
+        f"lost so far: {ctx.hp_lost}.",
+        f"Places the Master created so far: {ctx.generated_count} of {MAX_GENERATED}.",
         *purse_lines(ctx),
     ])  # fmt: skip
 

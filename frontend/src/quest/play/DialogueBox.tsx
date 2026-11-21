@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { SpeakerKind } from '../../api/types';
 import { splitPages } from './paginate';
 import { useTypewriter } from './useTypewriter';
 
@@ -9,6 +10,8 @@ export const DM_NAME = 'Campaign Master';
 
 export interface DialogueBoxProps {
   speaker: string;
+  /** npc: a character of the scene (verdigris tab). Left out, the speaker name decides. */
+  speakerKind?: SpeakerKind;
   /** The reply so far; it grows while it streams in. */
   text: string;
   /** False while the reply is still arriving. */
@@ -35,6 +38,7 @@ const SWIPE_PX = 40;
 
 export default function DialogueBox({
   speaker,
+  speakerKind,
   text,
   final = true,
   writing = false,
@@ -82,7 +86,7 @@ export default function DialogueBox({
   if (text === '' && writing) {
     return (
       <section className="relative mx-3 rounded-[14px_14px_18px_18px] bg-quest-lapis/95 px-5 pb-8 pt-6 shadow-[inset_0_0_0_1px_rgba(201,162,39,0.55),inset_0_0_0_5px_#161F3D,inset_0_0_0_6px_rgba(201,162,39,0.22)]">
-        <NameTab speaker={speaker} />
+        <NameTab speaker={speaker} kind={speakerKind} />
         <p role="status" className="min-h-[4.5em] font-quest text-[19px] italic leading-normal text-quest-vellum-dim">
           {writingLabel}
         </p>
@@ -114,7 +118,7 @@ export default function DialogueBox({
       aria-label={`${speaker} says`}
       className="relative mx-3 cursor-pointer select-none rounded-[14px_14px_18px_18px] bg-quest-lapis/95 px-5 pb-9 pt-6 shadow-[inset_0_0_0_1px_rgba(201,162,39,0.55),inset_0_0_0_5px_#161F3D,inset_0_0_0_6px_rgba(201,162,39,0.22)]"
     >
-      <NameTab speaker={speaker} />
+      <NameTab speaker={speaker} kind={speakerKind} />
       <p data-testid="dialogue-text" aria-hidden="true" className="min-h-[4.5em] font-quest text-[19px] leading-normal text-quest-vellum">
         {page.slice(0, shown)}
       </p>
@@ -136,13 +140,15 @@ export default function DialogueBox({
   );
 }
 
-function NameTab({ speaker }: { speaker: string }): React.JSX.Element {
+function NameTab({ speaker, kind }: { speaker: string; kind?: SpeakerKind }): React.JSX.Element {
   const buddy = speaker === BUDDY_NAME;
+  const npc = kind === 'npc';
   return (
     <span
       data-testid="name-tab"
-      className={`absolute -top-[15px] left-[18px] rounded-[4px_4px_4px_0] px-3.5 pb-1 pt-[3px] font-quest text-base font-bold tracking-[0.02em] text-quest-soot ${
-        buddy ? 'bg-quest-verdigris-light' : 'bg-quest-gilt'
+      data-kind={npc ? 'npc' : undefined}
+      className={`absolute -top-[15px] left-[18px] rounded-[4px_4px_4px_0] px-3.5 pb-1 pt-[3px] font-quest text-base font-bold tracking-[0.02em] ${
+        npc ? 'bg-quest-verdigris text-quest-vellum' : buddy ? 'bg-quest-verdigris-light text-quest-soot' : 'bg-quest-gilt text-quest-soot'
       }`}
     >
       {speaker}

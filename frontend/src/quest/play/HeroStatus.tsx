@@ -1,16 +1,36 @@
 import { Coins, Heart, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { CampaignState } from '../../api/types';
 
 const className = { guardian: 'the Guardian', analyst: 'the Analyst', investigator: 'the Investigator' } as const;
 
+function reducedMotion(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** Counts down to the target one step at a time (instantly with reduced motion). Only falls; never invents a number. */
+function useTickedDown(target: number): number {
+  const [shown, setShown] = useState(target);
+  const value = shown < target || reducedMotion() ? target : shown;
+  useEffect(() => {
+    if (shown <= target) return;
+    const t = window.setTimeout(() => setShown((n) => Math.max(target, n - Math.max(1, Math.ceil((n - target) / 6)))), 70);
+    return () => window.clearTimeout(t);
+  }, [shown, target]);
+  return value;
+}
+
 interface HeroStatusProps {
   campaign: CampaignState;
+  /** Changes every time the hero takes damage: replays the red pulse and shake. */
+  hitKey?: number;
   onOpen?: () => void;
 }
 
 /** Compact status bar. Every number is shown exactly as the server sent it. */
-export default function HeroStatus({ campaign, onOpen }: HeroStatusProps): React.JSX.Element {
+export default function HeroStatus({ campaign, hitKey = 0, onOpen }: HeroStatusProps): React.JSX.Element {
   const { hero } = campaign;
+  const hp = useTickedDown(campaign.hp);
   return (
     <button
       type="button"
@@ -22,9 +42,14 @@ export default function HeroStatus({ campaign, onOpen }: HeroStatusProps): React
         <span>{hero.name}</span>, {className[hero.class]}
       </span>
       <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-        <span className="inline-flex items-center gap-1 text-quest-gilt">
+        <span
+          key={hitKey}
+          data-testid="hp"
+          data-hit={hitKey > 0 ? 'true' : undefined}
+          className={`inline-flex items-center gap-1 text-quest-gilt ${hitKey > 0 ? 'motion-safe:animate-hp-hit' : ''}`}
+        >
           <Heart aria-hidden="true" size={15} />
-          {campaign.hp} HP <span>· €{campaign.hp_eur.toLocaleString('en-US')}</span>
+          {hp} HP <span>· €{campaign.hp_eur.toLocaleString('en-US')}</span>
         </span>
         <span>XP {hero.total_xp}</span>
         <span className="inline-flex items-center gap-1">

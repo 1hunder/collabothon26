@@ -5,14 +5,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pydantic import BaseModel
+
 from financequest.agents.campaign import context as C
 from financequest.agents.campaign import prompts
 from financequest.agents.campaign.graphs import (
     DM_WORDS,
+    NPC,
     SETUP,
     TURN,
     GuardedSpec,
     default_suggestions,
+    hp_checks,
     make_rules,
     run_guarded,
 )
@@ -21,6 +25,7 @@ from financequest.agents.campaign.schemas import (
     BuddyOut,
     DebriefOut,
     DecideOut,
+    DiceOut,
     RouteOut,
     SummaryOut,
     TextOut,
@@ -105,6 +110,12 @@ class AgentNarration:
         reply: TurnReply = s["reply"]
         return reply
 
+    def npc_turn(self, ctx: C.AgentContext, text: str) -> TurnReply:
+        """The NPC of the current Master-created place answers; escalation runs the Master turn."""
+        s = NPC.invoke({"llm": self.llm, "ctx": ctx, "text": text})
+        reply: TurnReply = s["reply"]
+        return reply
+
     # ---- text nodes ---------------------------------------------------------------------------
     def _text_node(
         self,
@@ -120,17 +131,21 @@ class AgentNarration:
         template: str,
         spoilers: bool = False,
         llm_context: dict[str, Any] | None = None,
-    ) -> tuple[str, bool]:
+        schema: type[BaseModel] = TextOut,
+    ) -> tuple[str, bool, Any]:
         spec = GuardedSpec(
-            llm=self.llm, node=node, schema=TextOut, effort=effort,
+            llm=self.llm, node=node, schema=schema, effort=effort,
             messages=lambda notes: C.build_messages(ctx, prompt, user, corrective=notes, extra=extra),
-            texts=lambda o: {"text": o.text},
+            texts=lambda o: {"text": o.text, **({"hp_reason": o.hp_reason}
+                                                 if getattr(o, "hp_loss", 0) > 0
+                                                 and getattr(o, "hp_reason", "").strip() else {})},
+            checks=hp_checks,
             rules=make_rules(ctx, user, fields={"text": FieldRule(max_words, question)}, spoilers=spoilers),
             template=lambda: TextOut(text=template), ctx=ctx,
             llm_context={"ctx": ctx, "input": user, "extra": extra, **(llm_context or {})},
         )  # fmt: skip
         res = run_guarded(spec)
-        return res.out.text.strip(), res.degraded
+        return res.out.text.strip(), res.degraded, res.out
 
     def narrate_roll(self, ctx: C.AgentContext, roll: dict[str, Any]) -> TurnReply:
         """Only ever called with the FINAL result; a rerolled first result is never narrated."""
@@ -151,18 +166,23 @@ class AgentNarration:
             + (f"Alternative source for the same information: {roll.get('alt_source')}\n"
                if roll["result"] != "success" else "")
         )  # fmt: skip
-        text, degraded = self._text_node(
+        nat1 = roll.get("used") == 1
+        extra += (f"Natural 1 (a disastrous attempt): {'yes' if nat1 else 'no'}. "
+                  "Lose HP only if it was a natural 1 or the attempt clearly backfired.\n")
+        text, degraded, out = self._text_node(
             ctx, node="campaign_dice", prompt=prompts.DICE, user="Narrate the result.", extra=extra,
             effort="low", max_words=DM_WORDS, question=True, template=template,
-            llm_context={"roll": roll},
+            llm_context={"roll": roll}, schema=DiceOut,
         )  # fmt: skip
+        loss = 0 if degraded or roll["result"] != "setback" else max(0, min(int(getattr(out, "hp_loss", 0)), 10))
         return TurnReply(text=text, intent="narrate_roll", degraded=degraded,
-                         suggestions=default_suggestions(ctx))  # fmt: skip
+                         suggestions=default_suggestions(ctx), hp_loss=loss,
+                         hp_reason=getattr(out, "hp_reason", "").strip() if loss else "")  # fmt: skip
 
     def news(self, ctx: C.AgentContext) -> TurnReply:
         n = ctx.content["news"] or {}
         extra = f"# Breaking news card already shown\nHeadline: {n.get('headline')}\nSummary: {n.get('summary')}"
-        text, degraded = self._text_node(
+        text, degraded, _ = self._text_node(
             ctx, node="campaign_news", prompt=prompts.NEWS, user="Frame the news.", extra=extra,
             effort="low", max_words=NEWS_WORDS, question=True,
             template="How does this news change your thinking?",
@@ -176,7 +196,7 @@ class AgentNarration:
             f"# Decision scene\nBeat: {beat} ({SCENE_BEATS.get(beat, SCENE_BEATS['story'])}).\n"
             + "\n".join(C.purse_lines(ctx))
         )
-        text, degraded = self._text_node(
+        text, degraded, _ = self._text_node(
             ctx, node="campaign_scene", prompt=prompts.MARKET_SCENE, user="Set the scene.",
             extra=extra, effort="low", max_words=SCENE_WORDS, question=True,
             template=SCENE_TEMPLATES.get(beat, SCENE_TEMPLATES["story"]),
@@ -220,7 +240,7 @@ class AgentNarration:
     def hint(self, ctx: C.AgentContext, target: dict[str, Any]) -> TurnReply:
         where = target["location_name"]
         extra = f"# Hint target \nThe clue the hero has not found is at: {where}."
-        text, degraded = self._text_node(
+        text, degraded, _ = self._text_node(
             ctx, node="campaign_hint", prompt=prompts.HINT, user="Give the hint.", extra=extra,
             effort="low", max_words=HINT_WORDS, question=True, spoilers=True, llm_context={"target": target},
             template=f"Try the {where}: something there is worth reading. Will you go?",

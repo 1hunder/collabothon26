@@ -46,6 +46,73 @@ def _has(text: str, *words: str) -> bool:
 
 _GENERIC_ROLE = {"guild", "golden", "company"}
 
+# ---- scripted damage (tests): FAKE_LLM defaults to none --------------------------------------
+DAMAGE_SCRIPT: list[tuple[int, str]] = []
+
+
+def script_damage(loss: int, reason: str = "a costly slip") -> None:
+    """Queue one HP loss for the next turn or setback narration that may carry damage."""
+    DAMAGE_SCRIPT.append((loss, reason))
+
+
+def clear_damage() -> None:
+    DAMAGE_SCRIPT.clear()
+
+
+def _take_damage() -> tuple[int, str]:
+    return DAMAGE_SCRIPT.pop(0) if DAMAGE_SCRIPT else (0, "")
+
+
+def _with_damage(body: str, loss: int, reason: str) -> str:
+    return f"{body} You lose {loss} HP: {reason}." if loss > 0 else body
+
+
+# ---- movement phrasing and place synonyms ----------------------------------------------------
+_MOVE_PHRASES = (
+    "go to", "go back", "visit", "head to", "head for", "head back", "walk to", "travel", "enter",
+    "back to", "return to", "let's go", "lets go", "off to", "take me to", "stop by", "drop by",
+    "make my way", "go see", "go over to", "run to", "hurry to", "ride to", "sail to", "check out",
+)
+_EXAMINE = ("examine", "read", "investigate", "inspect", "study", "cross-check", "scrutinize")
+_SYNONYMS = {
+    "market_square": ("market", "square", "price board", "trading floor", "exchange"),
+    "library": ("library", "archive", "archives", "records", "ledger room"),
+    "tavern": ("tavern", "inn", "pub", "common room", "where we started"),
+    "golden_guild_hall": ("guild hall", "council chamber", "hall"),
+}
+_PLACE_ROLE = {
+    "warehouse": "Warehouse keeper", "docks": "Dockmaster", "dock": "Dockmaster",
+    "harbour": "Harbourmaster", "harbor": "Harbourmaster", "port": "Port clerk",
+    "ship": "Ship's purser", "vessel": "Ship's purser", "office": "Chief clerk",
+    "chamber": "Chamber usher", "bank": "Banker", "factory": "Foreman", "mill": "Miller",
+    "workshop": "Master craftsman", "shipyard": "Shipwright", "depot": "Depot clerk",
+    "regulator": "Regulator's clerk", "auditor": "Auditor", "counterparty": "Counterparty's agent",
+    "counting": "Counting-house clerk", "vault": "Vault keeper", "customs": "Customs officer",
+    "court": "Court clerk", "shop": "Shopkeeper", "tower": "Tower warden", "market": "Stall keeper",
+}
+_NPC_NAMES = ("Brann Ostrel", "Mirela Vance", "Tolek Harrowind", "Sivra Dunmere", "Edda Fenwick")
+_STOP = {"the", "a", "an", "to", "at", "of", "my", "our", "their", "that", "this", "old", "big"}
+
+
+def _place_spec(text: str) -> dict[str, Any] | None:
+    words = re.findall(r"[A-Za-z']+", text)
+    for i, w in enumerate(words):
+        noun = w.lower()
+        if noun not in _PLACE_ROLE:
+            continue
+        pre = words[i - 1] if i and words[i - 1].lower() not in _STOP and not words[i - 1].endswith("'s") else ""
+        name = " ".join(x.capitalize() for x in (pre, w) if x)
+        name = name if name.lower().endswith("s") or True else name
+        idx = sum(ord(c) for c in name) % len(_NPC_NAMES)
+        return {
+            "name": name,
+            "description": f"A busy {noun} in the trade quarter, damp with river air and full of the guild's cargo.",
+            "art_subject": f"The interior of a weathered {noun}, stacked crates, rope and barrels in warm lantern light, empty of people",
+            "npc": {"name": _NPC_NAMES[idx], "role": _PLACE_ROLE[noun],
+                    "persona": "Curt and practical, speaks plainly and distrusts idle questions."},
+        }
+    return None
+
 
 class CampaignFakeLLM:
     """Implements ``NodeLLM.run`` for the ``campaign_*`` nodes."""
@@ -77,6 +144,10 @@ class CampaignFakeLLM:
         text: str = c["input"]
         low = text.lower()
         words = set(re.findall(r"[a-z']+", low))
+        if _has(low, *_MOVE_PHRASES) and not _has(low, *_EXAMINE) and not _has(low, "ask ", "talk to"):
+            mv = self._move_target(ctx, low, words)
+            if mv is not None:
+                return mv
         for ch in ctx.challenges:
             title_words = {w for w in re.findall(r"[a-z]+", ch["title"].lower()) if len(w) > 3}
             if title_words & words or ch["key"].lower() in low:
@@ -95,14 +166,28 @@ class CampaignFakeLLM:
                 role = {w for w in re.findall(r"[a-z]+", char["role"].lower().split(";")[0]) if len(w) > 4}
                 if role & words and not _GENERIC_ROLE & role & words:
                     return S.RouteOut(intent="talk", character_id=char["id"])
-        if _has(low, "go to", "visit", "head to", "walk to", "travel", "enter", "back to", "return to"):
-            for loc in ctx.locations:
-                name_words = {w for w in re.findall(r"[a-z]+", loc["name"].lower()) if len(w) > 3}
-                if name_words & words or loc["key"].replace("_", " ") in low:
-                    return S.RouteOut(intent="move", location_key=loc["key"])
+        if _has(low, *_MOVE_PHRASES):
+            mv = self._move_target(ctx, low, words)
+            if mv is not None:
+                return mv
         if _has(low, "joke", "weather", "pizza", "football", "recipe", "movie", "song", "poem", "cats"):
             return S.RouteOut(intent="off_topic")
         return S.RouteOut(intent="free")
+
+    def _move_target(self, ctx: C.AgentContext, low: str, words: set[str]) -> S.RouteOut | None:
+        """A listed place by its name, its key or a synonym; else a new place the story needs."""
+        for loc in ctx.locations:
+            name_words = {w for w in re.findall(r"[a-z]+", loc["name"].lower()) if len(w) > 3}
+            if name_words & words or loc["key"].replace("_", " ") in low:
+                return S.RouteOut(intent="move", location_key=loc["key"])
+        have = {x["key"] for x in ctx.locations}
+        for key, syns in _SYNONYMS.items():
+            if key in have and any(re.search(rf"\b{re.escape(w)}\b", low) for w in syns):
+                return S.RouteOut(intent="move", location_key=key)
+        spec = _place_spec(low) if ctx.generated_count < C.MAX_GENERATED else None
+        if spec is not None:
+            return S.RouteOut(intent="new_location", new_location=S.NewLocationSpec(**spec))
+        return None
 
     # ---- Campaign Master turn -----------------------------------------------------------------------
     def turn(self, c: dict[str, Any]) -> S.TurnOut:
@@ -113,7 +198,12 @@ class CampaignFakeLLM:
         given: list[str] = []
         speaker = C.CHRONICLER
         body: str
-        if r.intent == "move" and r.location_key:
+        loss, why = 0, ""
+        if r.intent == "new_location" and r.new_location is not None:
+            n = r.new_location
+            body = (f"You step into {n.name}. {n.description} {n.npc.name}, {n.npc.role}, "
+                    "looks up from their work.")
+        elif r.intent == "move" and r.location_key:
             body, given = self._arrival(ctx, r.location_key, sorted(allowed))
         elif r.intent == "talk":
             body, given, speaker = self._talk(ctx, r, allowed)
@@ -126,20 +216,26 @@ class CampaignFakeLLM:
             )
         else:
             body = self._free(ctx, text)
+        if r.intent not in ("move", "new_location", "off_topic", "decision_intent"):
+            loss, why = _take_damage()
+            body = _with_damage(body, loss, why)
         remaining = _remaining_need(ctx, set(given))
-        nothing_more = ctx.news_shown and not remaining
+        nothing_more = ctx.news_shown and not remaining and r.intent != "new_location"
         if nothing_more:
             body += " There is nothing more to uncover for now. Ready to make your decision?"
             sugg = ["Review what you found", "Ask CommerzBuddy for a recap", "Look around once more"]
         else:
             body += " What would you do?"
             sugg = _suggestions(ctx, given, r.location_key if r.intent == "move" else None)
+        if r.intent == "new_location" and r.new_location is not None:
+            sugg = [f"Ask {r.new_location.npc.name} what they know", *sugg][:3]
         return S.TurnOut(text=body, speaker=speaker, suggestions=sugg, clue_ids_given=given,
-                         nothing_more_to_uncover=nothing_more)  # fmt: skip
+                         nothing_more_to_uncover=nothing_more and r.intent != "new_location",
+                         hp_loss=loss, hp_reason=why if loss else "")  # fmt: skip
 
     def _arrival(self, ctx: C.AgentContext, key: str, free: list[str]) -> tuple[str, list[str]]:
         loc = next(x for x in ctx.locations if x["key"] == key)
-        here = [ch["name"] for ch in ctx.content["characters"] if ch["location"] == key]
+        here = [ch["name"] for ch in C.people_at(ctx, key)]
         parts = [
             f"You are back at {the(loc['name'])}."
             if loc["visited"]
@@ -210,8 +306,54 @@ class CampaignFakeLLM:
             return f"You take in the {loc['name']} once more. {desc}"
         return "You look around. The rain keeps its own counsel."
 
+    # ---- the NPC of a Master-created place ---------------------------------------------------------
+    def npc(self, c: dict[str, Any]) -> S.NpcOut:
+        ctx: C.AgentContext = c["ctx"]
+        text: str = c["input"]
+        npc = c["npc"]
+        low = text.lower()
+        here = ctx.current["key"] if ctx.current else ""
+        other_names = {
+            w for x in ctx.locations if x["key"] != here
+            for w in re.findall(r"[a-z]+", x["name"].lower()) if len(w) > 3
+        } - {"the", "steps", "guild", "golden", "grand"}
+        chal = {w for ch in ctx.challenges for w in re.findall(r"[a-z]+", ch["title"].lower()) if len(w) > 4}
+        cast = {w for ch in ctx.content["characters"] for w in re.findall(r"[a-z']+", ch["name"].lower()) if len(w) > 2}
+        words = set(re.findall(r"[a-z']+", low))
+        reason = None
+        if _has(low, *_MOVE_PHRASES) or _has(low, "leave", "go home"):
+            reason = "the hero wants to travel"
+        elif _has(low, "decide", "invest", "commit", "my coins", "ready to", "buy", "sell"):
+            reason = "the hero wants to decide"
+        elif _has(low, "sneak", "steal", "break in", "pick the lock", "bribe", "threaten", "risk", "dare", "attack"):
+            reason = "a risky action that needs the Master"
+        elif _has(low, "joke", "weather", "pizza", "football", "recipe", "movie"):
+            reason = "off-topic"
+        elif (other_names | chal | cast) & words:
+            reason = "asks about another place or person"
+        if reason:
+            return S.NpcOut(text=f"{npc['name']} lifts a hand. “That is beyond me.”",
+                            escalate=True, escalate_reason=reason)
+        fresh = [i for i in C.npc_may_reveal(ctx) if i not in ctx.found][:1]
+        asks = _has(low, "know", "tell", "what", "anything", "rumour", "rumor", "clue", "evidence",
+                    "learn", "seen", "heard", "ask")
+        line = f"{npc['name']} wipes their hands and studies you. "
+        given: list[str] = []
+        if fresh and asks:
+            ev = ctx.evidence_by_id(fresh[0])
+            if ev:
+                line += f"“{first_sentences(ev['text'], 1, 30)}”"
+                given = fresh
+        else:
+            line += "“Speak plainly, and I will answer as plainly as I can.”"
+        return S.NpcOut(
+            text=line + " What do you ask next?",
+            suggestions=["Ask what else they have seen", "Ask about the cargo", "Thank them and think"],
+            clue_ids_given=given,
+        )
+
     # ---- dice, news, hint, summary ---------------------------------------------------------------------
-    def dice(self, c: dict[str, Any]) -> S.TextOut:
+    def dice(self, c: dict[str, Any]) -> S.DiceOut:
         roll = c["roll"]
         clue = roll.get("clue")
         if roll["result"] == "success":
@@ -223,7 +365,9 @@ class CampaignFakeLLM:
                 "The lines swim and a page sticks to the next. A setback, but no dead end. "
                 f"{roll.get('alt_source') or 'Ask around and read the documents.'}"
             )
-        return S.TextOut(text=body + " What would you do next?")
+        loss, why = _take_damage() if roll["result"] != "success" else (0, "")
+        return S.DiceOut(text=_with_damage(body, loss, why) + " What would you do next?",
+                         hp_loss=loss, hp_reason=why if loss else "")
 
     def news(self, c: dict[str, Any]) -> S.TextOut:
         ctx: C.AgentContext = c["ctx"]
