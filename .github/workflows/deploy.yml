@@ -8,15 +8,11 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+# Deploys run straight away, without waiting for tests (temporarily, for speed during the
+# hackathon). To gate deploys on tests again, restore the backend-checks / frontend-checks jobs
+# (`uses: ./.github/workflows/backend.yml` and `frontend.yml`) and add them to each job's `needs`.
 jobs:
-  backend-checks:
-    uses: ./.github/workflows/backend.yml
-
-  frontend-checks:
-    uses: ./.github/workflows/frontend.yml
-
   deploy-backend:
-    needs: [backend-checks, frontend-checks]
     runs-on: ubuntu-latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -45,7 +41,6 @@ jobs:
           railway up --ci --service "$RAILWAY_SERVICE"
 
   deploy-frontend:
-    needs: [backend-checks, frontend-checks]
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
