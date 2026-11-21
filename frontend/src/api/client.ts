@@ -89,6 +89,24 @@ function writeSession(id: string | null): void {
   }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Open the app as an existing session (`?session=<id>`, e.g. the prepared demo hero from
+ * `financequest veteran demo-hero`). The parameter is removed from the address bar at once.
+ */
+export function adoptSessionFromUrl(loc: Location = window.location, history: History = window.history): boolean {
+  const params = new URLSearchParams(loc.search);
+  const id = params.get('session');
+  if (id === null) return false;
+  params.delete('session');
+  const rest = params.toString();
+  history.replaceState(history.state, '', `${loc.pathname}${rest ? `?${rest}` : ''}${loc.hash}`);
+  if (!UUID.test(id)) return false;
+  writeSession(id);
+  return true;
+}
+
 /** Test helper: forget the stored session. */
 export function clearSession(): void {
   writeSession(null);

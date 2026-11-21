@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 import uuid
 from datetime import UTC, datetime
@@ -951,8 +952,22 @@ def finish(db: Session, run: CampaignRun) -> dict[str, Any]:
             db.add(player)
         append_event(db, run, "finish", {"total_xp": hero.total_xp})
         db.add_all([hero, award])
+        _remember(db, run)
     got = db.exec(select(HeroItem).where(HeroItem.earned_campaign_id == run.id)).first()
     return {"total_xp": hero.total_xp, "new_item": focus.item_out(got.item_key) if got else None}
+
+
+def _remember(db: Session, run: CampaignRun) -> None:
+    """The Veteran's memory of this campaign. In a savepoint: a failure here never blocks the
+    finish; the memory is rebuilt from the same rows the next time the Veteran is opened."""
+    from financequest.veteran import memory
+
+    try:
+        with db.begin_nested():
+            memory.remember(db, run)
+    except Exception:  # noqa: BLE001
+        log = logging.getLogger("financequest.veteran")
+        log.exception("could not remember campaign %s", run.id)
 
 
 def latest_suggestions(events: list[Event]) -> list[str]:

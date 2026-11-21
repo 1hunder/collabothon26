@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     tts_model: str = "gemini-3.8-flash-tts"
     tts_voice_dm: str = "Charon"
     tts_voice_buddy: str = "Puck"
+    tts_voice_veteran: str = "Algenib"
     art_timeout_s: float = 180.0  # live Nano Banana calls took 31-117 s
     art_retries: int = 1
     fake_llm: bool = False

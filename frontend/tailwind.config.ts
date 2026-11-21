@@ -18,6 +18,7 @@ export default {
           gilt: '#C9A227',
           wax: '#A8322D',
           'wax-light': '#E2807A',
+          ember: '#E0914E',
           vellum: '#E8DCC2',
           'vellum-dim': '#B9AE96',
           soot: '#15121A',
@@ -73,6 +74,13 @@ export default {
           '0%': { boxShadow: '0 0 0 0 rgba(201,162,39,0.7)', borderColor: 'rgba(201,162,39,0.9)' },
           '100%': { boxShadow: '0 0 0 14px rgba(201,162,39,0)', borderColor: 'rgba(201,162,39,0)' },
         },
+        // the Veteran's pipe: the ember breathes, a wisp of smoke rises and fades
+        ember: { '50%': { opacity: '0.45' } },
+        smoke: {
+          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '30%': { opacity: '0.55' },
+          '100%': { opacity: '0', transform: 'translateY(-10px)' },
+        },
         'seal-press': {
           '0%': { transform: 'scale(2.2)', opacity: '0' },
           '60%': { transform: 'scale(0.9)', opacity: '1' },
@@ -92,6 +100,8 @@ export default {
         'crit-glow': 'crit-glow 1.4s ease-in-out 800ms 2',
         'crit-shake': 'crit-shake 450ms ease-out 800ms',
         summon: 'summon 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both',
+        ember: 'ember 2.6s ease-in-out infinite',
+        smoke: 'smoke 4s ease-in-out infinite',
       },
       borderRadius: {
         card: '16px',

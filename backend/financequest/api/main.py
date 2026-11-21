@@ -14,6 +14,7 @@ from financequest.api.routers import (
     personal,
     scenarios,
     session,
+    veteran,
 )
 from financequest.config import get_settings
 
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(campaigns.router)
     app.include_router(scenarios.router)
     app.include_router(personal.router)
+    app.include_router(veteran.router)
     errors.install(app)
     return app
 

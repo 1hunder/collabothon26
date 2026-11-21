@@ -81,3 +81,16 @@ it('keeps code, fields and campaign_id of the error envelope', async () => {
   expect((e as ApiError).code).toBe('invalid_commit');
   expect((e as ApiError).fields).toEqual({ evidence: 'too short' });
 });
+
+it('adopts a session from ?session= and removes it from the address bar', async () => {
+  const { adoptSessionFromUrl } = await import('./client');
+  const id = '0b7e5c3a-1d2f-4a6b-9c8d-123456789abc';
+  window.history.replaceState(null, '', `/quest?session=${id}&x=1`);
+  expect(adoptSessionFromUrl()).toBe(true);
+  expect(localStorage.getItem('fq.session.v1')).toBe(id);
+  expect(window.location.search).toBe('?x=1');
+  window.history.replaceState(null, '', '/quest?session=not-a-uuid');
+  expect(adoptSessionFromUrl()).toBe(false);
+  expect(localStorage.getItem('fq.session.v1')).toBe(id);
+  expect(window.location.search).toBe('');
+});

@@ -342,6 +342,13 @@ class DefaultFakeNodeLLM:
         context: dict[str, Any] | None = None,
         fallback: bool = False,
     ) -> LLMResult:
+        if node.startswith("veteran_"):  # the Tavern's Veteran: scripted Brannoc
+            from financequest.agents.veteran.fake import VeteranFakeLLM
+
+            return VeteranFakeLLM().run(
+                node, messages, schema=schema, effort=effort, persona=persona,
+                web_search_max_uses=web_search_max_uses, context=context, fallback=fallback,
+            )  # fmt: skip
         if node.startswith("campaign_"):  # spec 003 agent nodes: scripted Campaign Master
             from financequest.agents.campaign.fake import CampaignFakeLLM
 

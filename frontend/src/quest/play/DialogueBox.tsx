@@ -3,10 +3,11 @@ import type { SpeakerKind } from '../../api/types';
 import { splitPages } from './paginate';
 import { useTypewriter } from './useTypewriter';
 
-export type VoiceKind = 'dm' | 'buddy';
+export type VoiceKind = 'dm' | 'buddy' | 'veteran';
 
 export const BUDDY_NAME = 'CommerzBuddy';
 export const DM_NAME = 'Campaign Master';
+export const VETERAN_NAME = 'Brannoc';
 
 export interface DialogueBoxProps {
   speaker: string;
@@ -57,7 +58,7 @@ export default function DialogueBox({
   const done = shown >= page.length && page.length > 0;
   const canAdvance = done && (!last || final);
   const isBuddy = speaker === BUDDY_NAME;
-  const voice: VoiceKind = isBuddy ? 'buddy' : 'dm';
+  const voice: VoiceKind = isBuddy ? 'buddy' : speaker === VETERAN_NAME ? 'veteran' : 'dm';
 
   const spoken = useRef<number>(-1);
   const pageReady = final || !last;
@@ -148,7 +149,7 @@ function NameTab({ speaker, kind }: { speaker: string; kind?: SpeakerKind }): Re
       data-testid="name-tab"
       data-kind={npc ? 'npc' : undefined}
       className={`absolute -top-[15px] left-[18px] rounded-[4px_4px_4px_0] px-3.5 pb-1 pt-[3px] font-quest text-base font-bold tracking-[0.02em] ${
-        npc ? 'bg-quest-verdigris text-quest-vellum' : buddy ? 'bg-quest-verdigris-light text-quest-soot' : 'bg-quest-gilt text-quest-soot'
+        npc ? 'bg-quest-verdigris text-quest-vellum' : buddy ? 'bg-quest-verdigris-light text-quest-soot' : speaker === VETERAN_NAME ? 'bg-quest-wax-light text-quest-soot' : 'bg-quest-gilt text-quest-soot'
       }`}
     >
       {speaker}

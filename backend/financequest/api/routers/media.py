@@ -35,10 +35,21 @@ def location_art(location_id: uuid.UUID, db: DbSession) -> Response:
 
 
 @router.get("/tts/{audio_text_id}")
-async def speak(audio_text_id: int, voice: Literal["dm", "buddy"], db: DbSession) -> Response:
-    """Audio for the stored, guarded text of an event; never for client-supplied text."""
-    event = db.get(Event, audio_text_id)
-    text = event.payload.get("text") if event and isinstance(event.payload, dict) else None
+async def speak(
+    audio_text_id: str, voice: Literal["dm", "buddy", "veteran"], db: DbSession
+) -> Response:
+    """Audio for the stored, guarded text of an event (``123``) or a Veteran reply (``v123``);
+    never for client-supplied text."""
+    text: object = None
+    if audio_text_id.startswith("v") and audio_text_id[1:].isdigit():
+        from financequest.veteran.service import spoken_text
+
+        text = spoken_text(db, int(audio_text_id[1:]))
+    elif audio_text_id.isdigit():
+        event = db.get(Event, int(audio_text_id))
+        text = event.payload.get("text") if event and isinstance(event.payload, dict) else None
+    else:
+        raise HTTPException(422, "Audio ids are stored reply ids")
     if not isinstance(text, str) or not text.strip():
         raise HTTPException(404, "Unknown audio text")
     try:
