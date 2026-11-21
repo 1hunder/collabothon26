@@ -53,10 +53,10 @@ describe('BuddyScene', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('CommerzBuddy lost the thread.');
   });
 
-  it('Close Buddy calls onClose', async () => {
+  it.each(['Close Buddy', 'Close CommerzBuddy chat'])('%s closes the chat', async (name) => {
     const onClose = vi.fn();
     render(<BuddyScene stream={stream()} onClose={onClose} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Close Buddy' }));
-    expect(onClose).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

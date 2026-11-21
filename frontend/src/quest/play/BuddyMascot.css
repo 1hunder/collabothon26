@@ -9,7 +9,6 @@
   overflow: hidden;
   z-index: 1;
 }
-img.buddy-mascot { pointer-events: none; }
 .buddy-frames { display: flex; width: 100%; }
 .buddy-frames img { width: 100%; flex: none; }
 .buddy-mascot[data-playing="true"] .buddy-frames {
