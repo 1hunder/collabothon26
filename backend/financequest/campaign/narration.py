@@ -37,6 +37,7 @@ class TurnReply:
     hp_loss: int = 0  # what the Master asked for; the engine clamps it
     hp_reason: str = ""
     new_location: dict[str, Any] | None = None  # validated spec, intent == new_location
+    check: dict[str, Any] | None = None  # ad-hoc skill check the engine opens (intent == challenge)
 
 
 @dataclass

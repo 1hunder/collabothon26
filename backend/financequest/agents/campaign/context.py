@@ -241,7 +241,8 @@ def build_agent_context(
         chs.append({
             "id": str(c.id), "key": c.key, "title": c.title, "state": c.state, "result": c.result,
             "location": c.location_key, "optional": c.optional, "dc": c.dc,
-            "alt_source": c.alt_source if c.result == "setback" else None,
+            "alt_source": c.alt_source if c.result == "setback" and not rules.is_adhoc(c.kind) else None,
+            "skill": rules.adhoc_skill(c.kind),
         })  # fmt: skip
     found = [
         c.clue_id

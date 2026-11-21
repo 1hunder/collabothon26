@@ -226,6 +226,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       bonus: 2,
       keen_eye_available: c.hero.class === 'investigator' && c.keen_eye_left > 0,
       keen_eye_left: c.keen_eye_left,
+      skill: ch.skill ?? null,
     };
   })();
   const activeOverlay: Overlay = overlay.kind === 'none' && pendingCard ? { kind: 'dice', card: pendingCard } : overlay;

@@ -30,6 +30,9 @@ type Stage =
   | { name: 'result'; roll: RollResult }
   | { name: 'failed' };
 
+/** "Insight check · DC 13" for an unplanned skill check, "Difficulty 13" for a listed challenge. */
+const difficultyLabel = (card: DiceCard): string => (card.skill ? `${card.skill} check · DC ${card.dc}` : `Difficulty ${card.dc}`);
+
 const pause = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms));
 
 /** Full-screen dice check. Every number on it comes from the API. */
@@ -68,7 +71,7 @@ export default function DiceMoment({ card, api, onResolved, resumeSetback }: Dic
       {stage.name === 'offer' || stage.name === 'failed' ? (
         <>
           <p className="font-quest-sans text-quest-vellum-dim">
-            Difficulty {card.dc} <span aria-hidden="true">·</span> Bonus +{card.bonus}
+            {difficultyLabel(card)} <span aria-hidden="true">·</span> Bonus +{card.bonus}
           </p>
           {stage.name === 'failed' ? (
             <p role="alert" className="mt-2 font-quest text-quest-wax-light">
@@ -90,7 +93,7 @@ export default function DiceMoment({ card, api, onResolved, resumeSetback }: Dic
 
       {stage.name === 'resumed' && resumeSetback ? (
         <>
-          <p className="font-quest-sans text-quest-vellum-dim">Difficulty {card.dc}</p>
+          <p className="font-quest-sans text-quest-vellum-dim">{difficultyLabel(card)}</p>
           <p data-testid="dice-verdict" className="mt-2 font-quest-title text-5xl text-quest-wax-light">
             Setback
           </p>
