@@ -215,7 +215,7 @@ class CampaignFakeLLM:
         roll = c["roll"]
         clue = roll.get("clue")
         if roll["result"] == "success":
-            body = "The dice favour you, and the page gives up its secret."
+            body = "Fortune favours you, and the page gives up its secret."
             if clue:
                 body += f" You find: {clue['title']}. {first_sentences(clue['text'], 2, 40)}"
         else:

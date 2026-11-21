@@ -398,7 +398,7 @@ def facts_block(ctx: AgentContext) -> str:
     ]
     return "\n".join([
         "# Facts from the event log",
-        f"Hero: {ctx.hero_name}, {ctx.hero_class}. Phase: {ctx.phase}. Story day {ctx.gv.clock_day}.",
+        f"Hero: a {ctx.hero_class}, always addressed as 'you' (never by name). Phase: {ctx.phase}. Story day {ctx.gv.clock_day}.",
         f"Turns taken: {ctx.turn_count}. Focus left: {ctx.focus_left}. News shown: {ctx.news_shown}.",
         f"Current location: {cur}. Visited: {', '.join(visited) or 'none'}.",
         f"Not yet visited: {', '.join(unvisited) or 'none'}.",

@@ -16,7 +16,7 @@ from financequest.agents.campaign.graphs import (
     make_rules,
     run_guarded,
 )
-from financequest.agents.campaign.guards import SAFE_FALLBACK, FieldRule
+from financequest.agents.campaign.guards import SAFE_FALLBACK, FieldRule, GuardRules
 from financequest.agents.campaign.schemas import (
     BuddyOut,
     DebriefOut,
@@ -34,6 +34,12 @@ BUDDY_WORDS = 120
 NEWS_WORDS = 80
 HINT_WORDS = 80
 PART_WORDS = 70
+
+
+def _internal(rules: GuardRules) -> GuardRules:
+    """Model memory is never shown to the player: the voice rules do not apply."""
+    rules.voice = False
+    return rules
 
 
 class AgentNarration:
@@ -97,9 +103,7 @@ class AgentNarration:
                 "What would you do next?"
             ).replace("  ", " ")
         extra = (
-            f"# Final dice result (engine)\nChallenge: {roll['title']}. Result: {roll['result']}. "
-            f"Dice used {roll.get('used')}, bonus +2, total {roll.get('total')} against difficulty "
-            f"{roll.get('dc')}.\n"
+            f"# Outcome of the attempt\nChallenge: {roll['title']}. Result: {roll['result']}.\n"
             + (f"Clue found: {clue['title']}: {clue['text']}\n" if clue else "")
             + (f"Alternative source for the same information: {roll.get('alt_source')}\n"
                if roll["result"] != "success" else "")
@@ -124,7 +128,7 @@ class AgentNarration:
 
     def hint(self, ctx: C.AgentContext, target: dict[str, Any]) -> TurnReply:
         where = target["location_name"]
-        extra = f"# Hint target (engine)\nThe clue the hero has not found is at: {where}."
+        extra = f"# Hint target \nThe clue the hero has not found is at: {where}."
         text, degraded = self._text_node(
             ctx, node="campaign_hint", prompt=prompts.HINT, user="Give the hint.", extra=extra,
             effort="low", max_words=HINT_WORDS, question=True, spoilers=True, llm_context={"target": target},
@@ -141,7 +145,7 @@ class AgentNarration:
             llm=self.llm, node="campaign_summary", schema=SummaryOut, effort="low",
             messages=lambda notes: C.build_messages(ctx, prompts.SUMMARY, "Write the summary.", corrective=notes),
             texts=lambda o: {"summary": o.summary},
-            rules=make_rules(ctx, fields={"summary": FieldRule(150, False)}),
+            rules=_internal(make_rules(ctx, fields={"summary": FieldRule(150, False)})),
             template=lambda: SummaryOut(summary=template), ctx=ctx, llm_context={"ctx": ctx},
         )  # fmt: skip
         return run_guarded(spec).out.summary.strip()
@@ -172,7 +176,7 @@ class AgentNarration:
             reflection_question=question,
         )  # fmt: skip
         extra = (
-            f"# Debrief facts (engine)\nOverlooked clue titles: {', '.join(missed) or 'none'}.\n"
+            f"# Debrief facts \nOverlooked clue titles: {', '.join(missed) or 'none'}.\n"
             f"Player's written evidence: {' | '.join(ctx.player_texts)}\n"
             f"Suggested reflection question: {question}\nResult: {ctx.outcome}"
         )
