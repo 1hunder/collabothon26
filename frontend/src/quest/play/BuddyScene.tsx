@@ -39,7 +39,9 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
 
   return (
     <section aria-label="CommerzBuddy" className="relative">
-      <img src={buddySprite} alt="" draggable={false} className="buddy-mascot" />
+      <button type="button" className="buddy-mascot" aria-label="Close CommerzBuddy chat" onClick={onClose}>
+        <img src={buddySprite} alt="" draggable={false} />
+      </button>
       {state.phase === 'lost' ? (
         <div role="alert" className="mx-3 rounded-lg bg-quest-lapis/95 p-4 font-quest text-quest-vellum">
           <p>CommerzBuddy lost the thread.</p>
