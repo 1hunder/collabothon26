@@ -326,16 +326,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     }
   };
 
-  const bonusLead = async (): Promise<void> => {
-    try {
-      const card = normalizeCard(await request<Record<string, unknown>>('POST', `${base}/focus/bonus-lead`));
-      refresh();
-      if (card?.kind === 'dice') setOverlay({ kind: 'dice', card });
-    } catch {
-      refresh();
-    }
-  };
-
   const toggleVoice = (): void => {
     if (onToggleVoice) onToggleVoice();
     else if (hasProvider) voiceApi.toggle();
@@ -399,19 +389,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     if (inChoices) {
       return (
         <ChoiceList
-          suggestions={current.suggestions}
           prompt={c.market_scene ? 'What do you do with your coins?' : undefined}
           purse={c.market_scene ? c.purse : undefined}
           canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
-          focusLeft={c.focus_left}
-          bonusLeadAvailable={c.bonus_lead_available}
           onSend={sendAction}
           onDecide={() => void decide()}
-          onHint={() => {
-            stopVoice();
-            dm.send({}, `${base}/focus/hint`);
-          }}
-          onBonusLead={() => void bonusLead()}
         />
       );
     }

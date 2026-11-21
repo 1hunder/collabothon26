@@ -3,20 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ChoiceList, { ActionInput, type ChoiceListProps } from './ChoiceList';
 
-const suggestions = ['Go to the Library', 'Visit the Square', 'Ask the barkeep'];
-
 function setup(over: Partial<ChoiceListProps> = {}) {
-  const props: ChoiceListProps = {
-    suggestions,
-    canDecide: false,
-    focusLeft: 3,
-    bonusLeadAvailable: true,
-    onSend: vi.fn(),
-    onDecide: vi.fn(),
-    onHint: vi.fn(),
-    onBonusLead: vi.fn(),
-    ...over,
-  };
+  const props: ChoiceListProps = { canDecide: false, onSend: vi.fn(), onDecide: vi.fn(), ...over };
   render(<ChoiceList {...props} />);
   return props;
 }
@@ -24,63 +12,48 @@ function setup(over: Partial<ChoiceListProps> = {}) {
 beforeEach(() => window.sessionStorage.clear());
 
 describe('ChoiceList', () => {
-  it('asks what you would do and lists three suggestions and the own-action choice', () => {
+  it('shows only the text box: no preset options, no hint and no bonus lead', () => {
     setup();
-    expect(screen.getByText('What would you do?')).toBeInTheDocument();
-    for (const s of suggestions) expect(screen.getByRole('button', { name: s })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Write your own action…' })).toBeInTheDocument();
+    expect(screen.getByLabelText('What would you do?')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Write your own action…' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ask for a hint' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chase a bonus lead' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
   });
 
-  it('sends a suggestion immediately, without further typing', async () => {
+  it('Send stays disabled for empty or only spaces, then sends the typed action', async () => {
     const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Visit the Square' }));
-    expect(p.onSend).toHaveBeenCalledWith('Visit the Square');
-  });
-
-  it('own action: the text box opens and Send stays disabled for empty or only spaces', async () => {
-    const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Write your own action…' }));
     const box = screen.getByRole('textbox');
     const send = screen.getByRole('button', { name: 'Send' });
     expect(send).toBeDisabled();
     await userEvent.type(box, '   ');
     expect(send).toBeDisabled();
-    await userEvent.type(box, 'read the notice');
+    await userEvent.type(box, 'read the ledger');
     expect(send).toBeEnabled();
     await userEvent.click(send);
-    expect(p.onSend).toHaveBeenCalledWith('read the notice');
+    expect(p.onSend).toHaveBeenCalledWith('read the ledger');
   });
 
-  it('the own-action text box uses at least 16px text so iOS does not zoom', async () => {
+  it('the text box uses at least 16px text so iOS does not zoom', () => {
     setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Write your own action…' }));
     expect(screen.getByRole('textbox')).toHaveClass('text-base');
   });
 
+  it('a decision scene asks about the coins and shows the purse', () => {
+    setup({ prompt: 'What do you do with your coins?', purse: { cash_eur: 700, position_eur: 300, total_eur: 1000 } });
+    expect(screen.getByLabelText('What do you do with your coins?')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your purse')).toHaveTextContent('€700.00');
+  });
+
   it("shows I'm ready to decide only when the server says the player can decide", async () => {
-    const { unmount } = render(
-      <ChoiceList suggestions={suggestions} canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />,
-    );
+    const { unmount } = render(<ChoiceList canDecide={false} onSend={vi.fn()} onDecide={vi.fn()} />);
     expect(screen.queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
     unmount();
     const onDecide = vi.fn();
     setup({ canDecide: true, onDecide });
     await userEvent.click(screen.getByRole('button', { name: "I'm ready to decide" }));
     expect(onDecide).toHaveBeenCalled();
-  });
-
-  it('disables both Focus actions at 0 Focus', () => {
-    setup({ focusLeft: 0 });
-    expect(screen.getByRole('button', { name: 'Ask for a hint' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Chase a bonus lead' })).toBeDisabled();
-  });
-
-  it('enables the Focus actions with Focus left', async () => {
-    const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Ask for a hint' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Chase a bonus lead' }));
-    expect(p.onHint).toHaveBeenCalled();
-    expect(p.onBonusLead).toHaveBeenCalled();
   });
 });
 

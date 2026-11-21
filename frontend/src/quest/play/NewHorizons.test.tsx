@@ -17,7 +17,6 @@ type User = ReturnType<typeof userEvent.setup>;
 async function act1(user: User, text: string): Promise<void> {
   await readToChoices(user);
   await skipTitle(user);
-  await user.click(screen.getByRole('button', { name: 'Write your own action…' }));
   await user.type(await screen.findByRole('textbox'), text);
   await user.click(screen.getByRole('button', { name: 'Send' }));
 }
@@ -59,8 +58,7 @@ describe('new location with an NPC', () => {
     setupPlay('analyst');
     await act1(user, 'visit the docks warehouse');
     await readToChoices(user);
-    await user.click(screen.getByRole('button', { name: 'Write your own action…' }));
-    await user.type(await screen.findByRole('textbox'), 'break into the vault');
+      await user.type(await screen.findByRole('textbox'), 'break into the vault');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText('The Campaign Master steps in')).toBeInTheDocument();
     expect(await screen.findByTestId('damage-toast')).toHaveTextContent('−5 HP (−€50): The vault guards caught you');

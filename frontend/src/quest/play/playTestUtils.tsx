@@ -39,6 +39,14 @@ export async function readToChoices(user: UserEvent, stopAt: () => boolean = () 
   }
 }
 
+/** Writes an action in the text box and sends it (the choices are an input field only). */
+export async function typeSend(user: UserEvent, text: string): Promise<void> {
+  const box = await screen.findByRole('textbox');
+  await user.clear(box);
+  await user.type(box, text);
+  await user.click(screen.getByRole('button', { name: 'Send' }));
+}
+
 export async function skipTitle(user: UserEvent): Promise<void> {
   const card = screen.queryByTestId('title-card');
   if (card) await user.click(card);

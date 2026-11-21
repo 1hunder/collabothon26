@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readDb, writeDb } from '../../api/fixtures/db';
 import * as sse from '../../api/sse';
 import { FIRST_EVENT_TIMEOUT_MS } from '../../api/useDmStream';
-import { readParchment, readToChoices, setupPlay, skipTitle } from './playTestUtils';
+import { readParchment, readToChoices, setupPlay, skipTitle, typeSend } from './playTestUtils';
 
 vi.mock('../components/StoryChart', () => ({
   default: ({ points }: { points: { story_day: number }[] }) => <div role="img" aria-label="Price chart" data-last-day={points.at(-1)?.story_day} />,
@@ -25,7 +25,7 @@ async function enterTavern(user: ReturnType<typeof userEvent.setup>): Promise<vo
 }
 
 async function sendSuggestion(user: ReturnType<typeof userEvent.setup>, name: string | RegExp): Promise<void> {
-  await user.click(choiceButton(name));
+  await typeSend(user, String(name));
   await readToChoices(user);
 }
 
@@ -54,8 +54,8 @@ describe('PlayScreen: scene and hero status', () => {
     expect(screen.queryByRole('region', { name: 'Choices' })).not.toBeInTheDocument();
     await readToChoices(user);
     const list = screen.getByRole('region', { name: 'Choices' });
-    expect(within(list).getByText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getAllByRole('button').length).toBeGreaterThanOrEqual(5);
+    expect(within(list).getByLabelText('What would you do?')).toBeInTheDocument();
+    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['Send']);
     expect(within(list).queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
   });
 
@@ -90,7 +90,7 @@ describe('PlayScreen: sending actions', () => {
     setupPlay('analyst');
     await enterTavern(user);
     const spy = vi.spyOn(sse, 'postSse').mockImplementation(() => new Promise<void>(() => undefined));
-    await user.click(choiceButton('Walk to Market Square and study the price board'));
+    await typeSend(user, 'Walk to Market Square and study the price board');
     expect(screen.getByRole('status')).toHaveTextContent('The Campaign Master is writing…');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(FIRST_EVENT_TIMEOUT_MS);
@@ -221,8 +221,7 @@ describe('PlayScreen: scene hotspots', () => {
 describe('PlayScreen: dice', () => {
   async function toDice(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     await enterTavern(user);
-    await user.click(choiceButton('Write your own action…'));
-    await user.type(screen.getByRole('textbox'), 'check the ledger for an odd figure');
+      await user.type(screen.getByRole('textbox'), 'check the ledger for an odd figure');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     await readToChoices(user, () => screen.queryByRole('dialog', { name: 'Dice check' }) !== null);
   }

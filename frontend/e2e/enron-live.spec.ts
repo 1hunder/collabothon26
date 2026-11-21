@@ -41,9 +41,9 @@ async function playUntilReady(page: Page, opts: { needNews: boolean }): Promise<
     }
     const choices = page.getByRole('region', { name: 'Choices' });
     if ((await choices.count()) > 0) {
-      // Prefer a suggestion that is not the Buddy/hint/decide controls.
-      const first = choices.getByRole('button').first();
-      await first.click();
+      // The choices are a text box only: write a simple action and send it.
+      await choices.getByRole('textbox').fill('Look around for anything useful');
+      await choices.getByRole('button', { name: 'Send' }).click();
       await page.waitForTimeout(400);
       continue;
     }
