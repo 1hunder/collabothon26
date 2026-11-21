@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQueryClient } from '../../api/queryClient';
 import { resetFixtureDb } from '../../api/fixtures';
 import { getQuestPick, setQuestPick } from '../../quest/selectedQuest';
+vi.mock('../../quest/endActiveQuest', () => ({ endActiveQuest: vi.fn(() => Promise.resolve()) }));
+import { endActiveQuest } from '../../quest/endActiveQuest';
 import PersonalQuests from './PersonalQuests';
 import RecentTransactions from './RecentTransactions';
 
@@ -65,7 +67,8 @@ describe('PersonalQuests', () => {
     expect(await screen.findByText('Games & consoles')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Play' }));
     await userEvent.click(screen.getByRole('button', { name: 'End current and play' }));
-    expect(onPlay).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onPlay).toHaveBeenCalledTimes(1));
+    expect(endActiveQuest).toHaveBeenCalledTimes(1); // the old campaign is abandoned first
     expect(getQuestPick()?.category).toBe('gaming');
   });
 
