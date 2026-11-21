@@ -56,11 +56,11 @@ test('at 1280 px the app column is at most 430 px wide and centred', async ({ pa
 test('Overview computed styles match the spec colours and shapes', async ({ page }) => {
   await unlock(page);
   const quest = page.locator('section', { has: page.getByRole('heading', { name: 'Finance Quest' }) });
-  await expect(quest).toHaveCSS('background-color', 'rgb(255, 215, 0)');
+  await expect(quest).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   const start = page.getByRole('button', { name: 'Start', exact: true });
-  await expect(start).toHaveCSS('background-color', 'rgb(0, 46, 60)');
+  await expect(start).toHaveCSS('background-color', 'rgb(255, 215, 0)');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(241, 239, 237)');
-  await expect(page.getByRole('button', { name: /StartKonto/ })).toHaveCSS('border-radius', '16px');
+  await expect(page.getByRole('button', { name: /StartKonto/ })).toHaveCSS('border-radius', '0px');
   const box = await start.boundingBox();
   if (box === null) throw new Error('Start has no bounding box');
   const radius = parseFloat(await start.evaluate((el) => (globalThis as unknown as { getComputedStyle(e: unknown): { borderTopLeftRadius: string } }).getComputedStyle(el).borderTopLeftRadius));

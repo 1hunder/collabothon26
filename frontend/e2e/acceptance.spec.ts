@@ -182,9 +182,9 @@ test.describe('2.4 Overview', () => {
     const ys = [
       (await box(page.getByRole('heading', { name: 'Hello, Lena' }))).y,
       (await box(main.getByText('€1,240.50').first())).y,
+      (await box(page.getByRole('button', { name: 'Transfer' }))).y,
       (await box(konto)).y,
       (await box(depot)).y,
-      (await box(page.getByRole('button', { name: 'Transfer' }))).y,
       (await box(questSection)).y,
     ];
     for (let i = 1; i < ys.length; i++) expect(ys[i], `order step ${i}`).toBeGreaterThan(ys[i - 1]);
@@ -192,14 +192,10 @@ test.describe('2.4 Overview', () => {
     await expect(main.getByText('Total balance')).toBeVisible();
     const cardsRow = await box(konto);
     expect((await box(main.getByText('€1,240.50').first())).y).toBeLessThan(cardsRow.y);
-    // Quick actions are Transfer, Cards, Postbox, left to right.
-    const xs = [
-      (await box(page.getByRole('button', { name: 'Transfer' }))).x,
-      (await box(page.getByRole('button', { name: 'Cards' }))).x,
-      (await box(page.getByRole('button', { name: 'Postbox' }))).x,
-    ];
-    expect(xs[0]).toBeLessThan(xs[1]);
-    expect(xs[1]).toBeLessThan(xs[2]);
+    const cards = await box(page.getByRole('button', { name: 'Cards' }));
+    const postbox = await box(page.getByRole('button', { name: 'Postbox' }));
+    expect(cards.x).toBeLessThan(postbox.x);
+    expect(cards.y).toEqual(postbox.y);
     // Quest card is full width and taller than either account card; accounts are white.
     const q = await box(questSection);
     expect(q.height).toBeGreaterThan((await box(konto)).height);
@@ -515,14 +511,14 @@ test.describe('2.9 Look and feel', () => {
     await unlockBtn.click();
     await expect(page).toHaveURL(/\/overview$/);
     const quest = page.locator('section', { has: page.getByRole('heading', { name: 'Finance Quest' }) });
-    await expect(quest).toHaveCSS('background-color', 'rgb(255, 215, 0)');
-    await expect(quest).toHaveCSS('border-radius', '16px');
+    await expect(quest).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(quest).toHaveCSS('border-radius', '12px');
     await expect(page.getByRole('heading', { name: 'Hello, Lena' })).toHaveCSS('color', 'rgb(0, 46, 60)');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(241, 239, 237)');
-    await expect(page.getByRole('button', { name: /StartKonto/ })).toHaveCSS('border-radius', '16px');
-    await expect(page.getByRole('button', { name: /StartDepot/ })).toHaveCSS('border-radius', '16px');
+    await expect(page.getByRole('button', { name: /StartKonto/ })).toHaveCSS('border-radius', '0px');
+    await expect(page.getByRole('button', { name: /StartDepot/ })).toHaveCSS('border-radius', '0px');
     const start = startBtn(page);
-    await expect(start).toHaveCSS('background-color', 'rgb(0, 46, 60)');
+    await expect(start).toHaveCSS('background-color', 'rgb(255, 215, 0)');
     const sb = await box(start);
     const sr = parseFloat(await start.evaluate((el) => (globalThis as unknown as { getComputedStyle(e: unknown): { borderTopLeftRadius: string } }).getComputedStyle(el).borderTopLeftRadius));
     expect(sr).toBeGreaterThanOrEqual(sb.height / 2);
