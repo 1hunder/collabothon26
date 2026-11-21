@@ -6,6 +6,10 @@ describe('storyNumber', () => {
     expect(formatStoryNumber(10000)).toBe('10,000');
     expect(formatStoryNumber(1250)).not.toMatch(/[kmbKMB]/);
   });
+  it('is always a whole number', () => {
+    expect(formatStoryNumber(607.51)).toBe('608');
+    expect(formatStoryNumber(31.4)).toBe('31');
+  });
   it('throws above 10,000', () => {
     expect(() => formatStoryNumber(10001)).toThrow(RangeError);
     expect(() => formatStoryNumber(Number.NaN)).toThrow(RangeError);

@@ -27,6 +27,7 @@ from financequest.agents.campaign import context as C
 from financequest.agents.campaign import prompts
 from financequest.agents.campaign.guards import (
     CHECK_NOTE,
+    IDENT_NOTE,
     MECHANICS_NOTE,
     SAFE_FALLBACK,
     THIRD_NOTE,
@@ -106,6 +107,7 @@ def guard_results(violations: list[str]) -> dict[str, str]:
         "advice": "pass" if not hit("recommends", "promises", "predicts the future", "advice check")
         else "fail",
         "word_cap": "pass" if not hit("the cap is", "must end with a question") else "fail",
+        "ident": "pass" if not hit(IDENT_NOTE) else "fail",
         "style": "pass" if not hit(MECHANICS_NOTE, THIRD_NOTE, CHECK_NOTE, HP_NOTE) else "fail",
     }
 

@@ -22,6 +22,10 @@ Hard rules, never broken:
   mechanic: the interface shows the dice card by itself. Do not promise a roll or a test of skill.
 - Money is gold pieces, written "gp" or "gold pieces" (e.g. 1,000 gold pieces, 30 gp). Never write euros,
   EUR, dollars or any currency symbol; the story has no other currency.
+- Never write field names, ids, keys, code or snake_case words (such as change_pct, first_close,
+  hp_eur, story_day or evidence ids like F-CEO-RESIGN-001). Describe every figure in plain words
+  ("the price fell about 6 percent over the period shown") and name evidence by its title.
+- Round every number to a whole number (42, never 41.7), and write it that way.
 - Plain, warm language for a first-time learner. English."""
 
 CAMPAIGN_MASTER = (

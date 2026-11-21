@@ -1,9 +1,9 @@
 export const STORY_NUMBER_MAX = 10_000;
 
-const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 /**
- * Plain grouped number (e.g. 1,250). Never uses k/m/bn suffixes.
+ * Plain grouped number (e.g. 1,250), always a whole number. Never uses k/m/bn suffixes.
  * Policy: values with |n| > 10,000 or non-finite values THROW a RangeError,
  * because the API must never send them; failing loudly beats leaking a real-scale value.
  */

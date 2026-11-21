@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 SAFE_FALLBACK = "Let's check the numbers in the Library."
@@ -189,6 +189,31 @@ def currency_violations(text: str) -> list[str]:
     return [CURRENCY_NOTE] if _REAL_CURRENCY.search(text) else []
 
 
+# ---- internal identifiers (field names, ids, code) never reach the player -------------------------
+_SNAKE = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
+_CAMEL = re.compile(r"\b[a-z]{2,}[A-Z][a-z0-9]+[A-Za-z0-9]*\b")
+_EVIDENCE_ID = re.compile(r"\b[A-Z]{1,4}-[A-Z0-9-]{2,}\b")
+IDENT_NOTE = (
+    "contains an internal identifier (field name, id or code); describe figures in plain words"
+)
+
+
+def ident_violations(text: str) -> list[str]:
+    """snake_case keys (change_pct), camelCase tokens and evidence ids (F-CEO-RESIGN-001)."""
+    if _SNAKE.search(text) or _CAMEL.search(text) or _EVIDENCE_ID.search(text):
+        return [IDENT_NOTE]
+    return []
+
+
+def whole(value: Any) -> str:
+    """A figure shown to a model or a player: a whole number (half up), thousands unseparated."""
+    try:
+        d = Decimal(str(value).replace(",", "").strip())
+    except InvalidOperation:
+        return str(value)
+    return str(int(d.quantize(Decimal(1), ROUND_HALF_UP)))
+
+
 # ---- format -------------------------------------------------------------------------------------
 def word_count(text: str) -> int:
     return len(text.split())
@@ -231,6 +256,7 @@ class GuardRules:
                 out.append(f"{name} must end with a question")
             out += number_violations(text, self.allowed)
             out += currency_violations(text)
+            out += ident_violations(text)
             if self.voice:
                 out += voice_violations(text, self.hero_name)
             if self.forbid_check and implies_check(text):

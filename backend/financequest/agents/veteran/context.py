@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from financequest.agents.campaign.guards import build_allowlist
+from financequest.agents.campaign.guards import build_allowlist, whole
 
 VETERAN_NAME = "Brannoc"
 VETERAN_ID = "veteran"
@@ -58,7 +58,7 @@ def allowlist(ctx: VeteranContext, typed: str = "") -> set[str]:
 
 def _fmt_short(m: dict[str, Any]) -> str:
     real = f" (revealed: {m['real_name']})" if m.get("real_name") else ""
-    pct = f", {m['pnl_pct']}%" if m.get("pnl_pct") is not None else ""
+    pct = f", {whole(m['pnl_pct'])}%" if m.get("pnl_pct") is not None else ""
     return (
         f"Quest {m['number']}: {m['title']}, company {m['company']}{real}. Result {m['result']}"
         f"{pct}. Forecast {m['forecast']}. Tags: {', '.join(m['tags']) or 'none'}. XP {m['xp']}."
@@ -109,7 +109,7 @@ def facts_block(ctx: VeteranContext) -> str:
         )
         for d in f["decisions"]:
             lines.append(
-                f"{d['seq']}. {d['when']} ({d['day']}) | {d['action']} | {d['amount_eur']} | "
+                f"{d['seq']}. {d['when']} ({d['day']}) | {d['action']} | {whole(d['amount_eur'])} | "
                 f'"{d["text"]}" | {d["judgement"]} | {d["luck"]}'
                 + (f' | their reasons, in their words: "{d["reasoning"]}"' if d.get("reasoning") else " | no reasons given")
             )
@@ -117,12 +117,12 @@ def facts_block(ctx: VeteranContext) -> str:
             lines.append(f'Closing note at the seal: "{f["closing_note"]}"')
         fc = f["forecast"]
         lines.append(
-            f"Forecast: {fc['pct']}% likely higher, confidence {fc['confidence']}. The price "
+            f"Forecast: {whole(fc['pct'])}% likely higher, confidence {fc['confidence']}. The price "
             f"ended {'higher' if fc['market'] == 'up' else 'lower'}. Band: {fc['band']}."
         )
         r = f["result"]
         lines.append(
-            f"Result: {r['kind']}, {r['pnl_pct']}% ({r['pnl_eur']} gp of {r['budget_eur']} gp). XP {f['xp']}."
+            f"Result: {r['kind']}, {whole(r['pnl_pct'])}% ({whole(r['pnl_eur'])} gp of {whole(r['budget_eur'])} gp). XP {f['xp']}."
         )
         lines.append("Key clues they never found: " + (", ".join(f["missed"]) or "none"))
         d = f["debrief"]

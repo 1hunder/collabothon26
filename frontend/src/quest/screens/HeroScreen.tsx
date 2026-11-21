@@ -55,7 +55,7 @@ export default function HeroScreen(): React.JSX.Element {
                 {e.interests.length > 0 && <>{e.interests.join(', ')} · </>}
                 <span>{e.total_xp} XP</span>
                 {e.decision ? <span> · {e.decision}</span> : null}
-                {typeof e.result_pct === 'number' ? <span> · {e.result_pct.toFixed(1)}%</span> : null}
+                {typeof e.result_pct === 'number' ? <span> · {Math.round(e.result_pct)}%</span> : null}
                 <Link to={`/quest/journal/${e.campaign_id}`} className="block text-quest-verdigris-light underline">
                   Journal
                 </Link>

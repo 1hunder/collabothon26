@@ -20,7 +20,7 @@ from financequest.agents.campaign.graphs import (
     make_rules,
     run_guarded,
 )
-from financequest.agents.campaign.guards import SAFE_FALLBACK, FieldRule, GuardRules
+from financequest.agents.campaign.guards import SAFE_FALLBACK, FieldRule, GuardRules, whole
 from financequest.agents.campaign.schemas import (
     BuddyOut,
     DebriefOut,
@@ -67,8 +67,8 @@ def decisions_block(ctx: C.AgentContext) -> str:
     for d in ctx.decisions:
         eff = d.get("effect_eur")
         lines.append(
-            f"{d['day_label']} ({d['beat']}): {d['action']} {d['amount_eur']}"
-            + (f"; effect on the result {eff}" if eff is not None else "")
+            f"{d['day_label']} ({d['beat']}): {d['action']} {whole(d['amount_eur'])}"
+            + (f"; effect on the result {whole(eff)}" if eff is not None else "")
             + f". Their words: \"{d['text']}\""
             + ("" if d["beat"] == "damage" else
                f". Reasoning given ({d.get('reasoning_source')}): \"{d['reasoning']}\""
@@ -97,15 +97,15 @@ def _offer_template(kind: str, facts: dict[str, Any]) -> dict[str, Any]:
         return {
             "name": "Harrel Voss", "role": "Guild broker", "suggestions": _OFFER_SUGGESTIONS["buyback"],
             "text": "A guild broker draws you aside: he will buy back part of your coins in the "
-                    f"company at today's board price, up to {facts['buyback']['max_eur']} gold pieces "
+                    f"company at today's board price, up to {whole(facts['buyback']['max_eur'])} gold pieces "
                     "worth. How do you answer?",
         }  # fmt: skip
     if kind == "loan":
         t = facts["loan"]
         return {
             "name": "Ismene Dray", "role": "Moneylender", "suggestions": _OFFER_SUGGESTIONS["loan"],
-            "text": f"A moneylender offers you up to {t['principal_eur']} gold pieces now, at flat "
-                    f"interest of {t['interest_pct']} percent: {t['repay_eur']} gold pieces repaid "
+            "text": f"A moneylender offers you up to {whole(t['principal_eur'])} gold pieces now, at flat "
+                    f"interest of {whole(t['interest_pct'])} percent: {whole(t['repay_eur'])} gold pieces repaid "
                     f"{t['due']}. How do you answer?",
         }  # fmt: skip
     return {"name": "", "role": "", "suggestions": [],
@@ -314,10 +314,10 @@ class AgentNarration:
         extra = (
             "# Offer facts (engine computed, gold pieces)\n"
             f"Allowed kinds: {', '.join(kinds)}.\n"
-            + (f"buyback terms: a broker takes back up to {facts['buyback']['max_eur']} gold pieces of their "
+            + (f"buyback terms: a broker takes back up to {whole(facts['buyback']['max_eur'])} gold pieces of their "
                "coins at today's board price.\n" if "buyback" in kinds and "buyback" in facts else "")
-            + (f"loan terms: lends up to {facts['loan']['principal_eur']} gold pieces, flat interest "
-               f"{facts['loan']['interest_pct']} percent, {facts['loan']['repay_eur']} gold pieces repaid "
+            + (f"loan terms: lends up to {whole(facts['loan']['principal_eur'])} gold pieces, flat interest "
+               f"{whole(facts['loan']['interest_pct'])} percent, {whole(facts['loan']['repay_eur'])} gold pieces repaid "
                f"{facts['loan']['due']}.\n" if "loan" in kinds and "loan" in facts else "")
             + "\n".join(C.purse_lines(ctx))
         )  # fmt: skip
@@ -426,7 +426,7 @@ class AgentNarration:
         extra = (
             f"# Debrief facts \nOverlooked clue titles: {', '.join(missed) or 'none'}.\n"
             f"Player's written evidence: {' | '.join(ctx.player_texts)}\n"
-            f"Suggested reflection question: {question}\nResult: {ctx.outcome}\n"
+            f"Suggested reflection question: {question}\n{C.render_outcome(ctx.outcome) if ctx.outcome else ''}\n"
             + decisions_block(ctx)
         )
         fields = {k: FieldRule(PART_WORDS, False) for k in

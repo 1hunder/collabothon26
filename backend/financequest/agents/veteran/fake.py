@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from financequest.agents.campaign.guards import whole
 from financequest.agents.veteran.context import VeteranContext
 from financequest.agents.veteran.schemas import VeteranOut
 from financequest.llm import LLMResult
@@ -278,7 +279,7 @@ def _walk(ctx: VeteranContext) -> VeteranOut:
     fc = f.get("forecast") or {}
     if step == n:
         said = (
-            f"You said {fc['pct']}% likely higher, with {fc['confidence']} confidence."
+            f"You said {whole(fc['pct'])}% likely higher, with {fc['confidence']} confidence."
             if fc.get("pct") is not None
             else "You left the forecast open."
         )
@@ -311,7 +312,7 @@ def _walk(ctx: VeteranContext) -> VeteranOut:
             r.get("kind") or "", "its end"
         )
         pct = (
-            f" of {r['pnl_pct']}%"
+            f" of {whole(r['pnl_pct'])}%"
             if r.get("pnl_pct") is not None and r.get("kind") != "flat"
             else ""
         )

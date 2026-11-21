@@ -27,7 +27,7 @@ export function decisionLabel(d: Pick<DecisionEntry, 'action' | 'amount_eur'>): 
 }
 
 export function formatPct(n: number): string {
-  return `${n < 0 ? '−' : n > 0 ? '+' : ''}${Math.abs(n).toFixed(1)}%`;
+  return `${n < 0 ? '−' : n > 0 ? '+' : ''}${Math.round(Math.abs(n)).toLocaleString('en-US')}%`;
 }
 
 export function formatSigned(n: number): string {

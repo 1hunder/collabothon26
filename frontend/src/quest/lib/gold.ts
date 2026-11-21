@@ -2,9 +2,9 @@
 export const GOLD_SHORT = 'gp';
 export const GOLD_LONG = 'gold pieces';
 
-/** Grouped number (1,250 or 1,250.5), no currency. */
+/** Whole grouped number (1,250), no currency. Money is never shown with decimals. */
 export function formatGoldNumber(n: number): string {
-  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return Math.round(n).toLocaleString('en-US');
 }
 
 /** "1,250 gp". */
