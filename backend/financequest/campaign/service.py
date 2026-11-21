@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import random
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -277,6 +278,7 @@ def position_of(run: CampaignRun, trades: list[Trade]) -> ledger.Position:
 
 # ---- damage: HP is the budget bar (1 HP = 10 euros) -------------------------------------------
 HP_EUR = 10
+LOAN_TEXT = "Loan from "
 MAX_HP_LOSS_TURN = 10  # a schema bound only: one model reply cannot take more than this
 
 
@@ -343,7 +345,47 @@ def purse(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     pos = position_of(run, trades_of(db, run.id))
     price = ledger.fill_row(pack.rows, run.clock_day).close
     held = pos.value(price)
-    return {"cash_eur": _eur(pos.cash), "position_eur": _eur(held), "total_eur": _eur(pos.cash + held)}
+    out: dict[str, Any] = {
+        "cash_eur": _eur(pos.cash), "position_eur": _eur(held), "total_eur": _eur(pos.cash + held),
+        "loan": None,
+    }
+    loan = loan_of(trades_of(db, run.id))
+    if loan is not None:
+        out["loan"] = loan_out(loan)
+        out["net_eur"] = _eur(pos.cash + held - loan.repay)  # what they own once the loan is repaid
+    return out
+
+
+# ---- the loan of an all-in plot (a Trade row with action "loan") ----------------------------------
+@dataclass(frozen=True)
+class Loan:
+    lender: str
+    principal: Decimal
+    repay: Decimal  # principal plus the flat interest, due at the end of the horizon
+
+
+def loan_of(trades: list[Trade]) -> Loan | None:
+    row = next((t for t in trades if t.action == "loan"), None)
+    if row is None:
+        return None
+    return Loan(row.text.removeprefix(LOAN_TEXT), Decimal(row.amount_cents) / 100, Decimal(row.price or 0))
+
+
+def loan_out(loan: Loan) -> dict[str, Any]:
+    return {
+        "lender": loan.lender, "principal_eur": _eur(loan.principal), "repay_eur": _eur(loan.repay),
+        "interest_eur": _eur(loan.repay - loan.principal),
+        "label": f"Loan from {loan.lender}: +€{_eur(loan.principal):g} now, repay €{_eur(loan.repay):g} at the end",
+    }
+
+
+def loan_terms(run: CampaignRun) -> dict[str, Any]:
+    """What a moneylender may offer: up to half the starting budget, flat interest, repaid at the
+    end of the horizon. Pure engine figures."""
+    principal = Decimal(run.hp_start * HP_EUR * rules.LOAN_PRINCIPAL_PCT // 100)
+    repay = portfolio.q_cents(principal * (100 + rules.LOAN_INTEREST_PCT) / 100)
+    return {"principal_eur": float(principal), "interest_pct": rules.LOAN_INTEREST_PCT,
+            "repay_eur": float(repay), "due": "at the end of the horizon"}  # fmt: skip
 
 
 def scenes_opened(db: Session, cid: uuid.UUID) -> list[str]:
@@ -418,6 +460,117 @@ def scene_out(run: CampaignRun) -> dict[str, Any] | None:
         return None
     return {"beat": s.get("beat"), "story_day": s.get("story_day"), "text": s.get("text"),
             "suggestions": s.get("suggestions") or []}  # fmt: skip
+
+
+# ---- the all-in plot: nothing left at stake -------------------------------------------------------
+def last_reasoning(trades: list[Trade]) -> str | None:
+    """The player's latest stated reasons for a trade of theirs (never an engine row)."""
+    return next((t.reasoning for t in reversed(trades)
+                 if t.reasoning and t.action in ("buy", "sell", "hold")), None)  # fmt: skip
+
+
+def is_all_in(db: Session, run: CampaignRun, pack: Pack) -> bool:
+    """Everything is in the company: free cash is at most 2% of the starting budget."""
+    if run.phase not in ("play", "commit"):
+        return False
+    p = purse(db, run, pack)
+    return p["position_eur"] > 0 and p["cash_eur"] <= run.hp_start * HP_EUR * rules.ALL_IN_CASH_PCT / 100
+
+
+def offers_made(db: Session, cid: uuid.UUID) -> int:
+    return sum(1 for e in campaign_events(db, cid) if e.type == "all_in_offer")
+
+
+def story_ahead(run: CampaignRun) -> bool:
+    """There are unrevealed checkpoints ahead: the news has not broken yet."""
+    return not run.news_shown
+
+
+def nothing_at_stake(db: Session, run: CampaignRun, pack: Pack, trade: Trade, text: str) -> str | None:
+    """What the player's latest decision did to the plot: ``"offer"`` (all in, the story still has
+    ahead of it, no offer made yet), ``"fast_forward"`` (all in or all out with nothing left to
+    play for, or an offer was already made), or None."""
+    if run.phase != "play":
+        return None
+    trades = trades_of(db, run.id)
+    out_for_good = (
+        trade.action == "sell" and Decimal(trade.shares_after) <= 0 and rules.says_done(text)
+        and any(t.action == "buy" for t in trades)
+    )  # fmt: skip
+    if out_for_good:
+        return "fast_forward"
+    if trade.action == "hold" or not is_all_in(db, run, pack):
+        return None  # a hold moves nothing: the plot was decided by the trade that went all in
+    if offers_made(db, run.id) == 0:
+        return "offer" if story_ahead(run) else "fast_forward"
+    if any(t.beat == "offer" for t in trades):
+        return None  # they took the offer: the plot goes on as before
+    return "fast_forward"
+
+
+def offer_facts(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
+    """The engine's figures for the two offers the Master may make (euros only)."""
+    p = purse(db, run, pack)
+    return {
+        "buyback": {"max_eur": p["position_eur"], "price": "today's board price",
+                    "default_portion": "half"},
+        "loan": loan_terms(run),
+    }  # fmt: skip
+
+
+def open_offer(
+    db: Session, run: CampaignRun, pack: Pack, kind: str, by: dict[str, str], text: str,
+) -> dict[str, Any]:
+    """The Master's offer becomes the open scene: terms from the engine, never from the model."""
+    terms = offer_facts(db, run, pack)[kind]
+    offer = {"kind": kind, "by": by, "terms": terms}
+    run.market_scene = {"beat": "offer", "story_day": run.clock_day, "text": text, "offer": offer,
+                        "ignored": 0}  # fmt: skip
+    append_event(db, run, "all_in_offer", {"beat": "offer", "kind": kind, "by": by, "terms": terms})
+    return offer
+
+
+def offer_out(run: CampaignRun) -> dict[str, Any] | None:
+    s = run.market_scene if isinstance(run.market_scene, dict) else None
+    return dict(s["offer"]) if s and s.get("beat") == "offer" and s.get("offer") else None
+
+
+def note_offer_ignored(db: Session, run: CampaignRun, text: str) -> int:
+    """The player did something else in front of the open offer; returns how often so far."""
+    s = dict(run.market_scene or {})
+    s["ignored"] = int(s.get("ignored", 0)) + 1
+    run.market_scene = s
+    append_event(db, run, "offer_ignored", {"text": text, "count": s["ignored"]})
+    return int(s["ignored"])
+
+
+def accept_loan(db: Session, run: CampaignRun, pack: Pack, text: str) -> Trade:
+    """The player takes the moneylender's loan: the principal joins the purse now, the repayment
+    comes off the final result. Stored as a ``loan`` trade (price holds the repayment in euros)."""
+    offer = offer_out(run)
+    assert offer is not None and offer["kind"] == "loan"
+    terms = offer["terms"]
+    amount = Decimal(rules.loan_amount(text, int(terms["principal_eur"])))
+    repay = portfolio.q_cents(amount * (100 + rules.LOAN_INTEREST_PCT) / 100)
+    trades = trades_of(db, run.id)
+    pos = position_of(run, trades)
+    trade = Trade(
+        campaign_id=run.id, seq=len(trades) + 1, beat="offer", story_day=run.clock_day,
+        fill_day=None, text=f"{LOAN_TEXT}{offer['by']['name']}", action="loan",
+        amount_cents=int(amount * 100), shares="0", price=str(repay),
+        cash_after_cents=int(portfolio.q_cents(pos.cash + amount) * 100),
+        shares_after=str(pos.shares),
+    )  # fmt: skip
+    db.add(trade)
+    run.market_scene = None
+    run.loss_unapplied_cents = 0  # folded into cash_after, as for any trade
+    db.flush()
+    append_event(db, run, "trade", {
+        "seq": trade.seq, "beat": trade.beat, "action": trade.action,
+        "amount_eur": trade.amount_cents / 100, "story_day": trade.story_day,
+        "purse": purse(db, run, pack),
+    })  # fmt: skip
+    return trade
 
 
 def record_decision(
@@ -816,12 +969,16 @@ def validate_commit(
 
 def ledger_result(run: CampaignRun, pack: Pack, trades: list[Trade]) -> ledger.LedgerResult:
     """The final result of every decision together, valued at the horizon close."""
-    return ledger.result(budget_now(run), position_of(run, trades), pack.end_close)
+    loan = loan_of(trades)
+    return ledger.result(
+        budget_now(run), position_of(run, trades), pack.end_close,
+        loan.principal if loan else portfolio.ZERO, loan.repay if loan else portfolio.ZERO,
+    )
 
 
 def evidence_text(trades: list[Trade], note: str) -> str:
     """The player's own words across the campaign: every decision, then the closing note."""
-    lines = [t.text for t in trades if t.beat != "damage"]  # damage reasons are not the player's words
+    lines = [t.text for t in trades if t.beat != "damage" and t.action != "loan"]  # not the player's words
     return "\n".join([*lines, note] if note else lines)
 
 
@@ -831,6 +988,7 @@ def reveal_payload(
     """Outcome of a locked decision (POST lock and GET reveal): story labels and numbers only;
     ``locked_at`` is the story moment, never the wall-clock time."""
     r = portfolio.investment_return(pack.buy_open, pack.end_close)
+    loan = loan_of(trades_of(db, run.id))
     return {
         "locked_at": f"{clock.day_label(pack.decision_day)}, evening",
         "horizon_days": pack.horizon_days,
@@ -845,6 +1003,7 @@ def reveal_payload(
             "cash_kept": num(oc.cash), "invested": num(oc.invested), "value_now": num(oc.value_now),
             "fees": num(oc.fees), "final_value": num(oc.final), "pl_eur": num(oc.pnl),
             "pl_pct": num(oc.pnl_pct),
+            **({"loan_repay_eur": float(loan.repay), "loan": loan_out(loan)} if loan else {}),
         },
         "hp_before": oc.hp_before,
         "hp_after": oc.hp_after,
@@ -856,9 +1015,14 @@ def reveal_payload(
     }  # fmt: skip
 
 
+AUTO_LOCK: dict[str, Any] = {"evidence": "", "forecast_pct": 50, "confidence": "low"}  # a fast-forward seals neutrally
+
+
 def lock_decision(
-    db: Session, run: CampaignRun, pack: Pack, body: dict[str, Any]
+    db: Session, run: CampaignRun, pack: Pack, body: dict[str, Any], *, auto: bool = False
 ) -> tuple[Decision, Outcome]:
+    """Seals the position. ``auto`` is the all-in plot's fast-forward: the position as it stands is
+    sealed without the form (neutral forecast), keeping the player's own reasoning."""
     existing = decision_of(db, run.id)
     if existing is not None:  # idempotent
         oc = db.get(Outcome, run.id)
@@ -869,11 +1033,14 @@ def lock_decision(
     if isinstance(over, int | float) and not isinstance(over, bool) \
             and over > hp_now(run) * HP_EUR * 100:
         raise ApiError(422, "amount_over_budget", "That is more than your budget now")
-    if not decide_ready(db, run, pack):
-        raise ApiError(409, "not_ready", "Keep investigating first")
-    clean, errs = validate_commit(body, run, pack)
-    if errs:
-        raise ApiError(422, "invalid_commit", "Check your answers", fields=errs)
+    if auto:
+        clean: dict[str, Any] = dict(AUTO_LOCK)
+    else:
+        if not decide_ready(db, run, pack):
+            raise ApiError(409, "not_ready", "Keep investigating first")
+        clean, errs = validate_commit(body, run, pack)
+        if errs:
+            raise ApiError(422, "invalid_commit", "Check your answers", fields=errs)
     trades = trades_of(db, run.id)
     for t in trades:  # a follow-up still open is closed unanswered: never asked twice
         if t.reasoning_source == reasoning_mod.AWAITING:
@@ -885,8 +1052,9 @@ def lock_decision(
         action="invest" if holds else "dont_invest",
         amount_cents=max(0, int(b.invested * 100)) if holds else 0,
         evidence=evidence_text(trades, clean["evidence"]),
-        reasoning=clean["evidence"] or None,
-        reasoning_source="commit" if clean["evidence"] else "skipped",
+        reasoning=clean["evidence"] or (last_reasoning(trades) if auto else None),
+        reasoning_source="commit" if clean["evidence"] else (
+            "skipped" if not auto or not last_reasoning(trades) else "auto"),
         forecast_pct=float(clean["forecast_pct"]), confidence=CONF[clean["confidence"]],
     )  # fmt: skip
     db.add(dec)
@@ -902,12 +1070,14 @@ def lock_decision(
     run.clock_day = max(run.clock_day, pack.decision_day)
     run.phase = "timeskip"
     run.commit_draft = None
+    run.market_scene = None  # an open offer is over with the lock
     db.flush()
     run.locked_at = dec.locked_at
-    append_event(db, run, "lock", {"action": dec.action, "amount_cents": dec.amount_cents})
+    append_event(db, run, "lock", {"action": dec.action, "amount_cents": dec.amount_cents,
+                                   **({"auto": True} if auto else {})})  # fmt: skip
     if dec.reasoning:
         append_event(db, run, "decision_reasoning", {
-            "seq": None, "reasoning": dec.reasoning, "source": "commit", "skipped": False,
+            "seq": None, "reasoning": dec.reasoning, "source": dec.reasoning_source, "skipped": False,
         })  # fmt: skip
     append_event(db, run, "time_skip", {"label": clock.horizon_skip_label(pack)})
     return dec, oc
@@ -926,7 +1096,8 @@ def debrief_facts(
     )  # fmt: skip
     rows = ledger.whatif_rows(
         budget_now(run), ledger_result(run, pack, trades),
-        Decimal(trades[0].price) if trades and trades[0].price else None, decision_price,
+        Decimal(first.price) if (first := next((t for t in trades if t.action != "loan"), None))
+        and first.price else None, decision_price,
         pack.end_close,
     )  # fmt: skip
     found = found_ids(db, run.id)
@@ -1208,6 +1379,7 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "offers_spread": pack.has_fund,
         "purse": purse(db, run, pack),
         "market_scene": scene_out(run),
+        "all_in": is_all_in(db, run, pack), "offer": offer_out(run),
         "awaiting_reasoning": awaiting_trade(db, run) is not None,
         "decisions": decisions_out(db, run, pack),
     }  # fmt: skip

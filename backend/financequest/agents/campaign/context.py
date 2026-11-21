@@ -72,6 +72,7 @@ class AgentContext:
     decisions: list[dict[str, Any]] = field(default_factory=list)
     final_reasoning: str | None = None  # the note written at the seal (after the lock)
     scene: dict[str, Any] | None = None  # the open decision scene
+    offer_facts: dict[str, Any] | None = None  # engine terms of the offers the Master may make
 
     @property
     def holds_shares(self) -> bool:
@@ -208,6 +209,7 @@ def outcome_facts(db: Session, run: CampaignRun) -> tuple[dict[str, Any] | None,
         "action": dec.action, "amount_eur": (dec.amount_cents or 0) // 100, "budget": (run.hp_start - run.hp_lost) * 10,
         "cash": oc.cash, "invested": oc.invested, "value_now": oc.value_now, "final": oc.final,
         "pnl": oc.pnl, "pnl_pct": oc.pnl_pct, "hp_before": oc.hp_before, "hp_after": oc.hp_after,
+        **({"loan_repay": str(loan.repay)} if (loan := service.loan_of(service.trades_of(db, run.id))) else {}),
     }  # fmt: skip
     deb = db.get(Debrief, run.id)
     texts = [str(dec.evidence or "")] + ([deb.reflection_text] if deb and deb.reflection_text else [])
@@ -372,6 +374,12 @@ def free_numbers(ctx: AgentContext, typed: str = "") -> list[Any]:
         nums += re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))
     if ctx.purse:  # the purse card shows these figures to the player
         nums += [ctx.purse["cash_eur"], ctx.purse["position_eur"], ctx.purse["total_eur"]]
+        if ctx.purse.get("loan"):
+            nums += [ctx.purse["loan"]["principal_eur"], ctx.purse["loan"]["repay_eur"],
+                     ctx.purse["loan"]["interest_eur"], ctx.purse["net_eur"]]
+    for terms in [*(ctx.offer_facts or {}).values(), ((ctx.scene or {}).get("offer") or {}).get("terms") or {}]:
+        nums += [v for v in terms.values() if isinstance(v, int | float)]  # the offer's own terms
+    nums += [rules.LOAN_INTEREST_PCT, rules.LOAN_PRINCIPAL_PCT]
     for d in ctx.decisions:
         nums += [d["amount_eur"], d["cash_after_eur"]]
         if d.get("effect_eur") is not None:  # only after the lock
@@ -483,6 +491,11 @@ def purse_lines(ctx: AgentContext) -> list[str]:
         )
     if not ctx.decisions:
         lines.append("Investment decisions so far: none.")
+    if p.get("loan"):
+        lines.append(
+            f"The hero owes a loan from {p['loan']['lender']}: {p['loan']['principal_eur']} euros "
+            f"taken, {p['loan']['repay_eur']} euros to repay at the end of the horizon."
+        )
     if ctx.scene:
         lines.append(f"A decision scene is open ({ctx.scene.get('beat')}): the hero owes an answer.")
     return lines
