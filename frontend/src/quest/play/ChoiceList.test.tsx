@@ -3,18 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ChoiceList, { ActionInput, type ChoiceListProps } from './ChoiceList';
 
-const suggestions = ['Go to the Library', 'Visit the Square', 'Ask the barkeep'];
-
 function setup(over: Partial<ChoiceListProps> = {}) {
   const props: ChoiceListProps = {
-    suggestions,
     canDecide: false,
-    focusLeft: 3,
-    bonusLeadAvailable: true,
     onSend: vi.fn(),
     onDecide: vi.fn(),
-    onHint: vi.fn(),
-    onBonusLead: vi.fn(),
     ...over,
   };
   render(<ChoiceList {...props} />);
@@ -24,22 +17,15 @@ function setup(over: Partial<ChoiceListProps> = {}) {
 beforeEach(() => window.sessionStorage.clear());
 
 describe('ChoiceList', () => {
-  it('asks what you would do and lists three suggestions and the own-action choice', () => {
+  it('asks what you would do and offers only a text input, no answer buttons', () => {
     setup();
     expect(screen.getByText('What would you do?')).toBeInTheDocument();
-    for (const s of suggestions) expect(screen.getByRole('button', { name: s })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Write your own action…' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'What do you do?');
+    expect(screen.queryByRole('button', { name: 'Write your own action…' })).not.toBeInTheDocument();
   });
 
-  it('sends a suggestion immediately, without further typing', async () => {
+  it('the text box is always there and Send stays disabled for empty or only spaces', async () => {
     const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Visit the Square' }));
-    expect(p.onSend).toHaveBeenCalledWith('Visit the Square');
-  });
-
-  it('own action: the text box opens and Send stays disabled for empty or only spaces', async () => {
-    const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Write your own action…' }));
     const box = screen.getByRole('textbox');
     const send = screen.getByRole('button', { name: 'Send' });
     expect(send).toBeDisabled();
@@ -53,13 +39,12 @@ describe('ChoiceList', () => {
 
   it('the own-action text box uses at least 16px text so iOS does not zoom', async () => {
     setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Write your own action…' }));
     expect(screen.getByRole('textbox')).toHaveClass('text-base');
   });
 
   it("shows I'm ready to decide only when the server says the player can decide", async () => {
     const { unmount } = render(
-      <ChoiceList suggestions={suggestions} canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />,
+      <ChoiceList canDecide={false} onSend={vi.fn()} onDecide={vi.fn()} />,
     );
     expect(screen.queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
     unmount();
@@ -69,25 +54,17 @@ describe('ChoiceList', () => {
     expect(onDecide).toHaveBeenCalled();
   });
 
-  it('disables both Focus actions at 0 Focus', () => {
-    setup({ focusLeft: 0 });
-    expect(screen.getByRole('button', { name: 'Ask for a hint' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Chase a bonus lead' })).toBeDisabled();
-  });
-
-  it('enables the Focus actions with Focus left', async () => {
-    const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Ask for a hint' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Chase a bonus lead' }));
-    expect(p.onHint).toHaveBeenCalled();
-    expect(p.onBonusLead).toHaveBeenCalled();
+  it('offers no "Ask for a hint" and no "Chase a bonus lead"', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: 'Ask for a hint' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chase a bonus lead' })).not.toBeInTheDocument();
   });
 });
 
 describe('own action keyboard', () => {
   it('Enter submits, Shift+Enter does not, empty never submits', async () => {
     const onSend = vi.fn();
-    render(<ActionInput busy={false} onSend={onSend} />);
+    render(<ActionInput busy={false} onSend={onSend} prompt="What would you do?" />);
     const box = screen.getByRole('textbox');
     await userEvent.type(box, '{Enter}');
     expect(onSend).not.toHaveBeenCalled();
