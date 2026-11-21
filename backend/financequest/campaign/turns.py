@@ -19,6 +19,7 @@ from financequest.agents.campaign import graphs
 from financequest.agents.campaign.fake import names_travel
 from financequest.api.errors import ApiError
 from financequest.campaign import clock, focus, rules, service
+from financequest.campaign import reasoning as reasoning_mod
 from financequest.campaign.events import append_event, find_by_msg_id
 from financequest.campaign.narration import DecisionReply, Narration, TurnReply, get_narration
 from financequest.campaign.pack import Pack
@@ -52,6 +53,7 @@ def state_delta(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "current_location_id": str(run.current_location_id) if run.current_location_id else None,
         "art_ready": [str(x.id) for x in locs if x.art_status == "ready"],
         "purse": service.purse(db, run, pack), "market_scene": service.scene_out(run),
+        "awaiting_reasoning": service.awaiting_trade(db, run) is not None,
         "hp": service.hp_now(run), "hp_eur": service.hp_now(run) * service.HP_EUR,
         "locations": [
             {"id": str(x.id), "key": x.key, "name": x.name, "description": x.description,
@@ -260,6 +262,20 @@ def plan_action(
         service.require_phase(run, "play")
         if run.pending:
             raise ApiError(409, "roll_open", "Finish the dice check first")
+        waiting = service.awaiting_trade(db, run)
+        if waiting is not None:
+            leaves = not rules.parse_decision(text)[0] and (
+                names_travel(C.build_agent_context(db, run, pack, hero), text)
+                or bool(_EXPLORE_RE.search(text.lower()))
+            )
+            if leaves and not reasoning_mod.is_skip(text):
+                # Travel or exploring right after a decision: the question is dropped, never blocks.
+                service.resolve_reasoning(db, run, waiting, None, skipped=True)
+            else:
+                append_event(db, run, "action", {"text": text, "reasoning": True},
+                             f"{msg}:action" if msg else None)  # fmt: skip
+                db.commit()
+                return _plan_reasoning(sid, cid, text, msg, reasoning_mod.is_skip(text))
         in_scene = bool(run.market_scene)
         append_event(db, run, "action", {"text": text, **({"scene": True} if in_scene else {})},
                      f"{msg}:action" if msg else None)  # fmt: skip
@@ -268,6 +284,48 @@ def plan_action(
     if in_scene:  # the player answers the decision scene: read it, execute it, react
         return _plan_scene_answer(sid, cid, text, ctx, msg, nar)
     return _plan_normal_turn(sid, cid, text, ctx, msg, nar)
+
+
+def _plan_reasoning(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, msg: str | None, skip: bool
+) -> StreamPlan:
+    """The player's answer to the one follow-up question: recorded verbatim (or skipped) and
+    acknowledged in neutral words, with no model call. The game goes on."""
+    return StreamPlan(
+        cid, work=lambda: None,
+        commit=lambda _: commit_reasoning(sid, cid, text, skip, msg=msg), deadline_s=TURN_BUDGET_S,
+    )  # fmt: skip
+
+
+def commit_reasoning(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, skip: bool, *, msg: str | None
+) -> Streamed:
+    with _session() as db:
+        run, pack, hero = service.load(db, cid, sid)
+        stored = find_by_msg_id(db, cid, f"{msg}:reply" if msg else None)
+        if stored is not None:
+            return replay_streamed(db, run, pack, stored)
+        trade = service.awaiting_trade(db, run)
+        if trade is not None:
+            service.resolve_reasoning(db, run, trade, text, skipped=skip)
+        say = reasoning_mod.SKIP_ACK if skip else reasoning_mod.ACKS[len(text) % len(reasoning_mod.ACKS)]
+        ctx = C.build_agent_context(db, run, pack, hero)
+        payload = {
+            "text": say, "speaker": C.DM_NAME, "speaker_id": C.CHRONICLER, "intent": "reasoning",
+            "suggestions": nar_suggestions(ctx), "hp_change": None, "clue_ids_given": [],
+            "card": None, "news": None, "degraded": False, "nothing_more_to_uncover": False,
+            "show_decide": bool(service.decide_ready(db, run, pack)), "first_visit": None,
+            "location": None,
+        }  # fmt: skip
+        ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
+        _finish(db, run)
+        return _streamed(db, run, pack, ev, [])
+
+
+def nar_suggestions(ctx: C.AgentContext) -> list[str]:
+    from financequest.agents.campaign.graphs import default_suggestions
+
+    return default_suggestions(ctx)
 
 
 def _normal_turn_work(nar: Narration, ctx: C.AgentContext, text: str) -> TurnReply:
@@ -366,7 +424,12 @@ def plan_move(
         if loc is None or loc.campaign_id != run.id:
             raise ApiError(404, "not_found", "Location not found")
         key, name = loc.key, loc.name
-        db.rollback()
+        waiting = service.awaiting_trade(db, run)
+        if waiting is not None:  # travelling never waits for the question
+            service.resolve_reasoning(db, run, waiting, None, skipped=True)
+            db.commit()
+        else:
+            db.rollback()
         ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
     return StreamPlan(
         cid, work=lambda: nar.turn(ctx, f"Go to the {name}", forced_move=key),
@@ -551,7 +614,8 @@ def commit_decision(
                 say, sugg = problem, service.DECISION_HOW_MUCH
             else:
                 trade = service.record_decision(
-                    db, run, pack, text, reply.action, reply.amount_eur, reply.portion
+                    db, run, pack, text, reply.action, reply.amount_eur, reply.portion,
+                    reply.reasoning, reply.reasoning_sufficient,
                 )
                 if reply.hp_loss > 0 and run.phase == "play":  # the scene's cost, before the receipt
                     hp_change = service.apply_hp_loss(
@@ -559,6 +623,9 @@ def commit_decision(
                     )
                     say = reconcile_hp_text(say, -hp_change["delta"] if hp_change else 0)
                 receipt = trade_card(trade, service.purse(db, run, pack))
+                if trade.reasoning_source == reasoning_mod.AWAITING:  # ask once, neutrally
+                    say = reasoning_mod.ask_text(say, trade.reasoning)
+                    sugg = [reasoning_mod.SKIP_CHIP]
         ready = service.decide_ready(db, run, pack)
         payload = {
             "text": say, "speaker": C.DM_NAME, "speaker_id": C.CHRONICLER,

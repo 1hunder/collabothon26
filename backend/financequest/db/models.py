@@ -207,4 +207,6 @@ class Decision(SQLModel, table=True):
     evidence: Any = _jsonb()
     forecast_pct: float | None = None
     confidence: int | None = None
+    reasoning: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    reasoning_source: str | None = None  # "commit" when the seal carried a note, else "skipped"
     locked_at: datetime = _ts()

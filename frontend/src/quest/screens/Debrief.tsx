@@ -46,6 +46,7 @@ export default function Debrief(): React.JSX.Element {
 
   const parts: [string, string][] = [
     ['Sound reasoning', debrief.sound_reasoning],
+    ...(debrief.how_you_reasoned ? ([['How you reasoned', debrief.how_you_reasoned]] as [string, string][]) : []),
     ['Overlooked', debrief.overlooked],
     ['Luck', debrief.luck],
   ];

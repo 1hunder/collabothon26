@@ -177,6 +177,9 @@ export interface DecisionEntry {
   action: TradeAction | 'loss';
   amount_eur: number;
   cash_after_eur: number;
+  /** Why the player chose it, in their own words; null when none was given. */
+  reasoning?: string | null;
+  reasoning_source?: 'inline' | 'asked' | 'commit' | 'skipped' | null;
   /** After the lock only: what this decision did to the final result, in euros. */
   effect_eur?: number;
 }
@@ -238,6 +241,8 @@ export interface WhatIfRow {
 
 export interface DebriefData {
   sound_reasoning: string;
+  /** Comment on the quality of the player's stated reasoning (separate from luck and outcome). */
+  how_you_reasoned?: string;
   overlooked: string;
   luck: string;
   forecast_line: string;
@@ -411,6 +416,8 @@ export interface CampaignState {
   commit_draft?: Partial<CommitDraft> | null;
   purse?: Purse;
   market_scene?: MarketScene | null;
+  /** The Campaign Master asked "why?" about the last decision and waits for the next message. */
+  awaiting_reasoning?: boolean;
   decisions?: DecisionEntry[];
   xp?: XpResult;
   debrief?: DebriefData;
@@ -535,6 +542,7 @@ export interface TurnExtras {
   new_location?: NewLocation | null;
   suggestions?: string[];
   show_decide?: boolean;
+  awaiting_reasoning?: boolean;
   location?: { id: string; key: string; name: string };
   first_visit?: boolean;
   news_text?: string;

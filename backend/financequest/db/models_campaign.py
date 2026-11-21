@@ -222,4 +222,7 @@ class Trade(SQLModel, table=True):
     price: str | None = None  # engine-only: real fill price
     cash_after_cents: int = 0
     shares_after: str = "0"  # engine-only
+    reasoning: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    # inline / asked / commit / skipped, or "awaiting" while the one follow-up question is open
+    reasoning_source: str | None = None
     created_at: datetime = _ts()

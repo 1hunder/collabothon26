@@ -143,7 +143,7 @@ Outcome = {                                      // POST lock and GET reveal
   hp_before, hp_after, investment_return_pct, currency_note, phase
 }
 
-Debrief = {sound_reasoning, overlooked, luck, forecast_line, reflection_question,
+Debrief = {sound_reasoning, how_you_reasoned, overlooked, luck, forecast_line, reflection_question,
            whatif: [{key: "dont_invest"|"half"|"all"|"spread"|"yours", label, final_value, pct, hp_after, is_yours}]}
 
 Xp = {categories: [{name, score, max, rationale, quote}], total}    // 5 categories, rubric from the manifest
@@ -307,3 +307,47 @@ response is `422` `{"error": {"code": "amount_over_budget", ...}}`. (Without `am
 lock behaves as before: what was invested comes from the decisions already written.)
 
 FAKE_LLM never deals damage unless a test queues it (`agents/campaign/fake.py::script_damage`).
+
+
+## 10. Decision reasoning (why the player chose)
+
+Every decision-scene trade (buy/sell/hold) records the player's reasoning; the final lock records the
+Commit screen's note. It is read by the debrief, the XP scoring and the Veteran.
+
+**Capture.** `decide` returns `reasoning` (the player's own reasons copied from the message, or null)
+and `reasoning_sufficient` (true only when at least one concrete reason is named: a figure, a clue,
+the news, a risk; false for none, "just because", "gut feeling", "I like it"). The engine executes the
+trade first, then:
+
+| Case | Result |
+|---|---|
+| reasoning present and sufficient | stored, `reasoning_source: "inline"`, nothing asked |
+| missing | reply ends with "What made you choose that?" |
+| thin | reply ends with "Can you say a bit more about why?" (the thin reason is kept) |
+
+When it asks, the decision awaits its answer and the `done` of that turn has `awaiting_reasoning: true`
+(suggestions: one "I'd rather skip that" chip). The player's NEXT message to `POST /actions` is
+recorded verbatim (appended to a thin first reason), `reasoning_source: "asked"`, and answered with a
+short templated, neutral acknowledgement ending "What do you do next?" (no model call, so no praise,
+advice or hint). Asked at most once per decision. A clear skip ("skip", "no reason", "rather not")
+records `reasoning_source: "skipped"` (a thin reason already given is kept; otherwise
+`reasoning: null`). Travel/exploring wording (or `POST /move`, or the lock) never waits: the question
+is dropped as `skipped` and the action runs normally. A follow-up is not blocked by trade words: the
+next message is reasoning, not a new decision.
+
+**Fields.** `decisions[]` (campaign state, outcome/lock/reveal) gain `reasoning: string | null` and
+`reasoning_source: "inline" | "asked" | "commit" | "skipped" | null` (null while the question is
+open; damage `loss` rows never have reasoning). Campaign state gains `awaiting_reasoning: boolean`
+(also in every `done`/`state` delta). The lock/reveal outcome gains `final_reasoning:
+{reasoning, reasoning_source}` (the Commit note: `"commit"`, or `"skipped"` when left empty). The
+Debrief gains `how_you_reasoned` (comment on evidence used, risks considered, consistency, change
+when news arrived; kept separate from luck and the result). Veteran timeline decisions gain
+`reasoning` and `reasoning_source` ("you said: ...").
+
+**Persistence.** `campaign_trade.reasoning`, `campaign_trade.reasoning_source`, `decision.reasoning`,
+`decision.reasoning_source` (migration `0008`). `reasoning_source = "awaiting"` is internal and never
+sent. Event `decision_reasoning` `{seq, reasoning, source, skipped}` (`seq: null` for the lock).
+Veteran memory is version 2: per-decision `reasoning` snippets (160 chars).
+
+FAKE_LLM: reasoning is read from "because/since/..." or the text after ":" in the decision;
+sufficient when it has at least 6 words, a number or a clue word, and is not vague.

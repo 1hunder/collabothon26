@@ -84,6 +84,8 @@ export interface TimelineDecision {
   action: 'buy' | 'sell' | 'hold';
   amount_eur: number;
   text: string;
+  reasoning?: string | null;
+  reasoning_source?: string | null;
   judgement: Judgement;
   luck: Luck;
   tags: string[];

@@ -258,13 +258,14 @@ def _walk(ctx: VeteranContext) -> VeteranOut:
             else ""
         )
         luck = LUCK.get((d["judgement"], d["luck"]), "")
+        said = f" You said: {_quote(d['reasoning'], 14)}" if d.get("reasoning") else ""
         head = (
             f"{_named(f)}. You made {_count(n)} there. The first, {d['when'].lower()}:"
             if step == 0
             else f"Next, {d['when'].lower()}:"
         )
         return VeteranOut(
-            text=f"{head} {verb}{amount} and wrote {_quote(d['text'])} {JUDGEMENT[d['judgement']]} "
+            text=f"{head} {verb}{amount} and wrote {_quote(d['text'])}{said} {JUDGEMENT[d['judgement']]} "
             f"{luck} {QUESTION[d['judgement']]}".replace("  ", " "),
             mood=MOOD[d["judgement"]],
             show_timeline=step == 0,

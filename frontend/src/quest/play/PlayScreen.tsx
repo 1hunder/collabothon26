@@ -161,6 +161,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       instant: false,
       audioTextId: done.extras.audio_text_id as number | string | null | undefined ?? null,
     });
+    patchCampaignCache(qc, id, { awaiting_reasoning: x.awaiting_reasoning === true });
     if (x.hp_change) {
       const h = x.hp_change;
       patchCampaignCache(qc, id, { hp: h.hp, hp_eur: h.hp_eur });
@@ -412,6 +413,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           prompt={c.market_scene ? 'What do you do with your coins?' : undefined}
           purse={c.market_scene ? c.purse : undefined}
           canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
+          awaitingReasoning={c.awaiting_reasoning === true}
           onSend={sendAction}
           onDecide={() => void decide()}
         />

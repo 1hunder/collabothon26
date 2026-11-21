@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 
 from financequest.api.errors import ApiError
 from financequest.campaign import clock, dice, focus, ledger, portfolio, rules, xp
+from financequest.campaign import reasoning as reasoning_mod
 from financequest.campaign.events import append_event, campaign_events, find_by_msg_id
 from financequest.campaign.journal import backlog, journal
 from financequest.campaign.narration import Narration
@@ -422,8 +423,10 @@ def scene_out(run: CampaignRun) -> dict[str, Any] | None:
 def record_decision(
     db: Session, run: CampaignRun, pack: Pack, text: str, action: str,
     amount_eur: int | None, portion: str | None,
+    reasoning: str | None = None, reasoning_sufficient: bool = False,
 ) -> Trade:  # fmt: skip
-    """Executes the player's written decision at once and closes the scene."""
+    """Executes the player's written decision at once and closes the scene. A sufficient reason is
+    stored as ``inline``; a missing or thin one leaves the trade ``awaiting`` the one follow-up."""
     scene = run.market_scene if isinstance(run.market_scene, dict) else {"beat": "story"}
     trades = trades_of(db, run.id)
     pos = position_of(run, trades)
@@ -437,6 +440,9 @@ def record_decision(
         price=str(fill.price), cash_after_cents=int(portfolio.q_cents(fill.after.cash) * 100),
         shares_after=str(fill.after.shares),
     )  # fmt: skip
+    reasoning = (reasoning or "").strip()[:1000] or None
+    trade.reasoning = reasoning
+    trade.reasoning_source = "inline" if reasoning and reasoning_sufficient else reasoning_mod.AWAITING
     db.add(trade)
     run.market_scene = None
     run.loss_unapplied_cents = 0  # the damage is now part of this trade's cash_after
@@ -446,7 +452,46 @@ def record_decision(
         "amount_eur": trade.amount_cents / 100, "story_day": trade.story_day,
         "purse": purse(db, run, pack),
     })  # fmt: skip
+    if trade.reasoning_source == "inline":
+        append_event(db, run, "decision_reasoning", {
+            "seq": trade.seq, "reasoning": trade.reasoning, "source": "inline", "skipped": False,
+        })  # fmt: skip
     return trade
+
+
+def awaiting_trade(db: Session, run: CampaignRun) -> Trade | None:
+    """The decision whose one follow-up question is open (only while the campaign is in play)."""
+    if run.phase != "play":
+        return None
+    return db.exec(
+        select(Trade).where(
+            Trade.campaign_id == run.id, Trade.reasoning_source == reasoning_mod.AWAITING
+        ).order_by(Trade.seq.desc())  # type: ignore[attr-defined]
+    ).first()
+
+
+def resolve_reasoning(
+    db: Session, run: CampaignRun, trade: Trade, text: str | None, *, skipped: bool
+) -> Trade:
+    """Closes the follow-up: the player's next words verbatim (appended to a thin first reason),
+    or skipped. Asked once per decision, never again."""
+    thin = trade.reasoning
+    if skipped or not (text or "").strip():
+        trade.reasoning_source = "skipped"  # a thin reason already given is kept
+    else:
+        said = text.strip()[:1000]  # type: ignore[union-attr]
+        trade.reasoning = f"{thin}. {said}" if thin else said
+        trade.reasoning_source = "asked"
+    db.add(trade)
+    append_event(db, run, "decision_reasoning", {
+        "seq": trade.seq, "reasoning": trade.reasoning, "source": trade.reasoning_source,
+        "skipped": trade.reasoning_source == "skipped",
+    })  # fmt: skip
+    return trade
+
+
+def reasoning_fields(source: str | None, reasoning: str | None) -> dict[str, Any]:
+    return {"reasoning": reasoning, "reasoning_source": None if source == reasoning_mod.AWAITING else source}
 
 
 def decisions_out(db: Session, run: CampaignRun, pack: Pack) -> list[dict[str, Any]]:
@@ -459,6 +504,7 @@ def decisions_out(db: Session, run: CampaignRun, pack: Pack) -> list[dict[str, A
             "day_label": clock.day_label(t.story_day), "text": t.text, "action": t.action,
             "amount_eur": t.amount_cents / 100,
             "cash_after_eur": t.cash_after_cents / 100,
+            **reasoning_fields(t.reasoning_source, t.reasoning),
         }  # fmt: skip
         if locked:
             eff = ledger.effect(t.action, Decimal(t.amount_cents) / 100, Decimal(t.shares), pack.end_close)
@@ -744,6 +790,7 @@ def reveal_payload(
         "currency_note": portfolio.CURRENCY_NOTE,
         "phase": run.phase,
         "decisions": decisions_out(db, run, pack),
+        "final_reasoning": reasoning_fields(dec.reasoning_source, dec.reasoning),
     }  # fmt: skip
 
 
@@ -766,6 +813,9 @@ def lock_decision(
     if errs:
         raise ApiError(422, "invalid_commit", "Check your answers", fields=errs)
     trades = trades_of(db, run.id)
+    for t in trades:  # a follow-up still open is closed unanswered: never asked twice
+        if t.reasoning_source == reasoning_mod.AWAITING:
+            resolve_reasoning(db, run, t, None, skipped=True)
     b = ledger_result(run, pack, trades)
     holds = position_of(run, trades).shares > 0
     dec = Decision(
@@ -773,6 +823,8 @@ def lock_decision(
         action="invest" if holds else "dont_invest",
         amount_cents=max(0, int(b.invested * 100)) if holds else 0,
         evidence=evidence_text(trades, clean["evidence"]),
+        reasoning=clean["evidence"] or None,
+        reasoning_source="commit" if clean["evidence"] else "skipped",
         forecast_pct=float(clean["forecast_pct"]), confidence=CONF[clean["confidence"]],
     )  # fmt: skip
     db.add(dec)
@@ -791,6 +843,10 @@ def lock_decision(
     db.flush()
     run.locked_at = dec.locked_at
     append_event(db, run, "lock", {"action": dec.action, "amount_cents": dec.amount_cents})
+    if dec.reasoning:
+        append_event(db, run, "decision_reasoning", {
+            "seq": None, "reasoning": dec.reasoning, "source": "commit", "skipped": False,
+        })  # fmt: skip
     append_event(db, run, "time_skip", {"label": clock.horizon_skip_label(pack)})
     return dec, oc
 
@@ -827,7 +883,7 @@ def debrief_text(parts: dict[str, Any], line: str) -> str:
     """The spoken debrief: stored on the event so TTS can synthesize guarded text only."""
     return "\n\n".join(
         str(x)
-        for x in (parts.get("sound"), parts.get("overlooked"), parts.get("luck"), line,
+        for x in (parts.get("sound"), parts.get("reasoning"), parts.get("overlooked"), parts.get("luck"), line,
                   parts.get("question"))
         if x
     )  # fmt: skip
@@ -885,7 +941,8 @@ def whatif_out(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def debrief_out(deb: Debrief) -> dict[str, Any]:
     n = deb.narrative or {}
     return {
-        "sound_reasoning": n.get("sound") or "", "overlooked": n.get("overlooked") or "",
+        "sound_reasoning": n.get("sound") or "", "how_you_reasoned": n.get("reasoning") or "",
+        "overlooked": n.get("overlooked") or "",
         "luck": n.get("luck") or "", "forecast_line": deb.forecast_line or "",
         "reflection_question": n.get("question") or "", "whatif": whatif_out(deb.whatif or []),
     }  # fmt: skip
@@ -901,9 +958,16 @@ def has_event(db: Session, cid: uuid.UUID, type_: str) -> bool:
 def player_text(
     db: Session, run: CampaignRun, dec: Decision, deb: Debrief | None
 ) -> dict[str, str]:
+    given = [
+        f"Decision {t.seq} ({t.action}): {t.reasoning}"
+        for t in trades_of(db, run.id) if t.beat != "damage" and t.reasoning
+    ]
+    if dec.reasoning:
+        given.append(f"At the seal: {dec.reasoning}")
     return {
         "evidence": str(dec.evidence or ""),
         "reflection": (deb.reflection_text or "") if deb else "",
+        "reasoning": "\n".join(given),
     }
 
 
@@ -1082,6 +1146,7 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "offers_spread": pack.has_fund,
         "purse": purse(db, run, pack),
         "market_scene": scene_out(run),
+        "awaiting_reasoning": awaiting_trade(db, run) is not None,
         "decisions": decisions_out(db, run, pack),
     }  # fmt: skip
     if "rumour_ledger" in items:

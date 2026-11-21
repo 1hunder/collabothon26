@@ -34,7 +34,7 @@ from financequest.db.models_campaign import CampaignRun, Debrief, Hero, Outcome,
 from financequest.db.models_veteran import VeteranMemory, VeteranProfile
 
 log = logging.getLogger("financequest.veteran")
-VERSION = 1
+VERSION = 2
 
 # ---- judgement of one decision (the player's words and what they knew; never the outcome) -------
 _REASON = re.compile(
@@ -79,7 +79,7 @@ MILESTONES = {
 
 def judge(trade: Trade) -> tuple[str, list[str]]:
     """``sound`` / ``hasty`` / ``thin`` from the words alone, plus decision tags."""
-    text = trade.text or ""
+    text = f"{trade.text or ''} {trade.reasoning or ''}".strip()
     tags: list[str] = []
     if trade.beat == "news":
         tags.append(
@@ -107,6 +107,11 @@ def luck_of(trade: Trade, end_close: Decimal, budget: Decimal) -> str:
     if budget and abs(fx) < budget * Decimal("0.01"):
         return "neutral"
     return "kind" if fx > 0 else "cruel"
+
+
+def _snippet(text: str | None, limit: int = 160) -> str | None:
+    t = " ".join((text or "").split())
+    return (t if len(t) <= limit else t[: limit - 1].rstrip() + "…") or None
 
 
 def forecast_band(dec: Decision, went_up: bool | None) -> str:
@@ -144,7 +149,10 @@ def summarize(db: Session, run: CampaignRun, pack: Pack | None = None) -> dict[s
     for t in trades:
         j, t_tags = judge(t)
         luck = luck_of(t, pack.end_close, budget)
-        rows.append({"seq": t.seq, "judgement": j, "luck": luck, "tags": t_tags})
+        rows.append({
+            "seq": t.seq, "judgement": j, "luck": luck, "tags": t_tags,
+            "reasoning": _snippet(t.reasoning), "reasoning_source": t.reasoning_source,
+        })  # fmt: skip
     found = cs.found_ids(db, run.id)
     key = [e for e in pack.evidence if e.key]
     missed_key = [e.id for e in key if e.id not in found]
@@ -415,6 +423,8 @@ def campaign_detail(db: Session, run: CampaignRun, mem: VeteranMemory) -> dict[s
                 "action": t.action,
                 "amount_eur": t.amount_cents // 100,
                 "text": t.text,
+                "reasoning": d.get("reasoning") or _snippet(t.reasoning),
+                "reasoning_source": d.get("reasoning_source") or t.reasoning_source,
                 "judgement": d.get("judgement", "thin"),
                 "luck": d.get("luck", "neutral"),
                 "tags": d.get("tags", []),
