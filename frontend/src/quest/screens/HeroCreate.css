@@ -1,0 +1,80 @@
+.class-heading-rule, .class-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  color: #e6b756;
+}
+.class-heading-rule::before, .class-heading-rule::after,
+.class-rule::before, .class-rule::after {
+  content: '';
+  width: 3rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e6b756);
+}
+.class-heading-rule::after, .class-rule::after { transform: rotate(180deg); }
+
+.class-carousel { margin-inline: -1rem; }
+.class-stage {
+  display: grid;
+  justify-items: center;
+  padding: 1rem 0;
+  overflow: clip;
+  perspective: 55rem;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+}
+.class-card {
+  grid-area: 1 / 1;
+  width: 54%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border: 3px double #b08843;
+  border-radius: 1.4rem;
+  padding: .75rem;
+  text-align: center;
+  background: radial-gradient(ellipse at top, #223054, transparent 68%), #101629;
+  box-shadow: inset 0 0 0 3px #101629, inset 0 0 0 4px #735833;
+  transition: transform .3s ease, opacity .3s ease;
+}
+.class-card[data-position="left"] { transform: translateX(-96%) rotateY(18deg) scale(.89); }
+.class-card[data-position="right"] { transform: translateX(96%) rotateY(-18deg) scale(.89); }
+.class-card:not([data-position="center"]) { opacity: .8; }
+.class-card[data-position="center"] {
+  z-index: 1;
+  border-color: #ffdd82;
+  box-shadow: 0 0 12px #dc963caa, inset 0 0 0 2px #745025;
+}
+.class-art { display: block; aspect-ratio: 1.32; }
+.class-title { font-size: clamp(1.65rem, 7vw, 2.2rem); line-height: 1.05; }
+.class-rule { margin: .25rem 0; }
+.class-rule::before, .class-rule::after { width: 20%; }
+.class-tagline, .class-advantage { font-family: Alegreya, serif; line-height: 1.2; }
+.class-tagline { color: #e8dcc2; font-style: italic; }
+.class-advantage {
+  margin-top: auto;
+  border: 1px solid #9e7c42;
+  border-radius: .5rem;
+  padding: .6rem .35rem;
+  background: #0c1223;
+  color: #f3cf80;
+}
+.class-tagline { margin-bottom: .75rem; }
+.class-dot { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; }
+.class-dot::before { content: ''; width: .55rem; height: .55rem; border-radius: 50%; background: #797581; }
+.class-dot[aria-current="true"]::before { background: #f5bd50; }
+.class-continue {
+  display: block;
+  width: 88%;
+  min-height: 3.4rem;
+  margin-inline: auto;
+  border: 3px double #e2ad50;
+  border-radius: .75rem;
+  background: linear-gradient(#212943, #101629);
+  box-shadow: 0 0 10px #c88f343f;
+  font-size: 1.65rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .class-card { transition: none; }
+}
