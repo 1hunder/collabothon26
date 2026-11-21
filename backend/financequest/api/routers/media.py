@@ -9,20 +9,29 @@ from financequest.api.deps import DbSession
 from financequest.db.models import Event
 from financequest.db.models_campaign import Location
 from financequest.media import tts
+from financequest.storage import get_storage
 
 router = APIRouter(tags=["media"])
 
 
 @router.get("/locations/{location_id}/art")
-def location_art(location_id: uuid.UUID, db: DbSession) -> FileResponse:
+def location_art(location_id: uuid.UUID, db: DbSession) -> Response:
     """Unguessable UUID; `<img>` cannot send headers, so no session header here."""
     loc = db.get(Location, location_id)
     if loc is None or loc.art_status != "ready" or not loc.art_path:
         raise HTTPException(404, "No art")
-    path = Path(loc.art_path)
-    if not path.is_file():
+    headers = {"Cache-Control": "max-age=86400"}
+    legacy = Path(loc.art_path)  # rows written before the storage layer hold an absolute path
+    if legacy.is_absolute() and legacy.is_file():
+        return FileResponse(legacy, media_type="image/webp", headers=headers)
+    store = get_storage()
+    try:
+        data = store.get_bytes(loc.art_path) if store.exists(loc.art_path) else None
+    except ValueError:
+        data = None
+    if data is None:
         raise HTTPException(404, "No art")
-    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "max-age=86400"})
+    return Response(data, media_type="image/webp", headers=headers)
 
 
 @router.get("/tts/{audio_text_id}")

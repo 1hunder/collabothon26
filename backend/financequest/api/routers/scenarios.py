@@ -7,8 +7,8 @@ only after a decision and a ``debrief_complete`` event exist for the session and
 from __future__ import annotations
 
 import csv
+import io
 import uuid
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
@@ -20,6 +20,7 @@ from financequest.api.errors import ApiError
 from financequest.db.models import Decision, Event, Scenario, ScenarioSecret
 from financequest.engine.gate import StoryClock, gate_beats, gate_chart
 from financequest.refpack import real_events
+from financequest.storage import read_ref_bytes
 
 router = APIRouter(tags=["scenarios"])
 
@@ -125,11 +126,10 @@ def _beat_out(b: dict[str, Any]) -> BeatOut:
 
 
 def _read_series(ref: str) -> list[SeriesPointOut]:
-    path = Path(ref)
-    if not path.is_file():
+    raw = read_ref_bytes(ref)
+    if raw is None:
         return []
-    with path.open(newline="", encoding="utf-8") as fh:
-        rows = list(csv.DictReader(fh))
+    rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8"), newline="")))
     return [SeriesPointOut(date=r["date"], price=r["close_usd"]) for r in rows]
 
 

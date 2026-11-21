@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,19 @@ from financequest.api.routers import (
 from financequest.config import get_settings
 
 
+def configure_logging(level: str) -> None:
+    """Uvicorn only wires its own loggers: without this, info logs from ``financequest.*`` (quest
+    job progress, scan verdicts) never reach the output."""
+    lvl = getattr(logging, level.upper(), logging.INFO)
+    pkg = logging.getLogger("financequest")
+    pkg.setLevel(lvl)
+    if not any(getattr(h, "_fq", False) for h in pkg.handlers):
+        h = logging.StreamHandler()
+        h._fq = True  # type: ignore[attr-defined]
+        h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        pkg.addHandler(h)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from financequest.media.art import start_rescan
@@ -29,6 +43,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     s = get_settings()
+    configure_logging(s.log_level)
     app = FastAPI(title="FinanceQuest API", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,

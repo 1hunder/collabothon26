@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     db_max_overflow: int = 5
     cache_dir: str = ".cache/prices"
     data_dir: str = "data"
+    # Durable storage: S3-compatible bucket (a Railway Bucket in production) when
+    # STORAGE_BUCKET is set; otherwise the local filesystem under DATA_DIR.
+    storage_bucket: str = ""
+    storage_endpoint: str = ""
+    storage_access_key_id: str = ""
+    storage_secret_access_key: str = ""
+    storage_region: str = "auto"
     demo_mode: bool = False
     # Personal quests: in demo mode the daily quest is the pre-created scenario below (or the
     # newest generated one, else the sample pack) instead of a live generation.

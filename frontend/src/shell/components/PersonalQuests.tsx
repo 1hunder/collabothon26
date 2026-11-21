@@ -1,6 +1,12 @@
 import { useContext, useEffect } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
-import { isActive, useDailyQuest, useExtraQuests, useGenerateQuest } from '../../api/personal';
+import {
+  isActive,
+  useDailyQuest,
+  useExtraQuests,
+  useGenerateQuest,
+  useRegenerateDaily,
+} from '../../api/personal';
 import type { QuestJob } from '../../api/types';
 import { setQuestPick } from '../../quest/selectedQuest';
 
@@ -20,7 +26,6 @@ function pickOf(job: QuestJob): Parameters<typeof setQuestPick>[0] {
 function statusLine(job: QuestJob): string {
   if (job.status === 'ready') return 'Ready';
   if (isActive(job)) return `${job.step}…`;
-  if (job.status === 'rejected') return 'Too easy to recognise, skipped';
   return 'Could not be prepared';
 }
 
@@ -37,6 +42,7 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
   const daily = useDailyQuest();
   const extras = useExtraQuests();
   const generate = useGenerateQuest();
+  const regenerate = useRegenerateDaily();
   const today = daily.data;
 
   // The card's Start button plays today's quest once it is ready; until then, the default quest.
@@ -90,6 +96,16 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
         </ul>
       ) : null}
 
+      {today && !isActive(today) && !busy ? (
+        <button
+          type="button"
+          disabled={regenerate.isPending}
+          onClick={() => regenerate.mutate()}
+          className="mr-3 text-xs font-semibold underline disabled:opacity-50"
+        >
+          Regenerate today&apos;s quest
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={generate.isPending}
@@ -98,6 +114,7 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
       >
         Generate another quest
       </button>
+      {regenerate.isError ? <p className="text-xs">Could not regenerate. Try again.</p> : null}
       {generate.isError ? <p className="text-xs">Could not start a new quest. Try again.</p> : null}
     </div>
   );

@@ -38,6 +38,12 @@ describe('PersonalQuests', () => {
     expect(getQuestPick()?.category).toBe('gaming');
   });
 
+  it('Regenerate today’s quest asks for a fresh generation and shows the result', async () => {
+    withQueries(<PersonalQuests busy={false} onPlay={vi.fn()} />);
+    await userEvent.click(await screen.findByRole('button', { name: "Regenerate today's quest" }));
+    expect(await screen.findByText(/Music & streaming/)).toBeInTheDocument();
+  });
+
   it('while a quest is in progress, ready quests cannot be started and the pick is left alone', async () => {
     setQuestPick({ scenarioId: 'keep', category: 'x', categoryLabel: 'X' });
     withQueries(<PersonalQuests busy onPlay={vi.fn()} />);

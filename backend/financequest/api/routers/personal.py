@@ -4,6 +4,7 @@ Responses carry the spending category only, never the company behind a quest.
 """
 
 from datetime import date
+from functools import partial
 from typing import Any
 
 from fastapi import APIRouter
@@ -23,9 +24,13 @@ def my_transactions(sid: SessionId) -> list[dict[str, str]]:
 
 
 @router.post("/quests/daily")
-async def daily_quest(db: DbSession, sid: SessionId) -> dict[str, Any]:
-    """Called on login. Idempotent per day: returns today's quest, starting it if needed."""
-    job = await run_in_threadpool(jobs.daily_quest, db, sid)
+async def daily_quest(
+    db: DbSession, sid: SessionId, regenerate: bool = False
+) -> dict[str, Any]:
+    """Called on login. Idempotent per day: returns today's quest (no generation when one is
+    ready, even one built for another player). ``?regenerate=true`` forces a fresh generation
+    that replaces today's quest for this player."""
+    job = await run_in_threadpool(partial(jobs.daily_quest, db, sid, regenerate=regenerate))
     return jobs.public_view(job)
 
 

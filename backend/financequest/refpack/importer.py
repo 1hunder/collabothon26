@@ -94,7 +94,7 @@ def import_pack(
         f"Price table: {pack.price_dates[0]} to {pack.price_dates[-1]}, "
         f"{len(pack.price_rows)} rows.\n\n--- CASE MARKDOWN ---\n{pack.markdown}"
     )
-    raw = llm.with_structured_output(CampaignManifest).invoke(
+    raw = llm.with_structured_output(CampaignManifest, method="json_schema").invoke(
         [("system", SYSTEM_PROMPT), ("human", prompt)]
     )
     manifest_path = out_dir / "manifest.draft.json"
