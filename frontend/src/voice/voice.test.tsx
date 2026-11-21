@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VOICE_KEY, VoiceProvider, VoiceToggle, useVoice } from '.';
-import { AudioUrlProvider, WebSpeechProvider, type VoiceProvider as Impl } from './providers';
+import { AudioUrlProvider, englishVoices, WebSpeechProvider, type VoiceProvider as Impl } from './providers';
 
 function fakeAudio() {
   const a = { src: '', currentTime: 0, onerror: null as null | (() => void), play: vi.fn(() => Promise.resolve()), pause: vi.fn() };
@@ -107,6 +107,35 @@ describe('WebSpeechProvider', () => {
     expect(speech.cancel).toHaveBeenCalledTimes(2);
     expect(spoken[0].pitch).not.toBe(spoken[1].pitch);
     expect(spoken[0].rate).not.toBe(spoken[1].rate);
+    vi.unstubAllGlobals();
+  });
+
+  it('reads English with English voices only, natural ones first, never a Ukrainian system voice', () => {
+    class Utt {
+      voice: { name: string; lang: string } | null = null;
+      lang = '';
+      pitch = 1;
+      rate = 1;
+      volume = 1;
+      constructor(public text: string) {}
+    }
+    vi.stubGlobal('SpeechSynthesisUtterance', Utt);
+    const voices = [
+      { name: 'Microsoft Ostap - Ukrainian (Ukraine)', lang: 'uk-UA' },
+      { name: 'Microsoft David - English (United States)', lang: 'en-US' },
+      { name: 'Microsoft Ryan Online (Natural) - English (United Kingdom)', lang: 'en-GB' },
+      { name: 'Microsoft Polina Online (Natural) - Ukrainian (Ukraine)', lang: 'uk-UA' },
+    ];
+    expect(englishVoices(voices as never).map((v) => v.name)).toEqual([
+      'Microsoft Ryan Online (Natural) - English (United Kingdom)',
+      'Microsoft David - English (United States)',
+    ]);
+    const spoken: Utt[] = [];
+    const p = new WebSpeechProvider({ speak: (u: Utt) => void spoken.push(u), cancel: vi.fn(), getVoices: () => voices } as never);
+    p.speak(null, 'dm line', 'dm');
+    p.speak(null, 'buddy line', 'buddy');
+    expect(spoken.map((u) => u.voice?.lang)).toEqual(['en-GB', 'en-US']);
+    expect(spoken.every((u) => u.lang.startsWith('en'))).toBe(true);
     vi.unstubAllGlobals();
   });
 });
