@@ -133,10 +133,31 @@ export interface Purse {
   cash_eur: number;
   position_eur: number;
   total_eur: number;
+  /** The moneylender's loan, when the hero took one; the repayment comes off the final result. */
+  loan?: LoanInfo | null;
+  /** Coins owned once the loan is repaid (only with a loan). */
+  net_eur?: number;
 }
 
-export type DecisionBeat = 'opening' | 'news' | 'decision' | 'story';
-export type TradeAction = 'buy' | 'sell' | 'hold';
+export interface LoanInfo {
+  lender: string;
+  principal_eur: number;
+  repay_eur: number;
+  interest_eur: number;
+  /** "Loan from <lender>: +€X now, repay €Y at the end" */
+  label: string;
+}
+
+export type DecisionBeat = 'opening' | 'news' | 'decision' | 'story' | 'offer';
+export type TradeAction = 'buy' | 'sell' | 'hold' | 'loan';
+
+/** An in-world way out for a hero with every coin committed (the all-in plot). The hero answers by typing. */
+export interface Offer {
+  kind: 'buyback' | 'loan';
+  by: { name: string; role: string };
+  /** Engine figures: buyback { max_eur, price, default_portion }, loan { principal_eur, interest_pct, repay_eur, due }. */
+  terms: Record<string, number | string>;
+}
 
 /** A decision scene the story has put in front of the hero; their next written action answers it. */
 export interface MarketScene {
@@ -158,6 +179,7 @@ export interface MarketCard {
 /** The receipt for an executed decision. */
 export interface TradeCard {
   kind: 'trade';
+  loan?: LoanInfo;
   seq: number;
   beat: DecisionBeat;
   action: TradeAction;
@@ -199,6 +221,9 @@ export interface LockResponse {
 }
 
 export interface PortfolioBreakdown {
+  /** The loan's repayment, subtracted from the final value (0 without a loan). */
+  loan_repay_eur?: number;
+  loan?: LoanInfo | null;
   starting_budget: number;
   cash_kept: number;
   invested: number;
@@ -418,6 +443,10 @@ export interface CampaignState {
   commit_draft?: Partial<CommitDraft> | null;
   purse?: Purse;
   market_scene?: MarketScene | null;
+  /** Every coin is in the company (free cash is at most 2% of the starting budget). */
+  all_in?: boolean;
+  /** The open offer of the all-in plot, if any. */
+  offer?: Offer | null;
   /** The curious trader asked "why?" about the last decision and waits for the next message. */
   awaiting_reasoning?: boolean;
   decisions?: DecisionEntry[];
@@ -553,6 +582,11 @@ export interface TurnExtras {
   show_decide?: boolean;
   awaiting_reasoning?: boolean;
   reasoning_prompt?: ReasoningPrompt | null;
+  /** The decision left nothing at stake. */
+  all_in?: boolean;
+  /** The plot moved to its finish: the position was sealed and the phase is now timeskip. */
+  fast_forward?: boolean;
+  offer?: Offer | null;
   location?: { id: string; key: string; name: string };
   first_visit?: boolean;
   news_text?: string;

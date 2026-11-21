@@ -159,3 +159,14 @@ class XpScore(BaseModel):
 
 class XpOut(BaseModel):
     scores: list[XpScore]
+
+
+class OfferOut(BaseModel):
+    """The Master's answer to a hero with nothing left at stake: one in-world opportunity, or the
+    days passing. The engine picks the figures and validates the kind."""
+
+    kind: Literal["buyback", "loan", "fast_forward"]
+    name: str = Field(default="", description="The offerer's generated fantasy name")
+    role: str = Field(default="", description="Short role, e.g. 'Moneylender'")
+    text: str = Field(description="At most 100 words, ends with a question")
+    suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short replies")

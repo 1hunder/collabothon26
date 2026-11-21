@@ -47,6 +47,7 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
     ['Invested', formatEur(b.invested)],
     ['Value now', formatEur(b.value_now)],
     ['Fees', formatEur(b.fees)],
+    ...(b.loan ? ([['Loan repayment', `−${formatEur(b.loan.repay_eur)} (${b.loan.lender})`]] as [string, string][]) : []),
     ['Final value', formatEur(b.final_value)],
     ['Profit / loss', `${formatSigned(b.pl_eur)} (${formatPct(b.pl_pct)})`],
   ];

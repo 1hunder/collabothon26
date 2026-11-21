@@ -1,15 +1,29 @@
-import type { DecisionBeat, DiceCard, MarketCard, NewsCard, Purse, TradeAction, TradeCard } from '../../api/types';
+import type { DecisionBeat, DiceCard, LoanInfo, MarketCard, NewsCard, Offer, Purse, TradeAction, TradeCard } from '../../api/types';
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
 const int = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback);
-const beats: readonly DecisionBeat[] = ['opening', 'news', 'decision', 'story'];
-const actions: readonly TradeAction[] = ['buy', 'sell', 'hold'];
+const beats: readonly DecisionBeat[] = ['opening', 'news', 'decision', 'story', 'offer'];
+const actions: readonly TradeAction[] = ['buy', 'sell', 'hold', 'loan'];
 
-export type QuestCard = DiceCard | NewsCard | MarketCard | TradeCard;
+/** The offer of the all-in plot, as a card (who offers, on what terms). */
+export interface OfferMomentCard extends Omit<Offer, 'kind'> {
+  kind: 'offer';
+  /** The offer's own kind (buyback / loan). */
+  offer_kind: Offer['kind'];
+  text: string;
+  suggestions: string[];
+  day_label: string;
+  purse: Purse;
+}
+
+export type QuestCard = DiceCard | NewsCard | MarketCard | TradeCard | OfferMomentCard;
 
 function purse(v: unknown): Purse {
   const p = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  return { cash_eur: int(p.cash_eur), position_eur: int(p.position_eur), total_eur: int(p.total_eur) };
+  return {
+    cash_eur: int(p.cash_eur), position_eur: int(p.position_eur), total_eur: int(p.total_eur),
+    loan: p.loan ? (p.loan as LoanInfo) : null,
+  };
 }
 
 const beat = (v: unknown): DecisionBeat => (beats.includes(v as DecisionBeat) ? (v as DecisionBeat) : 'story');
@@ -50,9 +64,21 @@ export function normalizeCard(raw: Record<string, unknown>): QuestCard | null {
       purse: purse(raw.purse),
     };
   }
+  if (kind === 'offer') {
+    const by = (raw.by && typeof raw.by === 'object' ? raw.by : {}) as Record<string, unknown>;
+    const terms = (raw.terms && typeof raw.terms === 'object' ? raw.terms : {}) as Offer['terms'];
+    const offerKind = raw.offer_kind === 'loan' || raw.offer_kind === 'buyback' ? raw.offer_kind : 'buyback';
+    return {
+      kind: 'offer', offer_kind: offerKind,
+      by: { name: str(by.name), role: str(by.role) }, terms,
+      text: str(raw.text), suggestions: strings(raw.suggestions),
+      day_label: str(raw.day_label), purse: purse(raw.purse),
+    };
+  }
   if (kind === 'trade') {
     return {
       kind: 'trade',
+      ...(raw.loan ? { loan: raw.loan as LoanInfo } : {}),
       seq: int(raw.seq),
       beat: beat(raw.beat),
       action: actions.includes(raw.action as TradeAction) ? (raw.action as TradeAction) : 'hold',

@@ -26,6 +26,7 @@ from financequest.agents.campaign.schemas import (
     DebriefOut,
     DecideOut,
     DiceOut,
+    OfferOut,
     RouteOut,
     SummaryOut,
     TextOut,
@@ -33,7 +34,7 @@ from financequest.agents.campaign.schemas import (
 )
 from financequest.campaign import reasoning as reasoning_mod
 from financequest.campaign import rules
-from financequest.campaign.narration import DecisionReply, TurnReply
+from financequest.campaign.narration import DecisionReply, OfferReply, TurnReply
 from financequest.campaign.xp import RawScore, excerpt
 from financequest.llm import NodeLLM, get_node_llm
 
@@ -82,6 +83,33 @@ def decision_suggestions(ctx: C.AgentContext) -> list[str]:
     if ctx.holds_shares:
         return ["Hold what I have", "Sell half my shares", "Buy more with my cash"]
     return ["Invest a quarter of my coins", "Invest half of my coins", "Keep my coins for now"]
+
+
+_OFFER_SUGGESTIONS = {
+    "buyback": ["Sell half of my coins", "No, I keep them all", "I look around instead"],
+    "loan": ["I take the loan", "No, I decline", "I look around instead"],
+}
+
+
+def _offer_template(kind: str, facts: dict[str, Any]) -> dict[str, Any]:
+    """The prepared offer used when the model's fails the guards: engine terms only."""
+    if kind == "buyback":
+        return {
+            "name": "Harrel Voss", "role": "Guild broker", "suggestions": _OFFER_SUGGESTIONS["buyback"],
+            "text": "A guild broker draws you aside: he will buy back part of your coins in the "
+                    f"company at today's board price, up to {facts['buyback']['max_eur']} euros "
+                    "worth. How do you answer?",
+        }  # fmt: skip
+    if kind == "loan":
+        t = facts["loan"]
+        return {
+            "name": "Ismene Dray", "role": "Moneylender", "suggestions": _OFFER_SUGGESTIONS["loan"],
+            "text": f"A moneylender offers you up to {t['principal_eur']} euros now, at flat "
+                    f"interest of {t['interest_pct']} percent: {t['repay_eur']} euros repaid "
+                    f"{t['due']}. How do you answer?",
+        }  # fmt: skip
+    return {"name": "", "role": "", "suggestions": [],
+            "text": "With everything committed, the days begin to pass. Are you ready to wait?"}  # fmt: skip
 
 
 BUDDY_WORDS = 120
@@ -257,6 +285,67 @@ class AgentNarration:
             portion=out.portion if kind == "decision" else None, text=out.text.strip(),
             suggestions=sugg, degraded=res.degraded,
         )  # fmt: skip
+
+    # ---- the all-in plot: nothing left at stake ----------------------------------------------------
+    def offer(self, ctx: C.AgentContext, allowed: list[str]) -> OfferReply:
+        """The Master chooses one in-world opportunity (or the days passing) for a hero with every
+        coin committed. The engine supplies the terms and validates the kind."""
+        facts = ctx.offer_facts or {}
+        kinds = [k for k in allowed if k == "fast_forward" or k in facts] or ["fast_forward"]
+        first = kinds[0]
+        extra = (
+            "# Offer facts (engine computed, euros)\n"
+            f"Allowed kinds: {', '.join(kinds)}.\n"
+            + (f"buyback terms: a broker takes back up to {facts['buyback']['max_eur']} euros of their "
+               "coins at today's board price.\n" if "buyback" in kinds and "buyback" in facts else "")
+            + (f"loan terms: lends up to {facts['loan']['principal_eur']} euros, flat interest "
+               f"{facts['loan']['interest_pct']} percent, {facts['loan']['repay_eur']} euros repaid "
+               f"{facts['loan']['due']}.\n" if "loan" in kinds and "loan" in facts else "")
+            + "\n".join(C.purse_lines(ctx))
+        )  # fmt: skip
+        template = OfferOut(kind=first, **_offer_template(first, facts))  # type: ignore[arg-type]
+        spec = GuardedSpec(
+            llm=self.llm, node="campaign_offer", schema=OfferOut, effort="medium",
+            messages=lambda notes: C.build_messages(
+                ctx, prompts.OFFER, "Make the offer.", corrective=notes, extra=extra),
+            texts=lambda o: {"text": o.text},
+            rules=make_rules(ctx, fields={"text": FieldRule(SCENE_WORDS, True)}),
+            template=lambda: template, ctx=ctx,
+            llm_context={"ctx": ctx, "input": "Make the offer.", "allowed": kinds},
+        )  # fmt: skip
+        res = run_guarded(spec)
+        out: OfferOut = res.out
+        kind = out.kind if out.kind in kinds else first
+        name = " ".join(out.name.split())[:40] or template.name
+        role = " ".join(out.role.split())[:40] or template.role
+        sugg = [s.strip() for s in out.suggestions if s.strip()][:3] or _OFFER_SUGGESTIONS.get(kind, [])
+        return OfferReply(kind=kind, name=name if kind != "fast_forward" else "",
+                          role=role if kind != "fast_forward" else "", text=out.text.strip(),
+                          suggestions=sugg, degraded=res.degraded)  # fmt: skip
+
+    def offer_answer(self, ctx: C.AgentContext) -> TurnReply:
+        """The hero took the loan: the coins change hands (a card shows the terms)."""
+        text, degraded, _ = self._text_node(
+            ctx, node="campaign_offer_answer", prompt=prompts.OFFER_ANSWER, user="Narrate the loan.",
+            extra="\n".join(C.purse_lines(ctx)), effort="low", max_words=PART_WORDS + 10, question=True,
+            template="The lender counts the coins into your purse and the room goes back to its own "
+                     "business. What do you do next?",
+        )  # fmt: skip
+        return TurnReply(text=text, degraded=degraded, intent="offer_answer",
+                         suggestions=decision_suggestions(ctx))  # fmt: skip
+
+    def fast_forward(self, ctx: C.AgentContext, why: str) -> TurnReply:
+        """With nothing left at stake the days pass and the plot moves to its finish. Describes
+        the passage of time only: no result, no figure, no prediction."""
+        text, degraded, _ = self._text_node(
+            ctx, node="campaign_forward", prompt=prompts.FAST_FORWARD, user="Narrate the days passing.",
+            extra=f"# Why the plot moves on\n{why}\n" + "\n".join(C.purse_lines(ctx)),
+            effort="low", max_words=SCENE_WORDS, question=False,
+            template="With everything committed, there is nothing left for you to decide. The days "
+                     "pass over the guild's halls, and the horizon draws near.",
+            llm_context={"why": why},
+        )  # fmt: skip
+        return TurnReply(text=text, degraded=degraded, intent="fast_forward")
 
     def hint(self, ctx: C.AgentContext, target: dict[str, Any]) -> TurnReply:
         where = target["location_name"]

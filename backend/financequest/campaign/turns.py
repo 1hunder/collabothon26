@@ -54,7 +54,7 @@ def state_delta(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "art_ready": [str(x.id) for x in locs if x.art_status == "ready"],
         "purse": service.purse(db, run, pack), "market_scene": service.scene_out(run),
         "awaiting_reasoning": service.awaiting_trade(db, run) is not None,
-        "hp": service.hp_now(run), "hp_eur": service.hp_now(run) * service.HP_EUR,
+        "offer": service.offer_out(run), "hp": service.hp_now(run), "hp_eur": service.hp_now(run) * service.HP_EUR,
         "locations": [
             {"id": str(x.id), "key": x.key, "name": x.name, "description": x.description,
              "fixed": x.fixed, "art_status": x.art_status, "visited": x.visited,
@@ -82,6 +82,7 @@ def _done_fields(p: dict[str, Any]) -> dict[str, Any]:
         "speaker_kind": _speaker_kind(p), "escalated": bool(p.get("escalated", False)),
         "hp_change": p.get("hp_change"), "new_location": p.get("new_location"),
         "reasoning_prompt": p.get("reasoning_prompt"),
+        "all_in": bool(p.get("all_in", False)), "fast_forward": bool(p.get("fast_forward", False)),
     }
 
 
@@ -282,6 +283,8 @@ def plan_action(
                      f"{msg}:action" if msg else None)  # fmt: skip
         db.commit()
         ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
+    if in_scene and (ctx.scene or {}).get("beat") == "offer":  # the all-in plot's open offer
+        return _plan_offer_answer(sid, cid, text, ctx, msg, nar)
     if in_scene:  # the player answers the decision scene: read it, execute it, react
         return _plan_scene_answer(sid, cid, text, ctx, msg, nar)
     return _plan_normal_turn(sid, cid, text, ctx, msg, nar)
@@ -386,7 +389,7 @@ def _plan_scene_answer(
 
     def commit(reply: DecisionReply | TurnReply) -> Streamed:
         if isinstance(reply, DecisionReply):
-            return commit_decision(sid, cid, text, reply, msg=msg)
+            return commit_decision(sid, cid, text, reply, msg=msg, nar=nar)
         pass_scene(sid, cid, text, msg=msg)
         return commit_turn(sid, cid, reply, msg=msg, nar=nar)
 
@@ -598,7 +601,8 @@ def trade_card(trade: Trade, purse: dict[str, Any]) -> dict[str, Any]:
 
 
 def commit_decision(
-    sid: uuid.UUID, cid: uuid.UUID, text: str, reply: DecisionReply, *, msg: str | None
+    sid: uuid.UUID, cid: uuid.UUID, text: str, reply: DecisionReply, *, msg: str | None,
+    nar: Narration | None = None,
 ) -> Streamed:
     """Phase C of an answer in a decision scene: execute it now, then store the reaction."""
     with _session() as db:
@@ -611,6 +615,7 @@ def commit_decision(
         say, sugg = reply.text, reply.suggestions
         hp_change = None
         prompt = None
+        flag: str | None = None
         if reply.kind == "decision" and reply.action in ("buy", "sell", "hold") and run.market_scene:
             problem = service.decision_problem(db, run, reply.action, reply.amount_eur, reply.portion)
             if problem:  # nothing to execute yet: ask, and keep the scene open
@@ -626,7 +631,11 @@ def commit_decision(
                     )
                     say = reconcile_hp_text(say, -hp_change["delta"] if hp_change else 0)
                 receipt = trade_card(trade, service.purse(db, run, pack))
-                if trade.reasoning_source == reasoning_mod.AWAITING:  # ask once, neutrally
+                flag = service.nothing_at_stake(db, run, pack, trade, text)
+                if flag and trade.reasoning_source == reasoning_mod.AWAITING:
+                    # nothing left to play for: the plot moves on, the question is not asked
+                    service.resolve_reasoning(db, run, trade, None, skipped=True)
+                elif trade.reasoning_source == reasoning_mod.AWAITING:  # ask once, neutrally
                     say = reasoning_mod.strip_question(say)
                     prompt = reasoning_mod.reasoning_prompt(cid, trade.reasoning, trade.seq)
                     sugg = [reasoning_mod.SKIP_CHIP]
@@ -639,6 +648,7 @@ def commit_decision(
             "nothing_more_to_uncover": False,
             "show_decide": bool(receipt and receipt["beat"] == "decision" and ready),
             "first_visit": None, "location": None, "reasoning_prompt": prompt,
+            "all_in": bool(flag),
         }  # fmt: skip
         ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
         if prompt:  # the trader's question is its own entry: the backlog and a replay show it
@@ -648,7 +658,188 @@ def commit_decision(
             })  # fmt: skip
         _finish(db, run)
         out = _streamed(db, run, pack, ev, [receipt] if receipt else [])
+        reply_id = ev.id
+    if flag and nar is not None and reply_id is not None:
+        return _all_in_followup(sid, cid, reply_id, flag, nar, [receipt] if receipt else [], say)
     return out
+
+
+# ==============================================================================================
+# the all-in plot: nothing left at stake
+# ==============================================================================================
+def _stored_reply(sid: uuid.UUID, cid: uuid.UUID, reply_id: int, cards: list[dict[str, Any]]) -> Streamed:
+    with _session() as db:
+        run, pack, _ = service.load(db, cid, sid, write=False)
+        ev = db.get(Event, reply_id)
+        assert ev is not None
+        return _streamed(db, run, pack, ev, cards)
+
+
+def _all_in_followup(
+    sid: uuid.UUID, cid: uuid.UUID, reply_id: int, flag: str, nar: Narration,
+    cards: list[dict[str, Any]], said: str,
+) -> Streamed:
+    """The decision just made left nothing at stake. The Master chooses: an in-world offer (a
+    buyback or a loan, once) or the days passing; the engine supplies every figure and does the
+    rest. A refused or failed model falls back to the prepared offer or the fast-forward."""
+    if flag == "offer":
+        with _session() as db:
+            run, pack, hero = service.load(db, cid, sid, write=False)
+            ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
+            ctx.offer_facts = service.offer_facts(db, run, pack)
+        picked = nar.offer(ctx, ["buyback", "loan", "fast_forward"])
+        if picked.kind != "fast_forward":
+            with _session() as db:
+                run, pack, _ = service.load(db, cid, sid)
+                if run.phase != "play" or run.market_scene:
+                    return _stored_reply(sid, cid, reply_id, cards)
+                by = {"name": picked.name, "role": picked.role}
+                offer = service.open_offer(db, run, pack, picked.kind, by, picked.text)
+                suggestions = picked.suggestions
+                fev = append_event(db, run, "dm_reply", {
+                    "text": picked.text, "speaker": picked.name, "speaker_kind": "npc",
+                    "speaker_id": "offer_broker", "intent": "offer", "offer": offer,
+                    "suggestions": suggestions,
+                })  # fmt: skip
+                run.market_scene = {**(run.market_scene or {}), "suggestions": suggestions}
+                card = {
+                    **offer, "kind": "offer", "offer_kind": offer["kind"], "text": picked.text,
+                    "suggestions": suggestions,
+                    "story_day": run.clock_day, "day_label": clock.day_label(run.clock_day),
+                    "purse": service.purse(db, run, pack), "audio_text_id": fev.id,
+                }  # fmt: skip
+                ev = db.get(Event, reply_id)
+                if ev is not None:
+                    ev.payload = {**(ev.payload or {}), "offer": offer, "offer_card": card}
+                    db.add(ev)
+                _finish(db, run)
+            return _stored_reply(sid, cid, reply_id, [*cards, card])
+    with _session() as db:
+        run, pack, hero = service.load(db, cid, sid, write=False)
+        ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
+    ff = nar.fast_forward(ctx, "they have every coin committed (or are done) and nothing is left to decide")
+    with _session() as db:
+        run, pack, _ = service.load(db, cid, sid)
+        ev = db.get(Event, reply_id)
+        if ev is not None and run.phase == "play":
+            service.lock_decision(db, run, pack, {}, auto=True)
+            ev.payload = {**(ev.payload or {}), "text": f"{said}\n\n{ff.text}".strip(),
+                          "fast_forward": True, "reasoning_prompt": None, "suggestions": []}  # fmt: skip
+            db.add(ev)
+            _finish(db, run)
+    return _stored_reply(sid, cid, reply_id, cards)
+
+
+def _plan_offer_answer(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
+) -> StreamPlan:
+    """The player answers the open offer in words: accept (a buyback is a sell at the board price,
+    a loan adds coins now), decline, or do something else. Declining, or something else twice,
+    moves the plot to its finish."""
+    offer = (ctx.scene or {}).get("offer") or {}
+    kind = str(offer.get("kind"))
+    ignored = int((ctx.scene or {}).get("ignored", 0))
+    read = rules.read_offer_answer(text)
+    action = rules.parse_decision(text)[0]
+    if kind == "buyback" and action == "sell":
+        read = "accept"
+    elif kind == "buyback" and action == "hold":
+        read = "decline"
+    if read == "other" and ignored + 1 >= rules.OFFER_IGNORED_MAX:
+        read = "ignored"
+
+    def work() -> tuple[str, Any]:
+        if read == "accept" and kind == "buyback":
+            say = text if action == "sell" else "I sell half of my coins to the broker."
+            return "buyback", nar.decide(ctx, say)
+        if read == "accept":
+            return "loan", nar.offer_answer(ctx)
+        if read in ("decline", "ignored"):
+            why = ("declined: they turned the offer down" if read == "decline"
+                   else "ignored: they paid the offer no attention twice")  # fmt: skip
+            return "forward", nar.fast_forward(ctx, why)
+        return "other", _normal_turn_work(nar, ctx, text)
+
+    def commit(res: tuple[str, Any]) -> Streamed:
+        tag, reply = res
+        if tag == "buyback":
+            if isinstance(reply, DecisionReply) and reply.kind == "decision" and reply.action == "sell" \
+                    and reply.amount_eur is None and reply.portion is None:
+                reply.portion = "half"  # "I accept": the default is half of what they hold
+            return commit_decision(sid, cid, text, reply, msg=msg, nar=nar)
+        if tag == "loan":
+            return commit_loan(sid, cid, text, reply, msg=msg)
+        if tag == "forward":
+            return commit_fast_forward(sid, cid, reply, msg=msg)
+        note_offer_ignored(sid, cid, text, msg=msg)
+        return commit_turn(sid, cid, reply, msg=msg, nar=nar)
+
+    return StreamPlan(
+        cid, work=work, commit=commit, deadline_s=TURN_BUDGET_S + NPC_BUDGET_S,
+        after=lambda _: maybe_summarize(sid, cid, nar),
+    )  # fmt: skip
+
+
+def note_offer_ignored(sid: uuid.UUID, cid: uuid.UUID, text: str, *, msg: str | None) -> None:
+    with _session() as db:
+        run, _, _ = service.load(db, cid, sid)
+        if find_by_msg_id(db, cid, f"{msg}:reply" if msg else None) is not None:
+            return
+        if service.offer_out(run):
+            service.note_offer_ignored(db, run, text)
+        _finish(db, run)
+
+
+def _plot_payload(reply: TurnReply, **extra: Any) -> dict[str, Any]:
+    return {
+        "text": reply.text, "speaker": C.DM_NAME, "speaker_id": C.CHRONICLER,
+        "suggestions": reply.suggestions, "hp_change": None, "clue_ids_given": [], "card": None,
+        "news": None, "degraded": reply.degraded, "nothing_more_to_uncover": False,
+        "show_decide": False, "first_visit": None, "location": None, **extra,
+    }  # fmt: skip
+
+
+def commit_loan(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, reply: TurnReply, *, msg: str | None
+) -> Streamed:
+    """The loan: the principal joins the purse now (a ``loan`` trade); the repayment comes off the
+    final result."""
+    with _session() as db:
+        run, pack, hero = service.load(db, cid, sid)
+        stored = find_by_msg_id(db, cid, f"{msg}:reply" if msg else None)
+        if stored is not None:
+            return replay_streamed(db, run, pack, stored)
+        service.require_phase(run, "play")
+        card = None
+        if service.offer_out(run):
+            trade = service.accept_loan(db, run, pack, text)
+            loan = service.loan_of([trade])
+            assert loan is not None
+            card = {**trade_card(trade, service.purse(db, run, pack)), "loan": service.loan_out(loan)}
+        payload = _plot_payload(reply, intent="offer_answer", card=card,
+                                suggestions=nar_suggestions(C.build_agent_context(db, run, pack, hero)))
+        ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
+        _finish(db, run)
+        return _streamed(db, run, pack, ev, [card] if card else [])
+
+
+def commit_fast_forward(
+    sid: uuid.UUID, cid: uuid.UUID, reply: TurnReply, *, msg: str | None
+) -> Streamed:
+    """The offer was declined or ignored: the position is sealed as it stands and the story goes to
+    its finish (phase timeskip: the client opens the outcome)."""
+    with _session() as db:
+        run, pack, _ = service.load(db, cid, sid)
+        stored = find_by_msg_id(db, cid, f"{msg}:reply" if msg else None)
+        if stored is not None:
+            return replay_streamed(db, run, pack, stored)
+        service.require_phase(run, "play")
+        service.lock_decision(db, run, pack, {}, auto=True)
+        ev = append_event(db, run, "dm_reply", _plot_payload(
+            reply, intent="fast_forward", fast_forward=True, all_in=True, suggestions=[],
+        ), f"{msg}:reply" if msg else None)  # fmt: skip
+        _finish(db, run)
+        return _streamed(db, run, pack, ev, [])
 
 
 def maybe_summarize(sid: uuid.UUID, cid: uuid.UUID, nar: Narration) -> None:

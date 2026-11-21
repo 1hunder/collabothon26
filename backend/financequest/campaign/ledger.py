@@ -111,13 +111,19 @@ class LedgerResult:
     hp_after: int
 
 
-def result(budget: Decimal, pos: Position, end_close: Decimal) -> LedgerResult:
+def result(
+    budget: Decimal, pos: Position, end_close: Decimal,
+    loan_principal: Decimal = ZERO, loan_repay: Decimal = ZERO,
+) -> LedgerResult:
+    """The loan's principal sits in ``pos.cash`` (it was paid in); its repayment comes off the
+    final value. ``invested`` is what went into the company: the budget plus the borrowed money
+    minus the cash left."""
     value_now = q_cents(pos.value(end_close))
     cash = q_cents(pos.cash)
-    final = q_cents(cash + value_now)
+    final = q_cents(cash + value_now - loan_repay)
     pnl = final - q_cents(budget)
     return LedgerResult(
-        budget=q_cents(budget), cash=cash, invested=q_cents(budget - pos.cash),
+        budget=q_cents(budget), cash=cash, invested=q_cents(budget + loan_principal - pos.cash),
         value_now=value_now, final=final, pnl=pnl,
         pnl_pct=q_pct(pnl / budget * 100) if budget else ZERO,
         hp_before=hp_from_final(budget), hp_after=hp_from_final(final),
@@ -137,7 +143,7 @@ def whatif_rows(
     everything at the first decision and held, everything on decision day and held."""
     never = result(budget, Position(budget), end_close)
 
-    def all_in(price: Decimal) -> LedgerResult:
+    def all_in(price: Decimal) -> LedgerResult:  # never borrows: the loan is the player's own path
         return result(budget, Position(ZERO, budget / price), end_close)
 
     rows = [_row("dont", "Never invest", never, False)]
