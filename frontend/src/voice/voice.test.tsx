@@ -61,6 +61,34 @@ describe('AudioUrlProvider', () => {
   });
 });
 
+describe('AudioUrlProvider timeout and errors', () => {
+  it('falls back to Web Speech when /tts errors', () => {
+    const audio = fakeAudio();
+    const fb = fakeImpl();
+    new AudioUrlProvider(fb, () => audio).speak('abc', 'whole reply', 'dm');
+    audio.onerror?.();
+    expect(fb.calls).toContain('speak:dm:whole reply');
+  });
+
+  it('falls back after the timeout when audio never starts, but not once it plays', () => {
+    vi.useFakeTimers();
+    const fb = fakeImpl();
+    const slow = fakeAudio();
+    new AudioUrlProvider(fb, () => slow, 15_000).speak('a', 'slow', 'dm');
+    vi.advanceTimersByTime(14_000);
+    expect(fb.calls).not.toContain('speak:dm:slow');
+    vi.advanceTimersByTime(1_500);
+    expect(fb.calls).toContain('speak:dm:slow');
+    const ok = fakeAudio();
+    const fb2 = fakeImpl();
+    new AudioUrlProvider(fb2, () => ok, 15_000).speak('a', 'ok', 'dm');
+    (ok as unknown as { onplaying: () => void }).onplaying();
+    vi.advanceTimersByTime(20_000);
+    expect(fb2.calls).not.toContain('speak:dm:ok');
+    vi.useRealTimers();
+  });
+});
+
 describe('WebSpeechProvider', () => {
   it('uses different pitch/rate for the two voices', () => {
     class Utt {

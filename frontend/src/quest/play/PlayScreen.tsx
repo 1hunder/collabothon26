@@ -16,6 +16,7 @@ import DialogueBox, { DM_NAME, type VoiceKind } from './DialogueBox';
 import DiceMoment, { type DiceApi } from './DiceMoment';
 import Dock from './Dock';
 import HeroStatus from './HeroStatus';
+import { useReportSheetOpen } from '../sheetOpen';
 import JournalSheet from './JournalSheet';
 import LibraryScroll from './LibraryScroll';
 import MapSheet from './MapSheet';
@@ -95,6 +96,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const [advancedKey, setAdvancedKey] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
   const [sheet, setSheet] = useState<SheetName>(null);
+  useReportSheetOpen(sheet !== null);
   const [buddyOpen, setBuddyOpen] = useState(false);
   const [title, setTitle] = useState<TitleInfo | null>(null);
 

@@ -16,6 +16,7 @@ function PricesTab({ rows, newsDay }: { rows: readonly PriceRow[]; newsDay: numb
   const points = rows.map((r) => ({ story_day: r.day, price: r.close }));
   const markers = newsDay === null ? [] : [{ at: newsDay, label: 'News' }];
   const shown = [...rows].reverse();
+  const hasVolume = rows.some((r) => r.volume !== undefined && r.volume !== null);
   return (
     <>
       <div className="mb-3 overflow-hidden rounded-md border border-[#3a2a18]">
@@ -25,7 +26,7 @@ function PricesTab({ rows, newsDay }: { rows: readonly PriceRow[]; newsDay: numb
       </div>
       <div className="max-h-56 overflow-auto">
         <table className="w-full font-quest-sans text-sm">
-          <caption className="sr-only">Daily open, high, low, close and volume</caption>
+          <caption className="sr-only">Daily open, high, low and close</caption>
           <thead>
             <tr className="text-left text-[#e8dcc2]/70">
               <th scope="col" className="pr-2">Day</th>
@@ -33,7 +34,7 @@ function PricesTab({ rows, newsDay }: { rows: readonly PriceRow[]; newsDay: numb
               <th scope="col" className="pr-2">High</th>
               <th scope="col" className="pr-2">Low</th>
               <th scope="col" className="pr-2">Close</th>
-              <th scope="col">Volume</th>
+              {hasVolume ? <th scope="col">Volume</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -43,8 +44,8 @@ function PricesTab({ rows, newsDay }: { rows: readonly PriceRow[]; newsDay: numb
                 <td className="pr-2">{formatStoryNumber(r.open)}</td>
                 <td className="pr-2">{formatStoryNumber(r.high)}</td>
                 <td className="pr-2">{formatStoryNumber(r.low)}</td>
-                <td className="pr-2">{formatStoryNumber(r.close)}</td>
-                <td>{r.volume === undefined ? '' : formatStoryNumber(r.volume)}</td>
+                <td className={hasVolume ? 'pr-2' : ''}>{formatStoryNumber(r.close)}</td>
+                {hasVolume ? <td>{r.volume == null ? '' : formatStoryNumber(r.volume)}</td> : null}
               </tr>
             ))}
           </tbody>

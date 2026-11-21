@@ -5,6 +5,7 @@ import '@fontsource/pirata-one/400.css';
 import type { RevealData } from '../../api/types';
 import { formatStoryNumber } from '../lib/storyNumber';
 
+import { formatRealDate } from '../components/storyChartFormat';
 const StoryChart = lazy(() => import('../components/StoryChart'));
 
 interface RevealProps {
@@ -32,7 +33,7 @@ export default function Reveal({ data }: RevealProps): React.JSX.Element {
         <StoryChart
           mode="real"
           points={data.series}
-          markers={data.news_points.map((n) => ({ at: n.real_date, label: String(n.story_day) }))}
+          markers={data.news_points.map((n) => ({ at: n.real_date, label: formatRealDate(n.real_date) }))}
         />
       </Suspense>
 

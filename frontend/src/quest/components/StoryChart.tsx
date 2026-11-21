@@ -10,6 +10,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { formatStoryDay } from '../lib/storyNumber';
+import { LOCALE, formatRealDate, formatRealTick } from './storyChartFormat';
 
 export interface StoryMarker {
   /** story day in story mode, ISO date in real-date mode */
@@ -37,14 +38,15 @@ export default function StoryChart(props: StoryChartProps): React.JSX.Element {
         textColor: '#E8DCC2',
       },
       grid: { vertLines: { color: '#22305B' }, horzLines: { color: '#22305B' } },
+      // Room on the right so the last axis label is not cut off at the edge.
       timeScale:
         props.mode === 'story'
-          ? { tickMarkFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
-          : {},
+          ? { rightOffset: 3, tickMarkFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
+          : { rightOffset: 3, tickMarkFormatter: formatRealTick },
       localization:
         props.mode === 'story'
-          ? { timeFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
-          : {},
+          ? { locale: LOCALE, timeFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
+          : { locale: LOCALE, timeFormatter: formatRealDate },
     });
     const series = chart.addSeries(LineSeries, { color: '#6FB5A8', lineWidth: 2 });
     const toTime = (at: number | string): Time =>
@@ -62,7 +64,9 @@ export default function StoryChart(props: StoryChartProps): React.JSX.Element {
       text: m.label,
     }));
     const handle = createSeriesMarkers(series, markers);
-    chart.timeScale().fitContent();
+    // Pad both ends so the first and last axis labels are not cut off at the edges.
+    if (data.length > 1) chart.timeScale().setVisibleLogicalRange({ from: -6, to: data.length - 1 + 4 });
+    else chart.timeScale().fitContent();
     return () => {
       handle.detach();
       chart.remove();

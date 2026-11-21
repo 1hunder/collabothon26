@@ -84,12 +84,15 @@ test('Library: the glowing books open the parchment, which pages', async ({ page
   const lib = page.getByRole('dialog', { name: 'Library' });
   await expect(lib).toBeVisible();
   await expect(lib.getByText(/^Page 1 of \d+$/)).toBeVisible();
+  // One close control only: the quest layout's own is hidden while the parchment is open.
+  await expect(page.getByRole('button', { name: 'Close quest' })).toHaveCount(0);
   await shot(page, 'library-parchment', testInfo.project.name);
   await lib.getByRole('button', { name: 'Next page' }).click();
   await expect(lib.getByText(/^Page 2 of \d+$/)).toBeVisible();
   await shot(page, 'library-parchment-page2', testInfo.project.name);
   await lib.getByRole('button', { name: 'Close Library' }).click();
   await expect(lib).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Close quest' })).toHaveCount(1);
 });
 
 test('Market Square: the stall opens the panel with the price chart', async ({ page }, testInfo) => {

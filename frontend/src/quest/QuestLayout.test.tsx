@@ -2,6 +2,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import QuestLayout from './QuestLayout';
+import { useReportSheetOpen } from './sheetOpen';
+
+function Sheeted(): React.JSX.Element {
+  useReportSheetOpen(true);
+  return <h1>Sheet</h1>;
+}
 
 function setup() {
   const router = createMemoryRouter(
@@ -39,5 +45,13 @@ describe('QuestLayout', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Leave' }));
     expect(router.state.location.pathname).toBe('/overview');
     expect(screen.getByText('Overview page')).toBeInTheDocument();
+  });
+});
+
+describe('QuestLayout with a sheet open', () => {
+  it('hides its own close button so the sheet has the only one', () => {
+    const router = createMemoryRouter([{ path: '/quest', element: <QuestLayout />, children: [{ index: true, element: <Sheeted /> }] }], { initialEntries: ['/quest'] });
+    render(<RouterProvider router={router} />);
+    expect(screen.queryByRole('button', { name: 'Close quest' })).not.toBeInTheDocument();
   });
 });
