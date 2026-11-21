@@ -75,14 +75,16 @@ async function enterTavern(user: User): Promise<void> {
   await readToChoices(user);
   await skipTitle(user);
 }
-async function send(user: User, name: string | RegExp): Promise<void> {
-  await user.click(choiceButton(name));
+async function typeText(user: User, text: string): Promise<void> {
+  await user.type(screen.getByRole('textbox'), text);
+  await user.click(screen.getByRole('button', { name: 'Send' }));
+}
+async function send(user: User, text: string): Promise<void> {
+  await typeText(user, text);
   await readToChoices(user);
 }
 async function typeAction(user: User, text: string, stopAt?: () => boolean): Promise<void> {
-  await user.click(choiceButton('Write your own action…'));
-  await user.type(screen.getByRole('textbox'), text);
-  await user.click(screen.getByRole('button', { name: 'Send' }));
+  await typeText(user, text);
   await readToChoices(user, stopAt);
 }
 async function goTo(user: User, place: string): Promise<void> {
@@ -244,27 +246,26 @@ describe('2.4 Scenes and turns', () => {
     await userEvent.click(box);
     expect(screen.getByText('2 / 3')).toBeInTheDocument();
   });
-  it('2.4-AC4 after the last page: "What would you do?", 3 suggestions and "Write your own action…"', async () => {
+  it('2.4-AC4 after the last page: "What would you do?" and a text input, no suggestion buttons', async () => {
     setupPlay('analyst');
     await readToChoices(userEvent.setup());
-    const list = screen.getByRole('region', { name: 'Choices' });
+    const list = screen.getByRole('region', { name: 'Your turn' });
     expect(within(list).getByText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getByRole('button', { name: 'Write your own action…' })).toBeInTheDocument();
-    expect(readDb().campaign?.suggestions).toHaveLength(3);
-    for (const s of readDb().campaign?.suggestions ?? []) expect(within(list).getByRole('button', { name: s })).toBeInTheDocument();
+    expect(within(list).getByRole('textbox')).toBeInTheDocument();
+    expect(within(list).queryByRole('button', { name: 'Write your own action…' })).not.toBeInTheDocument();
+    for (const s of readDb().campaign?.suggestions ?? []) expect(within(list).queryByRole('button', { name: s })).not.toBeInTheDocument();
   });
-  it('2.4-AC5 tapping a suggestion sends it without typing', async () => {
+  it('2.4-AC5 typing an action and pressing Send sends it', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await send(user, 'Ask the barkeep what people say about the guild');
     expect(readDb().play?.events.some((e) => e.type === 'action' && e.text === 'Ask the barkeep what people say about the guild')).toBe(true);
   });
-  it('2.4-AC6 "Write your own action…" opens a text box with a send button', async () => {
+  it('2.4-AC6 the text box and send button are always there', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Write your own action…'));
     expect(screen.getByRole('textbox')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
   });
@@ -272,7 +273,6 @@ describe('2.4 Scenes and turns', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Write your own action…'));
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     await user.type(screen.getByRole('textbox'), '    ');
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
@@ -282,14 +282,14 @@ describe('2.4 Scenes and turns', () => {
     setupPlay('analyst');
     await enterTavern(user);
     vi.spyOn(sse, 'postSse').mockImplementation(() => new Promise<void>(() => undefined));
-    await user.click(choiceButton('Ask the barkeep what people say about the guild'));
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     expect(screen.getByRole('status')).toHaveTextContent('The Campaign Master is writing…');
   });
   it('2.4-AC8b the reply then appears in the dialogue box and the earlier turn is in the backlog', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Ask the barkeep what people say about the guild'));
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     await user.click(await screen.findByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/scholar|figures|crowd/);
     await readToChoices(user);
@@ -327,7 +327,7 @@ describe('2.4 Scenes and turns', () => {
     setupPlay('analyst');
     await enterTavern(user);
     const spy = vi.spyOn(sse, 'postSse').mockImplementation(() => new Promise<void>(() => undefined));
-    await user.click(choiceButton('Walk to Market Square and study the price board'));
+    await typeText(user, 'Walk to Market Square and study the price board');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(FIRST_EVENT_TIMEOUT_MS);
     });
@@ -353,17 +353,14 @@ describe('2.4 Scenes and turns', () => {
       writeDb(db);
     }
   }
-  it('2.4-AC14 once every reachable clue is shown, "I\'m ready to decide" appears as a 4th choice below the suggestions', async () => {
+  it('2.4-AC14 once every reachable clue is shown, "I\'m ready to decide" appears under the text input', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     readyToDecide();
     await send(user, 'Walk to Market Square and study the price board');
-    const list = screen.getByRole('region', { name: 'Choices' });
-    const labels = within(list).getAllByRole('button').map((b) => b.textContent);
-    const decideAt = labels.indexOf("I'm ready to decide");
-    expect(decideAt).toBeGreaterThan(labels.indexOf('Write your own action…') - 1 - 1);
-    expect(decideAt).toBeGreaterThan(2);
+    const list = screen.getByRole('region', { name: 'Your turn' });
+    expect(within(list).getByRole('button', { name: "I'm ready to decide" })).toBeInTheDocument();
   });
   it('2.4-AC15 typing "I want to decide" makes the Campaign Master ask "Ready to make your decision?" with the button', async () => {
     const user = userEvent.setup();
@@ -649,7 +646,7 @@ describe('2.6 Locations', () => {
     await readToChoices(user);
     expect(screen.queryByTestId('scene-art')).not.toBeInTheDocument();
     expect(screen.getAllByText('The Lamp Works').length).toBeGreaterThan(0);
-    expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your turn' })).toBeInTheDocument();
   });
   it('2.6-AC12 ready campaign art replaces the placeholder (served by the API)', () => {
     expect(artSrc(loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'ready' }))).toMatch(/\/locations\/abc\/art$/);
@@ -731,7 +728,7 @@ describe('2.7 CommerzBuddy', () => {
     await user.click(choiceButton('Buddy'));
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawd');
     await user.click(screen.getByRole('button', { name: 'Close Buddy' }));
-    expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your turn' })).toBeInTheDocument();
     await user.click(choiceButton('Buddy'));
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toHaveValue('What is a drawd');
   });
@@ -908,7 +905,7 @@ describe('2.10 Voice narration', () => {
     const impl = fakeImpl();
     withVoice(impl);
     await enterTavern(user);
-    await user.click(choiceButton('Ask the barkeep what people say about the guild'));
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     await user.click(await screen.findByTestId('dialogue-box'));
     await waitFor(() => expect(spoken(impl).length).toBeGreaterThan(1));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/./);
@@ -951,7 +948,7 @@ describe('2.10 Voice narration', () => {
     withVoice(impl);
     await enterTavern(user);
     const before = impl.calls.filter((c) => c === 'stop').length;
-    await user.click(choiceButton('Ask the barkeep what people say about the guild'));
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     expect(impl.calls.filter((c) => c === 'stop').length).toBeGreaterThan(before);
   });
   it('2.10-AC7 Buddy is read with the Buddy voice, different from the Campaign Master voice', async () => {
@@ -980,7 +977,7 @@ describe('2.10 Voice narration', () => {
     const impl = fakeImpl();
     withVoice(impl);
     await enterTavern(user);
-    await user.click(choiceButton('Ask the barkeep what people say about the guild'));
+    await typeText(user, 'Ask the barkeep what people say about the guild');
     await user.click(await screen.findByTestId('dialogue-box'));
     await waitFor(() => expect(spoken(impl).length).toBeGreaterThan(1));
   });
@@ -1363,7 +1360,7 @@ describe('2.17 Focus and items', () => {
     expect(screen.getByText('Focus: 2')).toBeInTheDocument();
   });
   it('2.17-AC4 with 0 Focus both Focus buttons are disabled', () => {
-    render(<ChoiceList suggestions={['a', 'b', 'c']} canDecide={false} focusLeft={0} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
+    render(<ChoiceList canDecide={false} focusLeft={0} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Ask for a hint' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Chase a bonus lead' })).toBeDisabled();
   });
@@ -1426,7 +1423,7 @@ describe('2.18 Look and feel', () => {
     expect(fonts['quest-title']?.[0]).toBe('Pirata One');
     render(<DialogueBox speaker="Campaign Master" text="Hello there." onAdvance={() => undefined} />);
     expect(screen.getByTestId('dialogue-text').className).toMatch(/font-quest\b/);
-    render(<ChoiceList suggestions={['a', 'b', 'c']} canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
+    render(<ChoiceList canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Ask for a hint' }).className).toMatch(/font-quest-sans/);
   });
   it('2.18-AC3 the die tumbles for about one second before the result is shown', () => {
