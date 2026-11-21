@@ -15,3 +15,6 @@ docs/screenshots/
 *.save
 .env.local
 /.vercel
+
+# TTS sample output (backend/scripts/tts_samples.py)
+tts-samples/
