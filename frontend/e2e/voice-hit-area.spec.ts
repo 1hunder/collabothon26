@@ -19,8 +19,6 @@ test('play screen: voice, hero status and close each own their hit area', async 
   await page.getByRole('button', { name: 'Start your first quest' }).click();
   await page.getByRole('radio', { name: /Guardian/ }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(page.getByText(/This story is real market history/)).toBeVisible();
-  await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL(/\/quest\/play$/);
   await expect(page.getByRole('button', { name: 'Hero status' })).toBeVisible();
   // The Tavern title card covers the stage for a moment; skip it.

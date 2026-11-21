@@ -21,8 +21,8 @@ export default function QuestCard({
   const { inProgress, resumePath } = useQuestMeta();
   const [confirming, setConfirming] = useState(false);
   const handleClick = (): void => {
+    unlockVoice();
     if (inProgress) {
-      unlockVoice();
       onContinue(resumePath);
       return;
     }
