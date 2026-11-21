@@ -74,6 +74,49 @@ _MOVE_PHRASES = (
     "back to", "return to", "let's go", "lets go", "off to", "take me to", "stop by", "drop by",
     "make my way", "go see", "go over to", "run to", "hurry to", "ride to", "sail to", "check out",
 )
+# ---- ad-hoc skill checks: phrase -> skill (the scripted router; a real model judges by meaning) --
+_SKILL_PHRASES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("insight", (r"\binsights?\b", r"\bis (he|she|they|[a-z]+( [a-z]+)?) (lying|honest|hiding)",
+                 r"\b(lying|lies|bluffing)\b", r"\bstudy (his|her|their) (face|eyes)",
+                 r"\bread (whether|if|him|her|them|his|her|their)\b", r"\bread (the )?(motive|intent)")),
+    ("persuasion", (r"\bpersuade\b", r"\bconvince\b", r"\bpress (him|her|them)\b")),
+    ("stealth", (r"\bsneak", r"\beavesdrop", r"\boverhear", r"\bslip past\b")),
+    ("investigation", (r"\bsearch", r"\blook(ing)? for (any )?(clues?|signs?|something|hidden)",
+                       r"\binspect\b", r"\brummage", r"\bscour\b", r"\blook closely\b")),
+    ("knowledge", (r"\brecall\b", r"\bwhat do i (know|remember) about\b")),
+)
+_SKILL_DIFFICULTY = {"investigation": "easy", "persuasion": "hard"}
+_LEAD_IN = {
+    "investigation": "You crouch to study the scuffed floorboards and the corners others overlook.",
+    "insight": "You hold {t}'s gaze a moment longer than is polite, weighing every pause.",
+    "persuasion": "You lean in and press the point, choosing each word with care.",
+    "stealth": "You slow your breathing and drift closer, keeping to the shadows.",
+    "knowledge": "You turn over in your mind everything you once learned of such matters.",
+}
+_REPEAT = {
+    "investigation": "You have already gone over this place carefully, and there is nothing more to find.",
+    "insight": "You have already read {t} as well as you can, and they give nothing more away.",
+    "persuasion": "You have already pressed {t} as far as it will go for now.",
+    "stealth": "You have already tried that here, and trying again would only draw eyes.",
+    "knowledge": "You have already searched your memory on that, and nothing more comes.",
+}
+
+
+def skill_of(low: str) -> str | None:
+    return next((sk for sk, pats in _SKILL_PHRASES if any(re.search(p, low) for p in pats)), None)
+
+
+def _check_target(ctx: C.AgentContext, low: str, skill: str) -> str:
+    for ch in ctx.content["characters"]:
+        parts = [ch["name"].lower(), *(w for w in ch["name"].lower().split() if len(w) > 3)]
+        if any(p in low for p in parts):
+            return str(ch["name"])
+    if skill in ("insight", "persuasion"):
+        return "the person before you"
+    return {"stealth": "the talk nearby", "knowledge": "the matter at hand"}.get(
+        skill, f"the {ctx.current['name'].lower()}" if ctx.current else "the room")
+
+
 _EXAMINE = ("examine", "read", "investigate", "inspect", "study", "cross-check", "scrutinize")
 _SYNONYMS = {
     "market_square": ("market", "square", "price board", "trading floor", "exchange"),
@@ -170,10 +213,19 @@ class CampaignFakeLLM:
             if mv is not None:
                 return mv
         for ch in ctx.challenges:
+            if ch["skill"]:  # an earlier ad-hoc check is never a predefined encounter
+                continue
             title_words = {w for w in re.findall(r"[a-z]+", ch["title"].lower()) if len(w) > 3}
             if title_words & words or ch["key"].lower() in low:
                 return S.RouteOut(intent="challenge", challenge_key=ch["key"])
         here = ctx.current["key"] if ctx.current else ""
+        sk = skill_of(low)
+        if sk is not None:
+            return S.RouteOut(intent="challenge", check=S.CheckSpec(
+                skill=sk, target=_check_target(ctx, low, sk),  # type: ignore[arg-type]
+                difficulty=_SKILL_DIFFICULTY.get(sk, "medium"),  # type: ignore[arg-type]
+                stakes="something the place or person keeps back",
+            ))  # fmt: skip
         named = [
             (len(names & words), char["location"] == here, char)
             for char in ctx.content["characters"]
@@ -223,6 +275,9 @@ class CampaignFakeLLM:
             body, given = self._arrival(ctx, r.location_key, sorted(allowed))
         elif r.intent == "talk":
             body, given, speaker = self._talk(ctx, r, allowed)
+        elif r.check is not None and r.intent in ("challenge", "free"):
+            tpl = (_LEAD_IN if r.intent == "challenge" else _REPEAT)[r.check.skill]
+            body = tpl.format(t=r.check.target)
         elif r.intent == "challenge":
             body = self._challenge(ctx, r)
         elif r.intent == "off_topic":
@@ -333,7 +388,8 @@ class CampaignFakeLLM:
             w for x in ctx.locations if x["key"] != here
             for w in re.findall(r"[a-z]+", x["name"].lower()) if len(w) > 3
         } - {"the", "steps", "guild", "golden", "grand"}
-        chal = {w for ch in ctx.challenges for w in re.findall(r"[a-z]+", ch["title"].lower()) if len(w) > 4}
+        chal = {w for ch in ctx.challenges if not ch["skill"]
+                for w in re.findall(r"[a-z]+", ch["title"].lower()) if len(w) > 4}
         cast = {w for ch in ctx.content["characters"] for w in re.findall(r"[a-z']+", ch["name"].lower()) if len(w) > 2}
         words = set(re.findall(r"[a-z']+", low))
         reason = None
@@ -341,6 +397,8 @@ class CampaignFakeLLM:
             reason = "the hero wants to travel"
         elif _has(low, "decide", "invest", "commit", "my coins", "ready to", "buy", "sell"):
             reason = "the hero wants to decide"
+        elif skill_of(low) is not None:
+            reason = "an uncertain skilled attempt that needs the Master"
         elif _has(low, "sneak", "steal", "break in", "pick the lock", "bribe", "threaten", "risk", "dare", "attack"):
             reason = "a risky action that needs the Master"
         elif _has(low, "joke", "weather", "pizza", "football", "recipe", "movie"):
@@ -374,7 +432,17 @@ class CampaignFakeLLM:
     def dice(self, c: dict[str, Any]) -> S.DiceOut:
         roll = c["roll"]
         clue = roll.get("clue")
-        if roll["result"] == "success":
+        if roll.get("skill"):
+            if roll["result"] == "success":
+                body = "Your patience pays off."
+                body += (f" You learn: {clue['title']}. {first_sentences(clue['text'], 2, 40)}" if clue
+                         else " You notice a worn path in the dust and a half-hidden mark by the door.")
+                if roll.get("used") == 20:
+                    body += " A lucky glance shows you one more small thing."
+            else:
+                body = ("It goes badly: you misjudge it, draw a suspicious look and lose a "
+                        "moment you could not spare.")
+        elif roll["result"] == "success":
             body = "Fortune favours you, and the page gives up its secret."
             if clue:
                 body += f" You find: {clue['title']}. {first_sentences(clue['text'], 2, 40)}"

@@ -467,6 +467,11 @@ def commit_turn(
             ch = db.get(Challenge, uuid.UUID(reply.challenge_id))
             if ch and ch.campaign_id == run.id and ch.state == "open" and gv.at_checkpoint(ch.checkpoint):
                 card = service.offer_roll(run, ch, hero)
+        if reply.intent == "challenge" and reply.check and not reply.challenge_id:
+            cur = db.get(Location, run.current_location_id) if run.current_location_id else None
+            ch = service.create_adhoc_challenge(db, run, pack, reply.check, cur.key if cur else "")
+            if ch is not None:
+                card = service.offer_roll(run, ch, hero)
         if loc is not None:
             granted, first = service.arrive(db, run, pack, loc)
             append_event(db, run, "move", {"location_id": str(loc.id), "key": loc.key,
@@ -681,9 +686,13 @@ def plan_narrate_roll(sid: uuid.UUID, cid: uuid.UUID, roll_id: uuid.UUID) -> Str
             ev = pack.evidence_by_id(ch.clue_id)
             clue = {"title": ev.title, "text": ev.text} if ev else {
                 "title": "A bonus lead", "text": service.BONUS_TEXT}  # fmt: skip
+        adhoc = rules.is_adhoc(ch.kind)
         roll = {
-            "title": ch.title, "result": ch.result, "alt_source": ch.alt_source, "dc": ch.dc,
-            "total": ch.total, "used": max(ch.dice) if ch.dice else None, "clue": clue,
+            "title": ch.title, "result": ch.result, "dc": ch.dc, "clue": clue,
+            "alt_source": None if adhoc else ch.alt_source,
+            "total": ch.total, "used": max(ch.dice) if ch.dice else None,
+            "skill": rules.adhoc_skill(ch.kind),
+            "stakes": ch.alt_source if adhoc else None,
         }  # fmt: skip
         ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
         db.rollback()

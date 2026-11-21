@@ -35,11 +35,28 @@ class NewLocationSpec(BaseModel):
     npc: NpcSpec
 
 
+Skill = Literal["investigation", "insight", "persuasion", "stealth", "knowledge"]
+Difficulty = Literal["easy", "medium", "hard"]
+
+
+class CheckSpec(BaseModel):
+    """An uncertain, skill-based action with no predefined challenge. The engine rolls the dice."""
+
+    skill: Skill
+    target: str = Field(description="What or who the attempt is aimed at, 2 to 8 words")
+    difficulty: Difficulty = "medium"
+    stakes: str = Field(default="", description="What success could reveal, one short phrase")
+
+
 class RouteOut(BaseModel):
     """The router's judgment of one player action. The engine validates every id."""
 
     intent: Intent
     challenge_key: str | None = Field(default=None, description="Challenge key, intent=challenge")
+    check: CheckSpec | None = Field(
+        default=None,
+        description="intent=challenge with no fitting challenge_key: an ad-hoc skill check",
+    )
     character_id: str | None = Field(default=None, description="Character id, intent=talk")
     location_key: str | None = Field(default=None, description="Location key, intent=move")
     new_location: NewLocationSpec | None = Field(

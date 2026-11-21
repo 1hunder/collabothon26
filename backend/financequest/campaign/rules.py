@@ -10,6 +10,14 @@ from financequest.campaign.pack import Enc, Pack
 DC_TABLE = {"public_report": 8, "unusual_figure": 12, "cross_check": 15, "obscure_lead": 18}
 BONUS_DC = DC_TABLE["obscure_lead"]
 DC_FALLBACK = 12
+# Ad-hoc skill checks (an uncertain, skill-based action the player attempts anywhere). The DC comes
+# from the difficulty the Master judged, through this table only, never from the model.
+SKILLS = {
+    "investigation": "Investigation", "insight": "Insight", "persuasion": "Persuasion",
+    "stealth": "Stealth", "knowledge": "Knowledge",
+}
+ADHOC_DC = {"easy": 10, "medium": 13, "hard": 15}
+ADHOC_KIND = "skill:"
 NEWS_TURNS = 6
 NEWS_MARKET_TURNS = 3
 
@@ -139,3 +147,23 @@ def parse_decision(text: str) -> tuple[str | None, int | None, str | None]:
     if portion and (amount is None or re.search(r"\bof\b", low)):  # "half of my 1000 coins"
         return action, None, portion
     return action, amount, None if amount is not None else portion
+
+
+# ---- ad-hoc skill checks ----------------------------------------------------------------------
+def is_adhoc(kind: str | None) -> bool:
+    return bool(kind) and str(kind).startswith(ADHOC_KIND)
+
+
+def adhoc_skill(kind: str | None) -> str | None:
+    """The display name of an ad-hoc check's skill, or None for a predefined encounter."""
+    return SKILLS.get(str(kind)[len(ADHOC_KIND):]) if is_adhoc(kind) else None
+
+
+def adhoc_dc(difficulty: str) -> int:
+    return ADHOC_DC.get(difficulty, ADHOC_DC["medium"])
+
+
+def adhoc_key(skill: str, target: str, location_key: str) -> str:
+    """One check per skill + target + place: the key is the identity (campaign + key is unique)."""
+    slug = "-".join(re.findall(r"[a-z0-9]+", target.lower()))[:40] or "here"
+    return f"skill-{skill}-{slug}-{location_key}"

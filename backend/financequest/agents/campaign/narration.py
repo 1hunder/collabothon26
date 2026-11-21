@@ -166,12 +166,30 @@ class AgentNarration:
                 f"A complication, but not a dead end. {roll.get('alt_source') or ''} "
                 "What would you do next?"
             ).replace("  ", " ")
+        adhoc = bool(roll.get("skill"))
+        if adhoc and roll["result"] != "success":
+            template = ("You find nothing you can use, and the attempt costs you a moment you "
+                        "cannot spare. What would you do next?")
+        elif adhoc and not clue:
+            template = "You notice a small thing worth remembering. What would you do next?"
         extra = (
             f"# Outcome of the attempt\nChallenge: {roll['title']}. Result: {roll['result']}.\n"
             + (f"Clue found: {clue['title']}: {clue['text']}\n" if clue else "")
             + (f"Alternative source for the same information: {roll.get('alt_source')}\n"
                if roll["result"] != "success" else "")
         )  # fmt: skip
+        if adhoc:
+            extra += (
+                f"This was an unplanned attempt ({roll['skill']}) aimed at {roll['title']}"
+                + (f"; success could reveal: {roll['stakes']}" if roll.get("stakes") else "")
+                + ". It is not one of the listed challenges, so there is no alternative source to "
+                "name. On success reveal ONLY the clue above"
+                + ("" if clue else " (none is left here: give one small useful detail of the "
+                   "place or person instead, never new evidence, figures or what happens next)")
+                + ("; a natural 20 earns one extra small, safe detail" if roll.get("used") == 20
+                   else "")
+                + ". On a setback tell what goes wrong and what it costs the hero, then move on.\n"
+            )
         nat1 = roll.get("used") == 1
         extra += (f"Natural 1 (a disastrous attempt): {'yes' if nat1 else 'no'}. "
                   "You may take HP on any result (a setback, or a success that costs something) "

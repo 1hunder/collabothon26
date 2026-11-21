@@ -62,6 +62,12 @@ describe('DiceMoment', () => {
     expect(screen.queryByRole('button', { name: /Keen Eye/ })).not.toBeInTheDocument();
   });
 
+  it('names the skill on an unplanned check', () => {
+    setup({ ...card, skill: 'Insight', dc: 13, title: 'Ren Tal' }, {});
+    expect(screen.getByText('Ren Tal')).toBeInTheDocument();
+    expect(screen.getByText(/Insight check · DC 13/)).toBeInTheDocument();
+  });
+
   it('success: shows the sum against the difficulty, the verdict and Continue only', async () => {
     const { onResolved } = setup(card, {});
     await userEvent.click(screen.getByRole('button', { name: 'Roll' }));

@@ -89,7 +89,7 @@ Phase transitions made by endpoints: `opening` (setup -> play); `PUT commit-draf
 |---|---|
 | `status` | `{state: "writing"}` (immediately). |
 | `token` | `{text}` (a word plus trailing whitespace; sent only after the reply passed the guards and was stored). |
-| `card` | zero or more: dice `{kind:"dice", roll_id, challenge_id, title, dc, bonus: 2, keen_eye_available, keen_eye_left}` or news `{kind:"news", headline, summary, time_skip_label, story_day, framing, framing_audio_text_id}`. |
+| `card` | zero or more: dice `{kind:"dice", roll_id, challenge_id, title, dc, bonus: 2, keen_eye_available, keen_eye_left, skill?}` or news `{kind:"news", headline, summary, time_skip_label, story_day, framing, framing_audio_text_id}`. |
 | `state` | `{can_decide, turn_count, focus_left, rerolls_left, keen_eye_left, story_day, checkpoint, news_shown, phase, current_location_id, art_ready: [location ids]}` (debrief: `{phase}` only). |
 | `done` | see below. |
 | `error` | `{code, message}`, e.g. `lost_thread`. The stream ends. |
@@ -129,7 +129,24 @@ Clients must ignore unknown `done` fields.
 
 ```
 RollResult = {roll_id, challenge_id, title, dice[], used, bonus: 2, total, dc, result: "success"|"setback",
-              final, options: ("continue"|"reroll"|"accept")[], rerolled, rerolls_left, keen_eye_left, alt_source|null}
+              final, options: ("continue"|"reroll"|"accept")[], rerolled, rerolls_left, keen_eye_left, alt_source|null, skill?}
+
+Ad-hoc skill checks. The Campaign Master (and a Master-created place's NPC, by escalation) routes any
+uncertain, skill-based action with no listed challenge to a dice check: `intent: "challenge"` and
+`check: {skill: investigation|insight|persuasion|stealth|knowledge, target, difficulty: easy|medium|hard,
+stakes}` (a listed `challenge_key` that fits always wins; trivial or certain actions are never rolled).
+The engine, not the model, validates the check, opens a `challenge` row (`kind: "skill:<skill>"`,
+`title` = the target, DC from the table: easy 10, medium 13, hard 15) and a pending roll, so the turn's
+`card` and `done.card` are the ordinary dice card plus `skill` (display name, e.g. "Insight"; absent on
+listed challenges). `title` is the target ("Ren Tal"); the client shows "Insight check · DC 13". The same
+`skill` is on `challenges[]` in `GET /campaigns/{id}` (a reload rebuilds the card) and on `RollResult`.
+Rolls, Keen Eye, Second Look, accept and `narrate-roll` behave as for listed challenges, except:
+`alt_source` is always null (there is no alternate source); a success reveals only the one real,
+unlocked, not-yet-found, non-dice-gated clue the engine picked when the check opened (a person's own
+clues first when the check is aimed at them), else a small non-evidence detail; a natural 20 may add one
+more safe detail; a setback never grants key evidence (no failure-forward) and the Master may apply
+damage through the usual `hp_change`. At most one check per skill + target + place: a repeat is narrated
+("You have already ...") with `card: null` and no new roll.
 
 CommitRequest = {action: "invest"|"dont_invest"|"wait"|"spread", amount_eur?: int (1..budget, invest|spread only),
                  evidence: string (>= 20 chars trimmed), forecast_pct: 0..100 step 5, confidence: "low"|"medium"|"high"}

@@ -38,6 +38,7 @@ from financequest.agents.campaign.guards import (
 )
 from financequest.agents.campaign.schemas import (
     AdviceCheck,
+    CheckSpec,
     ExtraChallenge,
     ExtraLocation,
     NewLocationSpec,
@@ -308,7 +309,9 @@ class TurnState(TypedDict, total=False):
 def validate_route(ctx: C.AgentContext, r: RouteOut) -> RouteOut:
     """The engine, not the model, decides which ids exist."""
     if r.intent == "challenge" and r.challenge_key in {c["key"] for c in ctx.challenges}:
-        return r
+        return RouteOut(intent="challenge", challenge_key=r.challenge_key)  # a listed one wins
+    if r.intent == "challenge" and r.check is not None:
+        return _validate_check(ctx, r)
     if r.intent == "talk" and ctx.character(r.character_id) is not None:
         return r
     if r.intent == "move" and r.location_key in {x["key"] for x in ctx.locations}:
@@ -318,6 +321,44 @@ def validate_route(ctx: C.AgentContext, r: RouteOut) -> RouteOut:
     if r.intent in ("decision_intent", "off_topic", "free"):
         return r
     return RouteOut(intent="free")
+
+
+def check_location(ctx: C.AgentContext) -> str:
+    return ctx.current["key"] if ctx.current else ""
+
+
+def check_key(ctx: C.AgentContext, check: CheckSpec) -> str:
+    return rules.adhoc_key(check.skill, check.target, check_location(ctx))
+
+
+def check_repeated(ctx: C.AgentContext, check: CheckSpec) -> bool:
+    """One ad-hoc check per skill + target + place: asking again is narrated, never rolled."""
+    return check_key(ctx, check) in {c["key"] for c in ctx.challenges}
+
+
+def _validate_check(ctx: C.AgentContext, r: RouteOut) -> RouteOut:
+    """The engine, not the model, decides whether an ad-hoc skill check is allowed: a known
+    skill, a clean target (a person must be here), and no second roll for the same attempt."""
+    spec = r.check
+    here = check_location(ctx)
+    if spec is None or spec.skill not in rules.SKILLS or not here:
+        return RouteOut(intent="free")
+    target = " ".join(spec.target.split())[:80]
+    low = target.lower()
+    for ch in ctx.content["characters"]:
+        names = [ch["name"].lower(), *(w for w in ch["name"].lower().split() if len(w) > 3)]
+        if any(n in low for n in names):
+            if ch["location"] != here:  # not here: that is a plain talk (they are elsewhere)
+                return RouteOut(intent="talk", character_id=ch["id"])
+            target = ch["name"]
+            break
+    if not target or leak_violations(target, ctx.pack.leak_terms):
+        target = "the place"
+    stakes = " ".join(spec.stakes.split())[:120]
+    if leak_violations(stakes, ctx.pack.leak_terms):
+        stakes = ""
+    clean = CheckSpec(skill=spec.skill, target=target, difficulty=spec.difficulty, stakes=stakes)
+    return RouteOut(intent="free" if check_repeated(ctx, clean) else "challenge", check=clean)
 
 
 _FALLBACK_NPC = ("Brim Ostler", "A local keeper of the place")
@@ -453,7 +494,7 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
             f"{'; '.join(ch['never'])}. Voice the character in first person.",
             set(ch["may_reveal"]),
         )
-    if r.intent == "challenge":
+    if r.intent == "challenge" and r.check is None:
         c = next(x for x in ctx.challenges if x["key"] == r.challenge_key)
         if c["state"] != "open":
             alt = c["alt_source"] or "ask around and read the documents"
@@ -466,6 +507,23 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
             f"# Intent: challenge '{c['title']}'\nNarrate only the lead-in, to 'you'; a result card "
             "follows on its own. Do not mention dice, rolling, checks or the engine, and do not "
             "reveal what you find. End with a question.",
+            set(),
+        )
+    if r.intent == "free" and r.check is not None:  # the same attempt again: narrated, not rolled
+        ck = r.check
+        return (
+            f"# Intent: the hero repeats an attempt already made here ({rules.SKILLS[ck.skill]} on "
+            f"{ck.target}). Say in the story that they have already gone over it and found all there "
+            "is to find, reveal nothing new, and suggest doing something else. Do not mention dice.",
+            set(),
+        )
+    if r.intent == "challenge" and r.check is not None:
+        ck = r.check
+        return (
+            f"# Intent: an uncertain attempt, {rules.SKILLS[ck.skill]} aimed at {ck.target}\n"
+            "Narrate only the lead-in in the story, to 'you' (what you crouch to study, how you "
+            "lean in); a result card follows on its own. Do not mention dice, rolling, checks, "
+            "skills or the engine, and do not reveal what you find. End with a question.",
             set(),
         )
     if r.intent == "off_topic":
@@ -582,8 +640,12 @@ def _validate(state: TurnState) -> dict[str, Any]:
         promised = open_challenge_here(ctx)  # a promised check always gets its dice card
         if promised is not None:
             intent, ch_key = "challenge", promised["key"]
+    check = None
+    if intent == "challenge" and r.check is not None:
+        check = {"skill": r.check.skill, "target": r.check.target,
+                 "difficulty": r.check.difficulty, "stakes": r.check.stakes}  # fmt: skip
     reply = TurnReply(
-        text=text_out, speaker=C.speaker_name(ctx, speaker), intent=intent,
+        text=text_out, speaker=C.speaker_name(ctx, speaker), intent=intent, check=check,
         challenge_id=next((c["id"] for c in ctx.challenges if c["key"] == ch_key), None)
         if intent == "challenge" else None,
         location_key=r.location_key if r.intent == "move" else None,

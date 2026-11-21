@@ -351,6 +351,7 @@ export interface ChallengeInfo {
   optional: boolean;
   result: string | null;
   location: string | null;
+  skill?: string | null;
 }
 
 export interface PendingRoll {
@@ -482,6 +483,8 @@ export interface DiceCard {
   bonus: number;
   keen_eye_available: boolean;
   keen_eye_left: number;
+  /** Set for an unplanned skill check ("Insight"); absent for a listed challenge. */
+  skill?: string | null;
 }
 
 export interface NewsCard {
