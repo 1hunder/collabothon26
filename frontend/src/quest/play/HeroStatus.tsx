@@ -18,13 +18,13 @@ export default function HeroStatus({ campaign, onOpen }: HeroStatusProps): React
       aria-label="Hero status"
       className="flex min-h-11 w-full flex-col items-start gap-0.5 pr-12 text-left font-quest-sans text-[15px] text-quest-vellum"
     >
-      <span className="font-quest text-[17px] italic">
-        <b className="not-italic">{hero.name}</b>, {className[hero.class]}
+      <span className="text-[17px]">
+        <span>{hero.name}</span>, {className[hero.class]}
       </span>
       <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
         <span className="inline-flex items-center gap-1 text-quest-gilt">
           <Heart aria-hidden="true" size={15} />
-          {campaign.hp} HP <span className="text-quest-vellum-dim">· €{campaign.hp_eur.toLocaleString('en-US')}</span>
+          {campaign.hp} HP <span>· €{campaign.hp_eur.toLocaleString('en-US')}</span>
         </span>
         <span>XP {hero.total_xp}</span>
         <span className="inline-flex items-center gap-1">

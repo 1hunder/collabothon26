@@ -69,7 +69,7 @@ export default function Debrief(): React.JSX.Element {
           patchCampaignCache(qc, id, { phase: 'reflect' });
           void navigate('/quest/reflect', { replace: true });
         }}
-        className="min-h-11 w-full rounded-md bg-quest-verdigris px-5 font-quest-sans text-lg font-bold"
+        className="min-h-11 w-full rounded-md border border-quest-gilt/70 bg-quest-lapis-deep px-5 font-quest-sans text-lg font-bold"
       >
         Reflect
       </button>

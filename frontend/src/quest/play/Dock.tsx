@@ -13,7 +13,7 @@ interface DockProps {
 }
 
 const item =
-  'flex min-h-11 w-16 flex-col items-center gap-0.5 font-quest-sans text-xs font-medium text-quest-vellum-dim disabled:opacity-40';
+  'flex min-h-11 w-16 flex-col items-center gap-0.5 rounded-lg bg-quest-soot/70 text-sm disabled:opacity-40';
 
 export default function Dock({ mapDisabled, voiceOn, buddyOpen, onMap, onJournal, onBuddy, onToggleVoice }: DockProps): React.JSX.Element {
   return (
@@ -26,7 +26,7 @@ export default function Dock({ mapDisabled, voiceOn, buddyOpen, onMap, onJournal
         <BookOpen aria-hidden="true" size={26} />
         Journal
       </button>
-      <button type="button" className={`${item} !text-quest-verdigris-light`} aria-pressed={buddyOpen} onClick={onBuddy}>
+      <button type="button" className={item} aria-pressed={buddyOpen} onClick={onBuddy}>
         <BuddyToken size={26} />
         Buddy
       </button>

@@ -43,7 +43,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
       {state.phase === 'lost' ? (
         <div role="alert" className="mx-3 rounded-lg bg-quest-lapis/95 p-4 font-quest text-quest-vellum">
           <p>CommerzBuddy lost the thread.</p>
-          <button type="button" onClick={stream.retry} className="mt-2 min-h-11 rounded-full bg-quest-gilt px-5 font-quest-sans font-bold text-quest-soot">
+          <button type="button" onClick={stream.retry} className="mt-2 min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-5 font-quest-sans font-bold text-quest-soot">
             Try again
           </button>
         </div>
@@ -87,7 +87,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
           <button
             type="submit"
             disabled={empty || busy}
-            className="min-h-11 flex-1 rounded-full bg-quest-verdigris-light px-4 font-quest-sans font-bold text-quest-soot disabled:opacity-40"
+            className="min-h-11 flex-1 rounded-full border border-quest-gilt bg-quest-lapis-deep px-4 font-quest-sans font-bold text-quest-soot disabled:opacity-40"
           >
             Ask
           </button>

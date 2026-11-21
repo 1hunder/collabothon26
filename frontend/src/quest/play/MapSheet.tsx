@@ -23,12 +23,12 @@ export default function MapSheet({ locations, currentId, disabled, onMove, onClo
                 disabled={disabled || here}
                 aria-current={here ? 'location' : undefined}
                 onClick={() => onMove(l)}
-                className={`flex min-h-11 w-full items-center justify-between rounded-lg border bg-[#efe6d1] px-3 py-2.5 text-left font-quest text-[17px] font-medium text-quest-soot disabled:opacity-70 ${
+                className={`flex min-h-11 w-full items-center justify-between rounded-lg border bg-quest-lapis-deep px-3 py-2.5 text-left font-quest text-[17px] font-medium text-quest-soot disabled:opacity-70 ${
                   here ? 'border-quest-lapis shadow-[inset_3px_0_0_#22305B]' : 'border-[#c9bb98]'
                 }`}
               >
                 <span>{l.name}</span>
-                <small className="font-quest-sans text-sm text-[#6d6350]">
+                <small className="font-quest-sans text-sm text-quest-vellum-dim">
                   {here ? 'you are here' : l.fixed ? '' : 'this tale only'}
                   {here && !l.fixed ? ' · this tale only' : ''}
                 </small>

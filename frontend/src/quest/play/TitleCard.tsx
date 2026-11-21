@@ -29,8 +29,8 @@ export default function TitleCard({ title, subtitle, onDone }: TitleCardProps): 
       className="absolute inset-0 z-[25] grid place-items-center bg-quest-soot/50 text-center"
     >
       <span>
-        <span className="block font-quest-title text-6xl leading-none text-quest-vellum [text-shadow:0_2px_20px_rgba(0,0,0,0.8)]">{title}</span>
-        {subtitle ? <span className="mt-2.5 block font-quest text-lg italic text-quest-vellum-dim">{subtitle}</span> : null}
+        <span className="block font-quest-title text-6xl leading-none text-quest-gilt [text-shadow:0_2px_20px_rgba(0,0,0,0.8)]">{title}</span>
+        {subtitle ? <span className="mt-2.5 block text-lg">{subtitle}</span> : null}
         <span className="mx-auto mt-4 block h-px w-[120px] bg-gradient-to-r from-transparent via-quest-gilt to-transparent" />
       </span>
     </button>

@@ -141,7 +141,7 @@ export default function HeroCreate({ chooseClass = false }: { chooseClass?: bool
       <button
         type="submit"
         disabled={!canBegin}
-        className="min-h-11 w-full rounded-md bg-quest-verdigris px-5 font-quest-sans text-lg font-bold text-quest-vellum disabled:opacity-40"
+        className="min-h-11 w-full rounded-md border border-quest-gilt/70 bg-quest-lapis-deep px-5 font-quest-sans text-lg font-bold text-quest-vellum disabled:opacity-40"
       >
         {savedHero ? 'Continue' : 'Begin'}
       </button>

@@ -63,7 +63,7 @@ export default function JournalSheet({ campaignId, onBacklog, onClose }: Journal
   });
   return (
     <Sheet title="Journal" subtitle="In the order it happened" onClose={onClose}>
-      <button type="button" onClick={onBacklog} className="mb-3 min-h-11 rounded-full border border-quest-lapis px-4 font-quest-sans text-quest-lapis">
+      <button type="button" onClick={onBacklog} className="mb-3 min-h-11 rounded-full bg-quest-lapis-deep px-4">
         Open the backlog
       </button>
       {journal.isPending ? <p role="status" className="font-quest">Loading…</p> : null}
