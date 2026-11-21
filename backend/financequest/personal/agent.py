@@ -18,6 +18,7 @@ sample reference pack, and the default fake guessers never recognise anything.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 import time
@@ -65,6 +66,8 @@ FANTASY_NOTE = (
 )
 
 Progress = Callable[[str, dict[str, Any]], None]
+
+_log = logging.getLogger(__name__)
 
 
 class QuestState(TypedDict, total=False):
@@ -267,8 +270,10 @@ def build_quest_graph(
         convo: list[Any] = [("system", MANIFEST_SYSTEM), ("human", human)]
         errors: list[str] = []
         for _ in range(MANIFEST_REPAIRS + 1):
-            raw = model.with_structured_output(CampaignManifest).invoke(convo)
             try:
+                # The structured-output parser itself raises on an invalid value (e.g. a figure
+                # written as "low 30s"), so the call belongs inside the repair loop.
+                raw = model.with_structured_output(CampaignManifest).invoke(convo)
                 m = raw if isinstance(raw, CampaignManifest) else CampaignManifest.model_validate(raw)  # noqa: E501
             except Exception as exc:  # noqa: BLE001 - schema problems are repaired below
                 errors = [f"schema: {exc}"[:2000]]
@@ -293,6 +298,8 @@ def build_quest_graph(
                 pack_dir, s, status="checking", n_guessers=len(PERSONAS)
             )
         if not res.ok:
+            _log.info("quest %s attempt %s: final scan failed %s", pack_id,
+                      state.get("attempt", 1), list(res.reasons)[:5])  # fmt: skip
             return {"scenario_id": res.scenario_id, "reasons": res.reasons, "outcome": "scan"}
         return {"scenario_id": res.scenario_id, "reasons": [], "outcome": "checking"}
 
@@ -377,6 +384,11 @@ def build_quest_graph(
             "reasons": list(verdict.reasons),
             "guesses": [[g.company for g in r.top3] for r in reports],
         })  # fmt: skip
+        _log.info(
+            "quest %s attempt %s: %s %s; top guesses %s",
+            pack_id, n, verdict.status, list(verdict.reasons),
+            [[g.company for g in r.top3][:1] for r in reports],
+        )
         if verdict.passed:
             return {"outcome": "approved", "log": log}
         if verdict.status == "error":
