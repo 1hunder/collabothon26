@@ -164,15 +164,11 @@ test.describe('spec 003 user flows', () => {
     await expect(page.getByRole('button', { name: 'Voice', exact: true })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  test('2.17-AC2/AC3 hint and bonus lead each cost one Focus', tag, async ({ page }) => {
+  test('2.17-AC2 the play screen offers no hint and no bonus lead', tag, async ({ page }) => {
     await newHero(page, /Guardian/);
     await readUntilChoices(page);
-    await page.getByRole('button', { name: 'Ask for a hint' }).click();
-    await readUntilChoices(page);
-    await expect(page.getByRole('button', { name: 'Hero status' })).toContainText('Focus: 2');
-    await page.getByRole('button', { name: 'Chase a bonus lead' }).click();
-    await expect(dice(page)).toContainText('Difficulty 18');
-    await expect(page.getByRole('button', { name: 'Hero status' })).toContainText('Focus: 1');
+    await expect(page.getByRole('button', { name: 'Ask for a hint' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Chase a bonus lead' })).toHaveCount(0);
   });
 
   test('2.7-AC1b Buddy is reachable from the commit screen', tag, async ({ page }) => {

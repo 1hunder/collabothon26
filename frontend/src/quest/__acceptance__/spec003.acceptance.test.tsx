@@ -1342,28 +1342,12 @@ describe('2.17 Focus and items', () => {
     setupPlay('guardian');
     expect(await screen.findByText('Focus: 3')).toBeInTheDocument();
   });
-  it('2.17-AC2 "Ask for a hint" names where a clue waits and the status shows one Focus less', async () => {
+  it('2.17-AC2 the play screen offers no "Ask for a hint" and no "Chase a bonus lead"', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Ask for a hint'));
-    await readToChoices(user);
-    expect(screen.getByText('Focus: 2')).toBeInTheDocument();
-    expect(readDb().play?.events.find((e) => e.type === 'dm_reply' && String(e.text).includes('Library'))).toBeTruthy();
-  });
-  it('2.17-AC3 "Chase a bonus lead" opens a difficulty 18 check and the status shows one Focus less', async () => {
-    const user = userEvent.setup();
-    setupPlay('analyst');
-    await enterTavern(user);
-    await user.click(choiceButton('Chase a bonus lead'));
-    const dice = await screen.findByRole('dialog', { name: 'Dice check' });
-    expect(within(dice).getByText(/Difficulty 18/)).toBeInTheDocument();
-    expect(screen.getByText('Focus: 2')).toBeInTheDocument();
-  });
-  it('2.17-AC4 with 0 Focus both Focus buttons are disabled', () => {
-    render(<ChoiceList canDecide={false} focusLeft={0} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Ask for a hint' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Chase a bonus lead' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Ask for a hint' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chase a bonus lead' })).not.toBeInTheDocument();
   });
   it('2.17-AC5 finishing with 70 XP or more lists the "Ratio Lens" on the hero screen with its description', async () => {
     seedCampaign({ phase: 'xp', heroClass: 'analyst', decision: investDecision });
@@ -1424,8 +1408,8 @@ describe('2.18 Look and feel', () => {
     expect(fonts['quest-title']?.[0]).toBe('Pirata One');
     render(<DialogueBox speaker="Campaign Master" text="Hello there." onAdvance={() => undefined} />);
     expect(screen.getByTestId('dialogue-text').className).toMatch(/font-quest\b/);
-    render(<ChoiceList canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Ask for a hint' }).className).toMatch(/font-quest-sans/);
+    render(<ChoiceList canDecide={false} onSend={vi.fn()} onDecide={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Send' }).className).toMatch(/font-quest-sans/);
   });
   it('2.18-AC3 the die tumbles for about one second before the result is shown', () => {
     expect(TUMBLE_MS).toBeGreaterThanOrEqual(800);

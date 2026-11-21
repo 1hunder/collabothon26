@@ -6,12 +6,8 @@ import ChoiceList, { ActionInput, type ChoiceListProps } from './ChoiceList';
 function setup(over: Partial<ChoiceListProps> = {}) {
   const props: ChoiceListProps = {
     canDecide: false,
-    focusLeft: 3,
-    bonusLeadAvailable: true,
     onSend: vi.fn(),
     onDecide: vi.fn(),
-    onHint: vi.fn(),
-    onBonusLead: vi.fn(),
     ...over,
   };
   render(<ChoiceList {...props} />);
@@ -48,7 +44,7 @@ describe('ChoiceList', () => {
 
   it("shows I'm ready to decide only when the server says the player can decide", async () => {
     const { unmount } = render(
-      <ChoiceList canDecide={false} focusLeft={3} bonusLeadAvailable onSend={vi.fn()} onDecide={vi.fn()} onHint={vi.fn()} onBonusLead={vi.fn()} />,
+      <ChoiceList canDecide={false} onSend={vi.fn()} onDecide={vi.fn()} />,
     );
     expect(screen.queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
     unmount();
@@ -58,18 +54,10 @@ describe('ChoiceList', () => {
     expect(onDecide).toHaveBeenCalled();
   });
 
-  it('disables both Focus actions at 0 Focus', () => {
-    setup({ focusLeft: 0 });
-    expect(screen.getByRole('button', { name: 'Ask for a hint' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Chase a bonus lead' })).toBeDisabled();
-  });
-
-  it('enables the Focus actions with Focus left', async () => {
-    const p = setup();
-    await userEvent.click(screen.getByRole('button', { name: 'Ask for a hint' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Chase a bonus lead' }));
-    expect(p.onHint).toHaveBeenCalled();
-    expect(p.onBonusLead).toHaveBeenCalled();
+  it('offers no "Ask for a hint" and no "Chase a bonus lead"', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: 'Ask for a hint' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chase a bonus lead' })).not.toBeInTheDocument();
   });
 });
 

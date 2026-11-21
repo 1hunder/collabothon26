@@ -9,14 +9,10 @@ export interface ChoiceListProps {
   purse?: Purse;
   /** Show "I'm ready to decide". */
   canDecide: boolean;
-  focusLeft: number;
-  bonusLeadAvailable: boolean;
   /** Freeze every button while a request is in flight. */
   busy?: boolean;
   onSend: (text: string) => void;
   onDecide: () => void;
-  onHint: () => void;
-  onBonusLead: () => void;
 }
 
 const buttonBase =
@@ -27,13 +23,9 @@ export default function ChoiceList({
   prompt = 'What would you do?',
   purse,
   canDecide,
-  focusLeft,
-  bonusLeadAvailable,
   busy = false,
   onSend,
   onDecide,
-  onHint,
-  onBonusLead,
 }: ChoiceListProps): React.JSX.Element {
   return (
     <section aria-label="Your turn" className="mx-3 flex flex-col gap-2">
@@ -49,24 +41,6 @@ export default function ChoiceList({
           I&apos;m ready to decide
         </button>
       ) : null}
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          disabled={busy || focusLeft <= 0}
-          onClick={onHint}
-          className="min-h-11 flex-1 rounded-full border border-quest-gilt/50 px-3 font-quest-sans text-sm text-quest-gilt disabled:opacity-40"
-        >
-          Ask for a hint
-        </button>
-        <button
-          type="button"
-          disabled={busy || focusLeft <= 0 || !bonusLeadAvailable}
-          onClick={onBonusLead}
-          className="min-h-11 flex-1 rounded-full border border-quest-gilt/50 px-3 font-quest-sans text-sm text-quest-gilt disabled:opacity-40"
-        >
-          Chase a bonus lead
-        </button>
-      </div>
     </section>
   );
 }
