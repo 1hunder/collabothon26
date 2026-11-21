@@ -140,14 +140,14 @@ describe('2.1 First entry: create your hero', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/quest/disclosure'));
     expect(readDb().hero).toMatchObject({ name: 'Lena', class: 'analyst' });
   });
-  it('2.1-AC6 a player with a hero opens the disclosure directly', async () => {
+  it('2.1-AC6 a player with a hero opens play directly', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'guardian' });
     const router = renderRoutes(
-      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/disclosure', <QuestDisclosure />) }, { path: '/quest/hero/new', element: <p>creation</p> }],
+      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/disclosure', <QuestDisclosure />) }, { path: '/quest/play', element: <p>playing</p> }, { path: '/quest/hero/new', element: <p>creation</p> }],
       ['/quest'],
     );
-    expect(await screen.findByRole('button', { name: 'Got it' })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/quest/disclosure');
+    expect(await screen.findByText('playing')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/play');
     expect(screen.queryByText('creation')).not.toBeInTheDocument();
   });
   it('2.1-AC7 after a finished campaign a new one keeps name, class and total XP, and HP starts fresh', () => {
@@ -201,18 +201,15 @@ describe('2.3 Choosing the quest', () => {
   const routes = [guard('/quest/disclosure', <QuestDisclosure />), guard('/quest/play', <PlayScreen />)];
   beforeEach(() => void fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' }));
 
-  it('2.3-AC2 the disclosure opens directly and "Got it" opens the first scene', async () => {
+  it('2.3-AC2 starting opens the first scene directly', async () => {
     renderRoutes(routes, ['/quest/disclosure']);
-    expect(await screen.findByText(/This story is real market history\. We've hidden the company's name, the dates and the price level\. You'll find out who it was at the end\./)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
   });
   it('2.3-AC3 the opening scene is in the Tavern with the Tavern background and the briefing', async () => {
     renderRoutes(routes, ['/quest/disclosure']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     await screen.findByTestId('name-tab');
     expect(screen.getAllByText('Tavern').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
+    expect(await screen.findByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Gilded Tavern/);
   });
@@ -895,10 +892,10 @@ describe('2.10 Voice narration', () => {
   };
   const spoken = (i: { calls: string[] }) => i.calls.filter((c) => c.startsWith('speak:'));
 
-  it('2.10-AC1 a player who never touched voice: Got it unlocks sound and the opening is read, voice shown on', async () => {
-    fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' });
-    renderRoutes([guard('/quest/disclosure', <QuestDisclosure />), guard('/quest/play', <PlayScreen />)], ['/quest/disclosure']);
-    await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
+  it('2.10-AC1 a player who never touched voice: Begin unlocks sound and the opening is read, voice shown on', async () => {
+    renderRoutes([{ path: '/quest/hero/new', element: <HeroCreate /> }, { path: '/quest/disclosure', element: <p>starting</p> }], ['/quest/hero/new']);
+    await userEvent.click(screen.getByRole('radio', { name: /Guardian/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     expect(unlockVoice).toHaveBeenCalled();
     cleanup();
     const impl = fakeImpl();

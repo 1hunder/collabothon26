@@ -1,10 +1,14 @@
 import { useRef, useState } from 'react';
 import { Dices, MoveHorizontal } from 'lucide-react';
+import shieldArt from '../../assets/01_shield_original.png';
+import mapArt from '../../assets/02_map_original.png';
+import booksArt from '../../assets/03_books_dice_original.png';
 import './HeroCreate.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useChooseHeroClass, useCreateHero, useHero } from '../../api/campaign';
 import { ApiError } from '../../api/client';
 import type { HeroClass } from '../../api/types';
+import { unlockVoice } from '../../voice';
 import { NAME_MAX, validateName, type NameError } from '../lib/heroName';
 import type { QuestEntryState } from '../setupNavigation';
 
@@ -16,6 +20,7 @@ const nameMessages: Record<NonNullable<NameError>, string> = {
 interface ClassCard {
   id: HeroClass;
   name: string;
+  art: string;
   tagline: string;
   advantage: string;
 }
@@ -23,18 +28,21 @@ interface ClassCard {
 const classes: readonly ClassCard[] = [
   {
     id: 'analyst',
+    art: booksArt,
     name: 'The Analyst',
     tagline: 'Always takes a second look',
     advantage: 'Second Look — reroll one failed dice check per campaign',
   },
   {
     id: 'guardian',
+    art: shieldArt,
     name: 'The Guardian',
     tagline: 'Keeps a safety cushion',
     advantage: 'Safety Cushion — start each campaign with 120 HP (€1,200)',
   },
   {
     id: 'investigator',
+    art: mapArt,
     name: 'The Investigator',
     tagline: 'Has a keen eye for clues',
     advantage: 'Keen Eye — roll one dice check per campaign with advantage',
@@ -89,7 +97,7 @@ function ClassCarousel({ selected, disabled, onSelect }: {
           <button key={card.id} type="button" role="radio" aria-checked={selected === card.id}
             className="class-card" data-position={index === current ? 'center' : index === adjacent(1) ? 'right' : 'left'}
             tabIndex={index === current ? 0 : -1} disabled={disabled} onClick={() => onSelect(card.id)}>
-            <span aria-hidden="true" className="class-art" />
+            <img src={card.art} alt="" draggable={false} className="class-art" />
             <span className="class-title">{card.name}</span>
             <span aria-hidden="true" className="class-rule">✦</span>
             <span className="class-tagline">{card.tagline}</span>
@@ -129,6 +137,7 @@ export default function HeroCreate({ chooseClass = false }: { chooseClass?: bool
   const canBegin = Boolean(selectedClass) && (savedHero ? !pending : nameError === null && !pending);
 
   const begin = async (): Promise<void> => {
+    unlockVoice();
     if (reviewOnly) {
       continueToDisclosure();
       return;

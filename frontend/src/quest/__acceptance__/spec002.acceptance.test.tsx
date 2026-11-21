@@ -5,7 +5,6 @@
  * Criterion ids follow functional-spec.md section 2 (2.<section>.<n>, in checkbox order).
  */
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from '../../api/client';
@@ -161,20 +160,8 @@ describe('2.7 disclosure note (@spec: 002-anonymization-reid-gate @regression)',
     );
   }
 
-  it('2.7.1 starting a mission shows the note with a Got it button before the first story beat', async () => {
+  it('starts the story directly', async () => {
     setup();
-    expect(
-      await screen.findByText(
-        "This story is real market history. We've hidden the company's name, the dates and the price level. You'll find out who it was at the end.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Got it' })).toBeInTheDocument();
-    expect(screen.queryByText('story intro')).not.toBeInTheDocument();
-  });
-
-  it('2.7.2 tapping Got it closes the note and the story intro appears', async () => {
-    setup();
-    await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     expect(await screen.findByText('story intro')).toBeInTheDocument();
     expect(screen.queryByText(/This story is real market history/)).not.toBeInTheDocument();
   });

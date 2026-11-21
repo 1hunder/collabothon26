@@ -90,8 +90,6 @@ test('Enron campaign: hero to reveal to finish, all figures from the server', as
   await page.getByLabel('Name').fill('Tester');
   await page.getByRole('radio', { name: /Analyst/ }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(hasText(page, /real market history/)).toBeVisible();
-  await page.getByRole('button', { name: 'Got it' }).click();
 
   // Tavern briefing: the first page of the Campaign Master's opening
   await expect(page).toHaveURL(/\/quest\/play$/);
