@@ -36,6 +36,7 @@ from financequest.agents.campaign.guards import (
     advice_prefilter,
     implies_check,
     leak_violations,
+    whole_numbers,
 )
 from financequest.agents.campaign.schemas import (
     AdviceCheck,
@@ -156,7 +157,9 @@ def _generate_once(state: GState) -> dict[str, Any]:
     if parsed is None:
         return {"attempt": attempt + 1, "out": None, "refused": False,
                 "violations": ["the answer was not valid for the required schema"]}  # fmt: skip
-    return {"attempt": attempt + 1, "out": parsed, "refused": False, "violations": []}
+    # The player sees whole numbers only, even when a clue gives "6.7" and the model copies it.
+    return {"attempt": attempt + 1, "out": whole_numbers(parsed), "refused": False,
+            "violations": []}  # fmt: skip
 
 
 def classify_advice(spec: GuardedSpec, text: str) -> AdviceCheck | None:

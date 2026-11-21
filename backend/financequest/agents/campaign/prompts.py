@@ -25,7 +25,10 @@ Hard rules, never broken:
 - Never write field names, ids, keys, code or snake_case words (such as change_pct, first_close,
   hp_eur, story_day or evidence ids like F-CEO-RESIGN-001). Describe every figure in plain words
   ("the price fell about 6 percent over the period shown") and name evidence by its title.
-- Round every number to a whole number (42, never 41.7), and write it that way.
+- Write every number as a whole number, with no digits after a decimal point: 42, never 41.7.
+  Figures in the facts, clues and documents often have decimals ("earnings of 6.7", a close of
+  3188.139); round them half up when you quote them ("earnings of about 7", "a close of 3188").
+  This holds for amounts, prices, percentages and days alike.
 - Plain, warm language for a first-time learner. English."""
 
 CAMPAIGN_MASTER = (
@@ -259,7 +262,8 @@ SUMMARY = """\
 Summarise the story so far for the Campaign Master's memory in at most 120 words, in plain
 sentences: where the hero has been, which clues were found (by title), what the hero said they
 think, and what remains open. Facts only from the reference data and the exchanges; no figures
-unless they appear in the data; no advice, no predictions."""
+unless they appear in the data, each written as a whole number (6.7 becomes 7); no advice, no
+predictions."""
 
 SETUP = (
     """\
@@ -319,7 +323,8 @@ consistent with the written reasoning and the stated confidence), never "no expl
 when a percentage is given.
 The player's stated reasoning for each decision is also given ("Reasoning given"): quote it when it
 supports an Evidence, Forecast or Reflection score, and score a decision with no stated reasoning
-only on what the player did write elsewhere."""
+only on what the player did write elsewhere.
+In a rationale, write every number as a whole number (62, never 62.5); quotes stay exact."""
 
 ADVICE = """\
 Classify the text for a financial-literacy game. Output three booleans:

@@ -35,8 +35,10 @@ def test_ident_guard_rejects_identifiers(bad: str) -> None:
 
 @pytest.mark.parametrize(
     "fine",
-    ["The price fell about 6 percent over the period shown. What do you make of it?",
-     "E-mail the broker; the T-shirt stall is closed, said McDonald."],
+    [
+        "The price fell about 6 percent over the period shown. What do you make of it?",
+        "E-mail the broker; the T-shirt stall is closed, said McDonald.",
+    ],
 )
 def test_ident_guard_allows_plain_words(fine: str) -> None:
     assert G.ident_violations(fine) == []
@@ -106,3 +108,47 @@ def test_scripted_buddy_board_text_is_whole(world: SimpleNamespace) -> None:  # 
     assert ctx.screen and ctx.screen["summary"]
     s: dict[str, Any] = ctx.screen["summary"]
     assert re.fullmatch(r"-?\d+", s["first_close"]) and re.fullmatch(r"-?\d+", s["change_pct"])
+
+
+@pytest.mark.parametrize(
+    ("text", "want"),
+    [
+        ("Earnings were 6.7, of which 6 recurring.", "Earnings were 7, of which 6 recurring."),
+        ("A close of 3188.139 on day 0.", "A close of 3188 on day 0."),
+        ("The guild held 6.9.", "The guild held 7."),
+        ("Halves round up: 2.5 and 1,234.5 gp.", "Halves round up: 3 and 1,235 gp."),
+        (
+            "Keys and dates stay: F-1.2, v2.0, 2001.05.12.",
+            "Keys and dates stay: F-1.2, v2.0, 2001.05.12.",
+        ),
+        ("No decimals here: 1,000 gold pieces.", "No decimals here: 1,000 gold pieces."),
+    ],
+)
+def test_round_decimals(text: str, want: str) -> None:
+    assert G.round_decimals(text) == want
+
+
+def test_agent_output_is_rounded_but_quotes_and_keys_stay_exact() -> None:
+    turn = S.TurnOut(text="Earnings of 6.7 beside a drain of 11.4. What now?", hp_reason="lost 2.5")
+    out = G.whole_numbers(turn)
+    assert out.text == "Earnings of 7 beside a drain of 11. What now?"
+    assert out.hp_reason == "lost 3"
+    xp = S.XpOut.model_validate(
+        {
+            "scores": [
+                {
+                    "category": "Evidence",
+                    "score": 3,
+                    "rationale": "You cited 6.7.",
+                    "quote": "earnings of 6.7",
+                }
+            ]
+        }  # fmt: skip
+    )
+    got = G.whole_numbers(xp).scores[0]
+    assert (got.rationale, got.quote) == ("You cited 7.", "earnings of 6.7")
+
+
+def test_rounded_figures_pass_the_number_guard() -> None:
+    allowed = G.build_allowlist(["earnings of 6.7, a loss of 2.5"], [])
+    assert G.number_violations(G.round_decimals("earnings of 6.7, a loss of 2.5"), allowed) == []

@@ -33,6 +33,11 @@ export interface DialogueBoxProps {
   audioTextId?: number | string | null;
   /** Swipe down on the box opens the backlog. */
   onSwipeDown?: () => void;
+  /**
+   * Coming back to a reply already read ("Read again"): open on its last page, show every page
+   * at once and stay silent.
+   */
+  revisit?: boolean;
 }
 
 const SWIPE_PX = 40;
@@ -49,12 +54,15 @@ export default function DialogueBox({
   onPageShown,
   audioTextId = null,
   onSwipeDown,
+  revisit = false,
 }: DialogueBoxProps): React.JSX.Element {
   const pages = useMemo(() => splitPages(text), [text]);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => (revisit ? Math.max(0, pages.length - 1) : 0));
+  // The furthest page reached: a page read before shows at once when the player goes back to it.
+  const [reached, setReached] = useState(index);
   const last = index >= pages.length - 1;
   const page = pages[Math.min(index, pages.length - 1)] ?? '';
-  const { shown, complete } = useTypewriter(page.length, String(index), instant);
+  const { shown, complete } = useTypewriter(page.length, String(index), instant || revisit || index < reached);
   const done = shown >= page.length && page.length > 0;
   const canAdvance = done && (!last || final);
   const isBuddy = speaker === BUDDY_NAME;
@@ -65,7 +73,7 @@ export default function DialogueBox({
   useEffect(() => {
     // Nothing is spoken while the reply is still arriving: the finished reply brings its server
     // audio id, and a page already spoken by the browser voice would block that audio.
-    if (!final || !pageReady || page === '') return;
+    if (revisit || !final || !pageReady || page === '') return;
     // Server audio covers the whole reply: start it once with page one and let it run across pages.
     if (final && audioTextId != null) {
       if (spoken.current >= 0) return;
@@ -76,12 +84,19 @@ export default function DialogueBox({
     if (spoken.current === index) return;
     spoken.current = index;
     onPageShown?.(page, voice, null);
-  }, [index, page, pages, pageReady, voice, onPageShown, final, audioTextId]);
+  }, [index, page, pages, pageReady, voice, onPageShown, final, audioTextId, revisit]);
 
+  const goTo = (i: number): void => {
+    setIndex(i);
+    setReached((r) => Math.max(r, i));
+  };
   const tap = (): void => {
     if (!done) complete();
-    else if (!last) setIndex(index + 1);
+    else if (!last) goTo(index + 1);
     else if (final) onAdvance();
+  };
+  const back = (): void => {
+    if (index > 0) goTo(index - 1);
   };
 
   const touchY = useRef<number | null>(null);
@@ -102,9 +117,12 @@ export default function DialogueBox({
       data-testid="dialogue-box"
       onClick={tap}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
           e.preventDefault();
           tap();
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          back();
         }
       }}
       onTouchStart={(e) => {
@@ -130,8 +148,26 @@ export default function DialogueBox({
         {done && pageReady ? page : ''}
       </p>
       {pages.length > 1 ? (
-        <span className="absolute bottom-3 left-5 font-quest-sans text-[13px] text-quest-vellum-dim">
-          {index + 1} / {pages.length}
+        <span className="absolute bottom-1.5 left-3 flex items-center gap-1 font-quest-sans text-[13px] text-quest-vellum-dim">
+          {index > 0 ? (
+            <button
+              type="button"
+              aria-label="Previous page"
+              onClick={(e) => {
+                e.stopPropagation(); // a tap on the box itself goes forward
+                back();
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+              className="flex h-8 min-w-8 items-center justify-center rounded-full text-quest-gilt hover:bg-quest-gilt/15"
+            >
+              ◀
+            </button>
+          ) : (
+            <span aria-hidden="true" className="min-w-2" />
+          )}
+          <span>
+            {index + 1} / {pages.length}
+          </span>
         </span>
       ) : null}
       {canAdvance ? (
