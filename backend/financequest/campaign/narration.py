@@ -43,7 +43,7 @@ class TurnReply:
 class DecisionReply:
     """The player's answer in a decision scene, read by the agent layer; the engine executes it."""
 
-    kind: str  # decision / question
+    kind: str  # decision / question / other (not about the scene: run a normal turn)
     action: str | None  # buy / sell / hold
     amount_eur: int | None
     portion: str | None  # all / most / half / some

@@ -94,6 +94,26 @@ _NPC_NAMES = ("Brann Ostrel", "Mirela Vance", "Tolek Harrowind", "Sivra Dunmere"
 _STOP = {"the", "a", "an", "to", "at", "of", "my", "our", "their", "that", "this", "old", "big"}
 
 
+def listed_place(ctx: C.AgentContext, low: str) -> str | None:
+    """The key of a listed place the (lowercased) text names: by name word, key or synonym."""
+    words = set(re.findall(r"[a-z']+", low))
+    for loc in ctx.locations:
+        name_words = {w for w in re.findall(r"[a-z]+", loc["name"].lower()) if len(w) > 3}
+        if name_words & words or loc["key"].replace("_", " ") in low:
+            return str(loc["key"])
+    have = {x["key"] for x in ctx.locations}
+    for key, syns in _SYNONYMS.items():
+        if key in have and any(re.search(rf"\b{re.escape(w)}\b", low) for w in syns):
+            return key
+    return None
+
+
+def names_travel(ctx: C.AgentContext, text: str) -> bool:
+    """Deterministic: the text uses a travel phrase and names a place the hero can go to."""
+    low = text.lower()
+    return _has(low, *_MOVE_PHRASES) and listed_place(ctx, low) is not None
+
+
 def _place_spec(text: str) -> dict[str, Any] | None:
     words = re.findall(r"[A-Za-z']+", text)
     for i, w in enumerate(words):
@@ -176,14 +196,9 @@ class CampaignFakeLLM:
 
     def _move_target(self, ctx: C.AgentContext, low: str, words: set[str]) -> S.RouteOut | None:
         """A listed place by its name, its key or a synonym; else a new place the story needs."""
-        for loc in ctx.locations:
-            name_words = {w for w in re.findall(r"[a-z]+", loc["name"].lower()) if len(w) > 3}
-            if name_words & words or loc["key"].replace("_", " ") in low:
-                return S.RouteOut(intent="move", location_key=loc["key"])
-        have = {x["key"] for x in ctx.locations}
-        for key, syns in _SYNONYMS.items():
-            if key in have and any(re.search(rf"\b{re.escape(w)}\b", low) for w in syns):
-                return S.RouteOut(intent="move", location_key=key)
+        key = listed_place(ctx, low)
+        if key is not None:
+            return S.RouteOut(intent="move", location_key=key)
         spec = _place_spec(low)
         if spec is not None:
             return S.RouteOut(intent="new_location", new_location=S.NewLocationSpec(**spec))
@@ -405,6 +420,9 @@ class CampaignFakeLLM:
         action, amount, portion = rules.parse_decision(text)
         from financequest.agents.campaign.narration import decision_suggestions
 
+        low = text.lower()
+        if action is None and _has(low, *_MOVE_PHRASES, "explore", "look around", "talk to", "speak to"):
+            return S.DecideOut(kind="other")
         if action is None:
             return S.DecideOut(
                 kind="question", suggestions=decision_suggestions(ctx),

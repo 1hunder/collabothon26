@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from financequest.agents.campaign import context as C
 from financequest.agents.campaign import graphs
+from financequest.agents.campaign.fake import names_travel
 from financequest.api.errors import ApiError
 from financequest.campaign import clock, focus, rules, service
 from financequest.campaign.events import append_event, find_by_msg_id
@@ -265,23 +266,66 @@ def plan_action(
         db.commit()
         ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
     if in_scene:  # the player answers the decision scene: read it, execute it, react
-        return StreamPlan(
-            cid, work=lambda: nar.decide(ctx, text),
-            commit=lambda reply: commit_decision(sid, cid, text, reply, msg=msg),
-            deadline_s=TURN_BUDGET_S,
-        )
+        return _plan_scene_answer(sid, cid, text, ctx, msg, nar)
+    return _plan_normal_turn(sid, cid, text, ctx, msg, nar)
+
+
+def _normal_turn_work(nar: Narration, ctx: C.AgentContext, text: str) -> TurnReply:
+    if ctx.scene is not None:  # the scene is being passed: the turn must not treat it as open
+        ctx.scene = None
+    ctx.with_deadline(TURN_BUDGET_S)
     if ctx.npc_here is not None:  # a Master-created place: its NPC answers, or hands over
-        ctx.with_deadline(NPC_BUDGET_S)
-        return StreamPlan(
-            cid, work=lambda: nar.npc_turn(ctx, text),
-            commit=lambda reply: commit_turn(sid, cid, reply, msg=msg, nar=nar),
-            after=lambda _: maybe_summarize(sid, cid, nar), deadline_s=NPC_BUDGET_S,
-        )  # fmt: skip
+        return nar.npc_turn(ctx.with_deadline(NPC_BUDGET_S), text)
+    return nar.turn(ctx, text)
+
+
+def _plan_normal_turn(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
+) -> StreamPlan:
     return StreamPlan(
-        cid, work=lambda: nar.turn(ctx, text),
+        cid, work=lambda: _normal_turn_work(nar, ctx, text),
         commit=lambda reply: commit_turn(sid, cid, reply, msg=msg, nar=nar),
-        after=lambda _: maybe_summarize(sid, cid, nar), deadline_s=TURN_BUDGET_S,
+        after=lambda _: maybe_summarize(sid, cid, nar),
+        deadline_s=NPC_BUDGET_S if ctx.npc_here is not None else TURN_BUDGET_S,
     )  # fmt: skip
+
+
+def _plan_scene_answer(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
+) -> StreamPlan:
+    """An answer in an open decision scene is a decision, a question about the trade, or something
+    else entirely (travel, talk, explore): that last one passes the scene and runs a normal turn."""
+
+    def work() -> DecisionReply | TurnReply:
+        if not rules.parse_decision(text)[0] and names_travel(ctx, text):  # no LLM call needed
+            return _normal_turn_work(nar, ctx, text)
+        reply = nar.decide(ctx, text)
+        return _normal_turn_work(nar, ctx, text) if reply.kind == "other" else reply
+
+    def commit(reply: DecisionReply | TurnReply) -> Streamed:
+        if isinstance(reply, DecisionReply):
+            return commit_decision(sid, cid, text, reply, msg=msg)
+        pass_scene(sid, cid, text, msg=msg)
+        return commit_turn(sid, cid, reply, msg=msg, nar=nar)
+
+    return StreamPlan(
+        cid, work=work, commit=commit, deadline_s=TURN_BUDGET_S + NPC_BUDGET_S,
+        after=lambda _: maybe_summarize(sid, cid, nar),
+    )  # fmt: skip
+
+
+def pass_scene(sid: uuid.UUID, cid: uuid.UUID, text: str, *, msg: str | None) -> None:
+    """The player did something else: the open scene is passed with no trade. The journal keeps
+    it as ``scene_passed``; the day-of-decision scene comes back when they ask to decide."""
+    with _session() as db:
+        run, _, _ = service.load(db, cid, sid)
+        if find_by_msg_id(db, cid, f"{msg}:reply" if msg else None) is not None:
+            return  # idempotent repeat: the reply is replayed by the turn commit
+        if isinstance(run.market_scene, dict):
+            beat = str(run.market_scene.get("beat", "story"))
+            run.market_scene = None
+            append_event(db, run, "scene_passed", {"beat": beat, "text": text})
+        _finish(db, run)
 
 
 def plan_move(

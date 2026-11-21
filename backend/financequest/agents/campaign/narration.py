@@ -229,7 +229,10 @@ class AgentNarration:
         )  # fmt: skip
         res = run_guarded(spec)
         out: DecideOut = res.out
-        kind = out.kind if out.kind in ("decision", "question") else "question"
+        kind = out.kind if out.kind in ("decision", "question", "other") else "question"
+        if kind == "other":
+            return DecisionReply(kind="other", action=None, amount_eur=None, portion=None,
+                                 text="", degraded=res.degraded)  # fmt: skip
         act = out.action if kind == "decision" else None
         if kind == "decision" and act is None:  # a decision with no action reads as a question
             kind = "question"
