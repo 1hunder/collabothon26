@@ -21,6 +21,7 @@ from PIL import Image
 from sqlmodel import Session, select
 
 from financequest.config import get_settings
+from financequest.storage import get_storage
 
 log = logging.getLogger(__name__)
 
@@ -75,8 +76,8 @@ def build_art_prompt(subject: str, leak_terms: Iterable[str] = ()) -> str:
     )
 
 
-def art_file(campaign_id: uuid.UUID, location_id: uuid.UUID) -> Path:
-    return Path(get_settings().data_dir) / "art" / str(campaign_id) / f"{location_id}.webp"
+def art_key(campaign_id: uuid.UUID, location_id: uuid.UUID) -> str:
+    return f"art/{campaign_id}/{location_id}.webp"
 
 
 def _to_webp(raw: bytes) -> bytes:
@@ -159,11 +160,10 @@ async def run_art_job(
     for attempt in range(1 + s.art_retries):
         try:
             data = await asyncio.wait_for(gen(prompt, anchor), timeout=s.art_timeout_s)
-            path = art_file(campaign_id, location_id)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
+            key = art_key(campaign_id, location_id)
+            await asyncio.to_thread(get_storage().put_bytes, key, data, "image/webp")
             with make_session() as db:
-                _set_status(db, location_id, READY, str(path))
+                _set_status(db, location_id, READY, key)
             return READY
         except Exception:
             log.warning("art job attempt %s failed for %s", attempt + 1, location_id, exc_info=True)

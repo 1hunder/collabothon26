@@ -7,6 +7,7 @@ Real price rows exist only inside this module and ``portfolio``; everything show
 from __future__ import annotations
 
 import csv
+import tempfile
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -17,6 +18,7 @@ from sqlmodel import Session
 
 from financequest.campaign.adapter import NotPlayable, adapt_gate_scenario
 from financequest.db.models import Scenario, ScenarioSecret
+from financequest.storage import read_ref_bytes
 
 
 @dataclass(frozen=True)
@@ -177,6 +179,11 @@ def _resolve_csv(ref: str) -> Path:
     p = Path(ref)
     if p.exists():
         return p
+    stored = read_ref_bytes(ref)
+    if stored is not None:  # a storage key (quest documents live in durable storage)
+        tmp = Path(tempfile.mkdtemp(prefix="fq-prices-")) / p.name
+        tmp.write_bytes(stored)
+        return tmp
     fx = Path(__file__).resolve().parent.parent / "fixtures" / "reference"
     for cand in fx.glob(f"*/{p.name}"):
         return cand

@@ -61,11 +61,10 @@ Real closing prices for orientation (window {first_index}): {summary}
 
 Write the case for the window you choose."""
 
-MANIFEST_REWRITE = """The disguised campaign drafted from this case was RECOGNISED by test \
-investigators. Draft the manifest again and break every clue below while keeping the facts, \
-figures and the lesson. Change the fantasy names, the trade description (you may move it to a \
-similar trade), the wording of every headline and evidence text, and drop or merge one \
-non-essential detail that makes the story distinctive. Avoid superlatives that date the story.
+MANIFEST_REWRITE = """The previous draft of the manifest FAILED the deterministic leak scan: real \
+names, dates or figures showed up in text the player will see. Draft the manifest again and fix \
+every finding below. Keep the facts, figures and the lesson, but never repeat a real name, \
+real date, real place or identifying phrase in any player-visible text; use the invented names.
 
-Clues the investigators used:
-{clues}"""
+Scan findings:
+{reasons}"""

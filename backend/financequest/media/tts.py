@@ -17,10 +17,10 @@ import logging
 import re
 import time
 import wave
-from pathlib import Path
 from typing import Any, Literal
 
 from financequest.config import get_settings
+from financequest.storage import get_storage
 
 log = logging.getLogger("financequest.tts")
 
@@ -60,8 +60,8 @@ def cache_key(text: str, voice: str) -> str:
     return hashlib.sha256(f"{voice}\x00{text}".encode()).hexdigest()
 
 
-def cache_path(text: str, voice: str) -> Path:
-    return Path(get_settings().data_dir) / "tts" / f"{cache_key(text, voice)}.wav"
+def cache_name(text: str, voice: str) -> str:
+    return f"tts/{cache_key(text, voice)}.wav"
 
 
 def pcm_to_wav(pcm: bytes) -> bytes:
@@ -146,13 +146,14 @@ async def _bounded_synth(sentence: str, voice: str) -> bytes:
 
 
 async def _sentence_wav_pcm(sentence: str, voice: str) -> bytes:
-    path = cache_path(sentence, voice)
-    if path.exists():
-        with wave.open(str(path), "rb") as w:
+    key = cache_name(sentence, voice)
+    store = get_storage()
+    if await asyncio.to_thread(store.exists, key):
+        data = await asyncio.to_thread(store.get_bytes, key)
+        with wave.open(io.BytesIO(data), "rb") as w:
             return w.readframes(w.getnframes())
     pcm = await _bounded_synth(sentence, voice)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(pcm_to_wav(pcm))
+    await asyncio.to_thread(store.put_bytes, key, pcm_to_wav(pcm), "audio/wav")
     return pcm
 
 
@@ -165,17 +166,15 @@ async def _build(text: str, voice: str) -> bytes:
     except TimeoutError:
         raise TtsUnavailable("timeout") from None
     wav = pcm_to_wav(b"".join(parts))
-    whole = cache_path(text, voice)
-    whole.parent.mkdir(parents=True, exist_ok=True)
-    whole.write_bytes(wav)
+    await asyncio.to_thread(get_storage().put_bytes, cache_name(text, voice), wav, "audio/wav")
     return wav
 
 
 async def synthesize(text: str, voice: str) -> bytes:
     """WAV bytes for guarded text; sentences cached separately; raises ``TtsUnavailable``."""
-    whole = cache_path(text, voice)
-    if whole.exists():
-        return whole.read_bytes()
+    store, name = get_storage(), cache_name(text, voice)
+    if await asyncio.to_thread(store.exists, name):
+        return await asyncio.to_thread(store.get_bytes, name)
     if time.monotonic() < _blocked_until:
         raise TtsUnavailable("quota cooldown")
     key = cache_key(text, voice)

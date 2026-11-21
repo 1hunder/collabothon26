@@ -292,7 +292,7 @@ export function fixtureResponse(method: string, path: string, body?: unknown): u
   if (m === 'POST' && path === '/hero') return createHero(body);
   if (m === 'PATCH' && path === '/hero') return chooseHeroClass(body);
   if (m === 'GET' && path === '/me/transactions') return fixtureTransactions;
-  if (m === 'POST' && path === '/quests/daily') return fixtureDailyQuest();
+  if (m === 'POST' && path.split('?')[0] === '/quests/daily') return fixtureDailyQuest();
   if (m === 'GET' && path === '/quests') return [fixtureDailyQuest()];
   if (m === 'POST' && path === '/quests/generate') {
     return { ...fixtureDailyQuest(), id: 'fixture-extra', kind: 'extra', category: 'gaming', category_label: 'Games & consoles' };

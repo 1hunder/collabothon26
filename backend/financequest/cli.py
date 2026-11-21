@@ -258,7 +258,7 @@ def quest_generate(
                                 ticker=comp.ticker)  # fmt: skip
             s.add(job)
             s.flush()
-            job.pack_dir = str((Path(get_settings().data_dir) / "quests" / str(job.id)).resolve())
+            job.pack_dir = jobs.quest_prefix(job.id)
             s.add(job)
             s.commit()
         else:

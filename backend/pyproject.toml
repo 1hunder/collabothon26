@@ -23,10 +23,18 @@ dependencies = [
   "pyarrow",
   "yfinance",
   "pillow>=13.0.0",
+  "boto3>=1.44.9",
 ]
 
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio", "hypothesis", "ruff", "mypy"]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "hypothesis",
+    "ruff",
+    "mypy",
+    "moto[s3]>=5.2.5",
+]
 
 [build-system]
 requires = ["hatchling"]

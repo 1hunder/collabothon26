@@ -53,3 +53,14 @@ export function useGenerateQuest() {
     },
   });
 }
+
+/** Throw today's quest away and build it again from scratch (a fresh generation, same company). */
+export function useRegenerateDaily() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => request<QuestJob>('POST', '/quests/daily?regenerate=true'),
+    onSuccess: (job) => {
+      qc.setQueryData<QuestJob>(personalKeys.daily, job);
+    },
+  });
+}

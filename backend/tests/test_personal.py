@@ -15,7 +15,7 @@ from financequest.config import get_settings
 from financequest.db.session import get_engine
 from financequest.personal import agent, market
 from financequest.personal import transactions as tx
-from financequest.refpack.approve import approve_pack
+from financequest.refpack.approve import ApproveResult, approve_pack
 
 PACK_DIR = Path(__file__).parent.parent / "financequest" / "fixtures" / "reference" / "fq-av-001"
 TABLES = (
@@ -183,3 +183,154 @@ def test_demo_mode_assigns_the_pre_created_quest_instantly(
     job = client.post("/quests/daily", headers=h).json()
     assert job["status"] == "ready"
     assert job["scenario_id"] == res.scenario_id
+
+
+# ---- daily reuse, regeneration, no recognition gate, scan rewrite -------------------------------
+
+
+@pytest.fixture
+def graph_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """One entry per generation started (each lists the progress labels it reported)."""
+    calls: list[list[str]] = []
+    real = agent.build_quest_graph
+
+    def spy(*args: object, **kwargs: object) -> object:
+        labels: list[str] = []
+        calls.append(labels)
+        progress = args[4]
+
+        def wrapped(label: str, extra: dict[str, object]) -> None:
+            labels.append(label)
+            progress(label, extra)  # type: ignore[operator]
+
+        return real(*args[:4], wrapped, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(agent, "build_quest_graph", spy)
+    return calls
+
+
+def _daily_ready(client: TestClient, h: dict[str, str]) -> dict[str, object]:
+    return _wait_ready(client, h, client.post("/quests/daily", headers=h).json()["id"])
+
+
+def test_daily_twice_makes_no_second_generation(
+    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
+) -> None:
+    h = _player(client)
+    first = _daily_ready(client, h)
+    assert first["status"] == "ready" and len(graph_calls) == 1
+    again = client.post("/quests/daily", headers=h).json()
+    assert again["id"] == first["id"] and again["scenario_id"] == first["scenario_id"]
+    assert len(graph_calls) == 1  # zero LLM work on the second call
+
+
+def test_second_session_reuses_the_ready_quest(
+    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
+) -> None:
+    a, b = _player(client), _player(client)
+    first = _daily_ready(client, a)
+    second = client.post("/quests/daily", headers=b).json()
+    assert second["status"] == "ready" and second["scenario_id"] == first["scenario_id"]
+    assert second["id"] != first["id"]  # job rows stay per session
+    assert len(graph_calls) == 1
+    assert len(client.get("/quests", headers=b).json()) == 1
+    # the reused quest is startable by its new owner
+    r = client.post("/campaigns", json={"interests": [], "scenario_id": second["scenario_id"]},
+                    headers=b)  # fmt: skip
+    assert r.status_code == 201, r.text
+
+
+def test_regenerate_builds_a_new_quest_that_replaces_today(
+    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
+) -> None:
+    h = _player(client)
+    first = _daily_ready(client, h)
+    new = client.post("/quests/daily?regenerate=true", headers=h).json()
+    assert new["id"] != first["id"] and new["category"] == first["category"]
+    done = _wait_ready(client, h, new["id"])
+    assert done["status"] == "ready" and done["scenario_id"] != first["scenario_id"]
+    assert len(graph_calls) == 2
+    today = client.post("/quests/daily", headers=h).json()  # now returns the regenerated one
+    assert today["id"] == new["id"] and len(graph_calls) == 2
+    other = _player(client)  # later players get the newest ready quest
+    assert client.post("/quests/daily", headers=other).json()["scenario_id"] == done["scenario_id"]
+
+
+def test_no_recognition_gate_in_the_pipeline(
+    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
+) -> None:
+    assert not hasattr(agent, "call_node") and not hasattr(agent, "player_view_text")
+    h = _player(client)
+    assert _daily_ready(client, h)["status"] == "ready"
+    labels = " ".join(graph_calls[0]).lower()
+    assert "investigator" not in labels and "rewriting the disguise" not in labels
+
+
+def _stub_scan(monkeypatch: pytest.MonkeyPatch, fail_times: int) -> list[int]:
+    real = agent.approve_pack
+    n: list[int] = []
+
+    def stub(*args: object, **kwargs: object) -> object:
+        n.append(1)
+        if len(n) <= fail_times:
+            return ApproveResult(False, reasons=["scan: real name in intro: 'Acme'"])
+        return real(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(agent, "approve_pack", stub)
+    return n
+
+
+def _detail(job_id: str) -> dict[str, object]:
+    import uuid as _uuid
+
+    from financequest.db.models_personal import GenerationJob
+
+    with Session(get_engine()) as db:
+        j = db.get(GenerationJob, _uuid.UUID(job_id))
+        assert j is not None
+        return dict(j.detail or {})
+
+
+def test_scan_failure_triggers_one_rewrite_then_succeeds(
+    client: TestClient, fake_mode: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = _stub_scan(monkeypatch, fail_times=1)
+    h = _player(client)
+    job = _daily_ready(client, h)
+    assert job["status"] == "ready" and len(calls) == 2
+    steps = [e["step"] for e in _detail(str(job["id"]))["log"]]  # type: ignore[attr-defined]
+    assert "scan" in steps and "redraft" in steps
+
+
+def test_scan_failing_twice_fails_the_job_and_keeps_its_log(
+    client: TestClient, fake_mode: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = _stub_scan(monkeypatch, fail_times=5)
+    h = _player(client)
+    job = _daily_ready(client, h)
+    assert job["status"] == "failed" and len(calls) == agent.MAX_DRAFTS == 2
+    detail = _detail(str(job["id"]))
+    assert [e["step"] for e in detail["log"]].count("scan") == 2  # type: ignore[attr-defined]
+
+
+def test_crash_persists_the_log_in_detail(
+    client: TestClient, fake_mode: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*a: object, **k: object) -> object:
+        raise RuntimeError("kaput")
+
+    monkeypatch.setattr(agent, "approve_pack", boom)
+    h = _player(client)
+    job = _daily_ready(client, h)
+    assert job["status"] == "failed"
+    assert _detail(str(job["id"])).get("log") is not None
+
+
+def test_documents_are_saved_to_storage(client: TestClient, fake_mode: None) -> None:
+    from financequest.storage import get_storage
+
+    h = _player(client)
+    job = _daily_ready(client, h)
+    st = get_storage()
+    for name in ("case.md", "prices.csv", "manifest.json"):
+        assert st.exists(f"quests/{job['id']}/{name}")

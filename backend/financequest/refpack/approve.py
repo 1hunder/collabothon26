@@ -161,9 +161,12 @@ def approve_pack(
     *,
     status: str = "playable",
     n_guessers: int = 0,
+    price_ref: str | None = None,
 ) -> ApproveResult:
     """``status`` lets a caller store the disguised pack without serving it yet (personal quests
-    use ``checking`` until the guessers have run); ``n_guessers`` is recorded for the reveal."""
+    use ``checking`` until publish); ``n_guessers`` is recorded for the reveal. ``price_ref`` is
+    the durable reference stored for the price table (a storage key) when ``pack_dir`` is only a
+    temporary copy; by default the pack's own path is stored."""
     manifest_path = pack_dir / "manifest.json"
     try:
         m = CampaignManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
@@ -359,7 +362,7 @@ def approve_pack(
     secret.real_name = m.secret.real_entity
     secret.ticker = m.secret.ticker
     secret.real_beats = json.loads(json.dumps(secret_json["real_beats"], default=str))
-    secret.price_series_ref = str((pack_dir / m.prices.path).resolve())
+    secret.price_series_ref = price_ref or str((pack_dir / m.prices.path).resolve())
     secret.price_factor = plan.price_factor  # type: ignore[assignment]
     secret.amount_factors = secret_json["amount_factors"]
     secret.seed = plan.seed  # BIGINT: crc32(case_id) + salt
