@@ -92,6 +92,10 @@ async def _stream(plan: StreamPlan) -> AsyncIterator[ServerSentEvent]:
     if isinstance(out, dict):
         yield event("error", out)
         return
+    # The reply is complete before streaming, so its speaker is known: announce it first so the
+    # name tab is right from the first word (an NPC, not the Campaign Master, at an NPC's place).
+    yield event("speaker", {"speaker": out.done.get("speaker"),
+                            "speaker_kind": out.done.get("speaker_kind")})  # fmt: skip
     async for tok in _tokens(out.text):
         yield tok
     for card in out.cards:
