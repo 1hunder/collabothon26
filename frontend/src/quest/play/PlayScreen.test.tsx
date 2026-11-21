@@ -24,8 +24,9 @@ async function enterTavern(user: ReturnType<typeof userEvent.setup>): Promise<vo
   await skipTitle(user);
 }
 
-async function sendSuggestion(user: ReturnType<typeof userEvent.setup>, name: string | RegExp): Promise<void> {
-  await user.click(choiceButton(name));
+async function sendSuggestion(user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
+  await user.type(screen.getByRole('textbox'), name);
+  await user.click(screen.getByRole('button', { name: 'Send' }));
   await readToChoices(user);
 }
 
@@ -51,11 +52,11 @@ describe('PlayScreen: scene and hero status', () => {
     expect(screen.getByText('Rerolls: 1')).toBeInTheDocument();
     expect(screen.queryByText(/Keen Eye/)).not.toBeInTheDocument();
     expect(screen.getByText(/^1 \/ \d$/)).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Choices' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Your turn' })).not.toBeInTheDocument();
     await readToChoices(user);
-    const list = screen.getByRole('region', { name: 'Choices' });
+    const list = screen.getByRole('region', { name: 'Your turn' });
     expect(within(list).getByText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getAllByRole('button').length).toBeGreaterThanOrEqual(5);
+    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['Send']); // no hint, no bonus lead
     expect(within(list).queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
   });
 
@@ -72,7 +73,7 @@ describe('PlayScreen: scene and hero status', () => {
 });
 
 describe('PlayScreen: sending actions', () => {
-  it('a suggestion is sent at once; the reply appears and the earlier turn is in the backlog', async () => {
+  it('a typed action is sent at once; the reply appears and the earlier turn is in the backlog', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
@@ -90,7 +91,8 @@ describe('PlayScreen: sending actions', () => {
     setupPlay('analyst');
     await enterTavern(user);
     const spy = vi.spyOn(sse, 'postSse').mockImplementation(() => new Promise<void>(() => undefined));
-    await user.click(choiceButton('Walk to Market Square and study the price board'));
+    await user.type(screen.getByRole('textbox'), 'Walk to Market Square and study the price board');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(screen.getByRole('status')).toHaveTextContent('The Campaign Master is writing…');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(FIRST_EVENT_TIMEOUT_MS);
@@ -221,7 +223,6 @@ describe('PlayScreen: scene hotspots', () => {
 describe('PlayScreen: dice', () => {
   async function toDice(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     await enterTavern(user);
-    await user.click(choiceButton('Write your own action…'));
     await user.type(screen.getByRole('textbox'), 'check the ledger for an odd figure');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     await readToChoices(user, () => screen.queryByRole('dialog', { name: 'Dice check' }) !== null);
@@ -334,7 +335,7 @@ describe('PlayScreen: Buddy and the dock', () => {
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawdown');
     await user.click(screen.getByRole('button', { name: 'Close Buddy' }));
     expect(screen.queryByRole('region', { name: 'CommerzBuddy' })).not.toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your turn' })).toBeInTheDocument();
     await openBuddy(user);
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toHaveValue('What is a drawdown');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
