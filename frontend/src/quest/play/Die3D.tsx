@@ -8,12 +8,11 @@ import {
   cssMatrix,
   dot,
   easeOutCubic,
-  faceFor,
-  faceToViewer,
   length,
   multiply,
   normalize,
   randomAxis,
+  restingPose,
   rotation,
   scale,
   sub,
@@ -28,7 +27,6 @@ export const SETTLE_MS = 800;
 const UNIT = 42; // px per geometry unit: the die is about 160 px across
 const SIZE = 176;
 const LIGHT = normalize([-0.35, -0.8, 0.5]); // from the upper left, toward the viewer
-const TILT: Mat3 = multiply(rotation([0, 1, 0], 0.28), rotation([1, 0, 0], 0.38)); // resting pose shows the neighbours
 const SPIN_PER_MS = (4 * Math.PI) / 1000; // two turns a second while the server rolls
 
 /** Each face as a CSS triangle placed in 3D. Computed once. */
@@ -55,7 +53,7 @@ const LAYOUT = FACES.map((f) => {
   return { face: f, w, h, transform };
 });
 
-const resting = (value: number): Mat3 => multiply(TILT, faceToViewer(faceFor(value)));
+const resting = restingPose;
 
 /**
  * A twenty-sided die in CSS 3D. With `value` null it spins; when a value arrives it settles,
@@ -158,7 +156,7 @@ export default function Die3D({ value }: { value: number | null }): React.JSX.El
             />
             <b
               className={`absolute left-1/2 top-[66.6%] font-quest font-bold leading-none text-[#241806] ${face.num === 6 || face.num === 9 ? 'underline decoration-2 underline-offset-2' : ''}`}
-              style={{ fontSize: Math.round(h * 0.36), transform: 'translate(-50%, -54%)', textShadow: '0 1px 0 rgba(255,236,180,0.45)' }}
+              style={{ fontSize: Math.round(h * 0.42), transform: 'translate(-50%, -54%)', textShadow: '0 1px 0 rgba(255,236,180,0.45)' }}
             >
               {face.num}
             </b>
