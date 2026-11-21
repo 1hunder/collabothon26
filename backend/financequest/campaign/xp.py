@@ -57,6 +57,41 @@ def quote_in(quote: str, player_text: str) -> bool:
     return bool(q) and (q in player_text or q in norm)
 
 
+_VERB_FIX = {"is": "are", "has": "have", "does": "do", "was": "were", "doesn't": "don't",
+             "hasn't": "haven't", "isn't": "aren't", "wasn't": "weren't"}
+_THIRD = re.compile(
+    r"\b(?:The\s+)?(?:player|hero|learner|reader)(?P<poss>'s)?\b(?P<verb>\s+[a-z']+)?", re.I
+)
+
+
+def to_second_person(text: str) -> str:
+    """"The player cites X" -> "You cite X": feedback is spoken to the player."""
+    def verb(w: str) -> str:
+        low = w.lower()
+        if low in _VERB_FIX:
+            return _VERB_FIX[low]
+        if low.endswith("ies") and len(low) > 4:
+            return w[:-3] + "y"
+        if low.endswith(("sses", "shes", "ches", "xes")):
+            return w[:-2]
+        if low.endswith("s") and not low.endswith("ss"):
+            return w[:-1]
+        return w
+
+    out = text
+    for m in reversed(list(_THIRD.finditer(text))):
+        head = text[: m.start()].rstrip()
+        sentence_start = not head or head.endswith((".", "!", "?"))
+        if m.group("poss"):
+            new = ("Your" if sentence_start else "your") + (m.group("verb") or "")
+        else:
+            new = "You" if sentence_start else "you"
+            if m.group("verb"):
+                new += " " + verb(m.group("verb").strip())
+        out = out[: m.start()] + new + out[m.end():]
+    return out
+
+
 def rubric_for(manifest_rubric: tuple[tuple[str, int], ...] | None) -> tuple[tuple[str, int], ...]:
     return manifest_rubric or DEFAULT_RUBRIC
 
@@ -70,7 +105,7 @@ def validate_scores(
     for name, mx in rubric:
         r = by_cat.get(name)
         score = max(0, min(mx, int(r.score))) if r else 0
-        rationale = r.rationale if r else NEUTRAL
+        rationale = to_second_person(r.rationale) if r else NEUTRAL
         quote = r.quote if r else ""
         if quote and not quote_in(quote, player_text):
             quote, rationale = "", NEUTRAL

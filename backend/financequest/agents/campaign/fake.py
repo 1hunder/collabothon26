@@ -215,7 +215,7 @@ class CampaignFakeLLM:
         roll = c["roll"]
         clue = roll.get("clue")
         if roll["result"] == "success":
-            body = "The dice favour you, and the page gives up its secret."
+            body = "Fortune favours you, and the page gives up its secret."
             if clue:
                 body += f" You find: {clue['title']}. {first_sentences(clue['text'], 2, 40)}"
         else:
@@ -326,7 +326,7 @@ class CampaignFakeLLM:
 
         return S.XpOut(scores=[
             S.XpScore(category=r.category, score=r.score, rationale=r.rationale, quote=r.quote)
-            for r in heuristic_xp(c["rubric"], c["texts"])
+            for r in heuristic_xp(c["rubric"], c["texts"], c.get("decision"))
         ])  # fmt: skip
 
     def advice(self, c: dict[str, Any]) -> S.AdviceCheck:
@@ -385,7 +385,7 @@ def _suggestions(ctx: C.AgentContext, given: list[str], at: str | None = None) -
     gated = rules.gated_clue_ids(ctx.pack)
     cur = at or (ctx.current["key"] if ctx.current else "")
     for ch in ctx.content["characters"]:
-        if any(i not in got for i in ch["may_reveal"]) and ch["location"] == cur:
+        if ch["location"] == cur:
             out.append(f"Ask {ch['name']} what they know")
     for e in ctx.unfound():
         if e["id"] in got or e["id"] in gated:

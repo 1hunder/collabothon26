@@ -10,8 +10,10 @@ import type {
   CreateHeroRequest,
   Hero,
   RevealData,
+  QuestJob,
   ScenarioSummary,
   ScenarioView,
+  Transaction,
 } from '../types';
 
 import { FixtureHttpError, classHp, readDb, writeDb } from './db';
@@ -20,6 +22,26 @@ import { fixtureNewCampaign, fixturePlayResponse, fixturePlaySse } from './play'
 export { FixtureHttpError, resetFixtureDb } from './db';
 
 export const fixtureScenarioId = 'fixture-lumen';
+
+const fixtureTransactions: Transaction[] = [
+  { date: '2026-11-20', merchant: 'Spotify', amount_eur: '-10.99', category: 'music', category_label: 'Music & streaming' },
+  { date: '2026-11-19', merchant: 'Lieferando', amount_eur: '-18.40', category: 'food_delivery', category_label: 'Food delivery' },
+  { date: '2026-11-18', merchant: 'Uber', amount_eur: '-12.60', category: 'mobility', category_label: 'Rides & mobility' },
+];
+
+function fixtureDailyQuest(): QuestJob {
+  return {
+    id: 'fixture-daily',
+    kind: 'daily',
+    quest_date: new Date().toISOString().slice(0, 10),
+    category: 'music',
+    category_label: 'Music & streaming',
+    status: 'ready',
+    step: 'Ready',
+    scenario_id: fixtureScenarioId,
+    created_at: new Date().toISOString(),
+  };
+}
 
 const summaries: ScenarioSummary[] = [
   { id: fixtureScenarioId, industry_shown: 'Lantern oil and lighting', source: 'gate' },
@@ -269,6 +291,12 @@ export function fixtureResponse(method: string, path: string, body?: unknown): u
   }
   if (m === 'POST' && path === '/hero') return createHero(body);
   if (m === 'PATCH' && path === '/hero') return chooseHeroClass(body);
+  if (m === 'GET' && path === '/me/transactions') return fixtureTransactions;
+  if (m === 'POST' && path === '/quests/daily') return fixtureDailyQuest();
+  if (m === 'GET' && path === '/quests') return [fixtureDailyQuest()];
+  if (m === 'POST' && path === '/quests/generate') {
+    return { ...fixtureDailyQuest(), id: 'fixture-extra', kind: 'extra', category: 'gaming', category_label: 'Games & consoles' };
+  }
   if (m === 'POST' && path === '/campaigns') return createCampaign(body);
   const abandon = /^\/campaigns\/([^/]+)\/abandon$/.exec(path);
   if (m === 'POST' && abandon) return abandonCampaign(abandon[1]!);

@@ -747,7 +747,20 @@ def test_2_6_ac10_the_tavern_background_is_the_same_file_in_every_campaign(clien
     assert any("tavern" in b for b in bgs)  # one bundled constant file, served to everyone
 
 
-def test_2_6_ac11_a_campaign_location_is_playable_while_its_art_is_pending(client: TestClient, enron: str) -> None:
+def test_2_6_ac11_a_campaign_location_is_playable_while_its_art_is_pending(
+    client: TestClient, enron: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Keep the art job pending for the whole test (the fake generator can finish before the
+    # first state read on a fast or slow runner, which made this test flaky in CI).
+    import asyncio
+
+    from financequest.media import art as art_mod
+
+    async def never_finishes(prompt: str, anchor: bytes | None) -> bytes:
+        await asyncio.Event().wait()
+        return b""
+
+    monkeypatch.setattr(art_mod, "default_generator", lambda: never_finishes)
     h = new_player(client)
     cid, s = start(client, h)
     own = next(x for x in s["locations"] if not x["fixed"])

@@ -1,13 +1,15 @@
 import { ArrowLeft, X } from 'lucide-react';
+import { useState } from 'react';
 import { Outlet, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import './fonts';
 import { VoiceToggle } from '../voice';
 import LeaveDialog from './LeaveDialog';
 import { isQuestFinished } from './questStore';
 import { HERO_CLASS_PATH, type QuestEntryState } from './setupNavigation';
+import { SheetOpenContext } from './sheetOpen';
 
 function isQuestPath(pathname: string): boolean {
-  return pathname === '/quest' || pathname.startsWith('/quest/');
+  return pathname === "/quest" || pathname.startsWith("/quest/");
 }
 
 export default function QuestLayout(): React.JSX.Element {
@@ -15,9 +17,12 @@ export default function QuestLayout(): React.JSX.Element {
   const navigate = useNavigate();
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      !isQuestFinished() && isQuestPath(currentLocation.pathname) && !isQuestPath(nextLocation.pathname),
+      !isQuestFinished() &&
+      isQuestPath(currentLocation.pathname) &&
+      !isQuestPath(nextLocation.pathname),
   );
 
+  const [sheetOpen, setSheetOpen] = useState(false);
   const entry = location.state as QuestEntryState | null;
   const onDisclosure = location.pathname === '/quest/disclosure';
   const inSetup = onDisclosure || location.pathname === '/quest/hero/new' || location.pathname === HERO_CLASS_PATH;
@@ -59,19 +64,26 @@ export default function QuestLayout(): React.JSX.Element {
           <VoiceToggle />
         </div>
       )}
-      <button
-        type="button"
-        aria-label="Close quest"
-        onClick={close}
-        className="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex h-11 w-11 items-center justify-center rounded-full text-quest-vellum"
-      >
-        <X aria-hidden="true" size={24} />
-      </button>
+      {sheetOpen ? null : (
+        <button
+          type="button"
+          aria-label="Close quest"
+          onClick={close}
+          className="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-20 flex h-11 w-11 items-center justify-center rounded-full text-quest-vellum"
+        >
+          <X aria-hidden="true" size={24} />
+        </button>
+      )}
       <main className="pt-10">
-        <Outlet />
+        <SheetOpenContext.Provider value={setSheetOpen}>
+          <Outlet />
+        </SheetOpenContext.Provider>
       </main>
-      {blocker.state === 'blocked' ? (
-        <LeaveDialog onLeave={() => blocker.proceed()} onStay={() => blocker.reset()} />
+      {blocker.state === "blocked" ? (
+        <LeaveDialog
+          onLeave={() => blocker.proceed()}
+          onStay={() => blocker.reset()}
+        />
       ) : null}
     </div>
   );

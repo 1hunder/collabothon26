@@ -154,7 +154,16 @@ def _year_like(values: dict[str, Decimal]) -> bool:
                for v in values.values())  # fmt: skip
 
 
-def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResult:
+def approve_pack(
+    pack_dir: Path,
+    session: Session,
+    salt: int = 0,
+    *,
+    status: str = "playable",
+    n_guessers: int = 0,
+) -> ApproveResult:
+    """``status`` lets a caller store the disguised pack without serving it yet (personal quests
+    use ``checking`` until the guessers have run); ``n_guessers`` is recorded for the reveal."""
     manifest_path = pack_dir / "manifest.json"
     try:
         m = CampaignManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
@@ -274,6 +283,7 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
     beat_src.append((m.news.checkpoint, "news", m.news.headline, m.news.summary))
     beats, real_beats = [], []
     rev = {fid: f.value for fid, f in figs.items()}
+    real_ev = {e.evidence_id: e for e in m.secret.real_events}
     for cp, eid, title, text in sorted(beat_src, key=lambda b: ids.index(b[0])):
         day = sd[cp]
         beats.append(
@@ -285,7 +295,8 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
                 "day": day,
                 "price": str(close_on(cps[cp].cutoff_date)),
                 "evidence_id": eid,
-                "text": _fill(text, rev, [], eid),
+                "text": _fill(real_ev[eid].text if eid in real_ev else text, rev, [], eid),
+                **({"headline": real_ev[eid].headline} if eid in real_ev else {}),
             }
         )
     beats = _render(beats, values, [])
@@ -341,7 +352,7 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
     sc.chart_series = scenario_json["chart_series"]
     sc.company_card = scenario_json["company_card"]
     sc.manifest = rendered
-    sc.status = "playable"
+    sc.status = status
     session.add(sc)
     session.flush()
     secret = session.get(ScenarioSecret, sc.id) or ScenarioSecret(scenario_id=sc.id, real_name="")
@@ -353,11 +364,11 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
     secret.amount_factors = secret_json["amount_factors"]
     secret.seed = plan.seed  # BIGINT: crc32(case_id) + salt
     secret.what_changed = what_changed
-    secret.n_guessers = 0
+    secret.n_guessers = n_guessers
     secret.leak_terms = terms
     session.add(secret)
     session.commit()
-    return ApproveResult(True, str(sc.id), "playable", [], used_salt)
+    return ApproveResult(True, str(sc.id), status, [], used_salt)
 
 
 def _find_existing(session: Session, pack_id: str) -> Scenario | None:

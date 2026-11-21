@@ -29,6 +29,7 @@ router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
 class CreateIn(BaseModel):
     interests: list[str] = Field(default_factory=list)
+    scenario_id: uuid.UUID | None = None  # a personal quest; omitted -> default pick
 
 
 class RollIn(BaseModel):
@@ -75,7 +76,9 @@ def _finish(db: Session, run: CampaignRun) -> None:
 
 @router.post("", status_code=201)
 async def create_campaign(body: CreateIn, db: DbSession, sid: SessionId) -> dict[str, Any]:
-    run = await run_in_threadpool(service.create_campaign, db, sid, body.interests)
+    run = await run_in_threadpool(
+        service.create_campaign, db, sid, body.interests, body.scenario_id
+    )
     s = get_settings()
     if s.fake_llm or s.google_genai_api_key:
         from financequest.media.art import start_art_job

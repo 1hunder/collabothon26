@@ -27,11 +27,15 @@ class Settings(BaseSettings):
     cache_dir: str = ".cache/prices"
     data_dir: str = "data"
     demo_mode: bool = False
+    # Personal quests: in demo mode the daily quest is the pre-created scenario below (or the
+    # newest generated one, else the sample pack) instead of a live generation.
+    demo_scenario_id: str = ""
+    generation_concurrency: int = 2
     art_model: str = "gemini-2.5-flash-image"
-    tts_model: str = "gemini-2.5-flash-preview-tts"
+    tts_model: str = "gemini-3.8-flash-tts"
     tts_voice_dm: str = "Charon"
     tts_voice_buddy: str = "Puck"
-    art_timeout_s: float = 60.0
+    art_timeout_s: float = 180.0  # live Nano Banana calls took 31-117 s
     art_retries: int = 1
     fake_llm: bool = False
     cors_origins: str = "http://localhost:5173,https://*.vercel.app"

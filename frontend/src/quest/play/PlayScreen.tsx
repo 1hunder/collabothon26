@@ -16,10 +16,14 @@ import DialogueBox, { DM_NAME, type VoiceKind } from './DialogueBox';
 import DiceMoment, { type DiceApi } from './DiceMoment';
 import Dock from './Dock';
 import HeroStatus from './HeroStatus';
+import { useReportSheetOpen } from '../sheetOpen';
 import JournalSheet from './JournalSheet';
-import LibrarySheet from './LibrarySheet';
+import LibraryScroll from './LibraryScroll';
 import MapSheet from './MapSheet';
-import PriceBoard from './PriceBoard';
+import MarketPanel from './MarketPanel';
+import NoticeBoard from './NoticeBoard';
+import HotspotLayer from './HotspotLayer';
+import type { HotspotTarget } from './sceneHotspots';
 import RumourLedger from './RumourLedger';
 import { hasRumourLedger, rumoursHeard } from './rumours';
 import TitleCard from './TitleCard';
@@ -51,7 +55,7 @@ type Overlay =
   | { kind: 'news'; card: NewsCard }
   | { kind: 'dice'; card: DiceCard };
 
-type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | null;
+type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | 'notice' | null;
 
 interface TitleInfo {
   name: string;
@@ -92,6 +96,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const [advancedKey, setAdvancedKey] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
   const [sheet, setSheet] = useState<SheetName>(null);
+  useReportSheetOpen(sheet !== null);
   const [buddyOpen, setBuddyOpen] = useState(false);
   const [title, setTitle] = useState<TitleInfo | null>(null);
 
@@ -336,6 +341,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     );
   })();
 
+  const openHotspot = (t: HotspotTarget): void => {
+    stopVoice();
+    setSheet(t === 'library' ? 'library' : t === 'market' ? 'board' : 'notice');
+  };
+
   const chips =
     locKey === 'market_square' ? (
       <>
@@ -344,12 +354,22 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       </>
     ) : locKey === 'library' ? (
       <Chip label="Library documents" onClick={() => setSheet('library')} />
+    ) : locKey === 'tavern' ? (
+      <Chip label="Notice board" onClick={() => setSheet('notice')} />
     ) : null;
 
   return (
     <VnStage
+      location={location}
       status={<HeroStatus campaign={c} onOpen={() => void navigate('/quest/hero')} />}
       chips={chips}
+      hotspots={
+        <HotspotLayer
+          locationKey={locKey}
+          active={sheet === null && !buddyOpen && !diceOpen && activeOverlay.kind === 'none' && title === null && (state.phase === 'idle' || state.phase === 'done')}
+          onOpen={openHotspot}
+        />
+      }
       dock={
         <Dock
           mapDisabled={diceOpen}
@@ -374,10 +394,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           ) : null}
           {sheet === 'backlog' ? <Backlog entries={c.backlog} onClose={() => setSheet(null)} /> : null}
           {sheet === 'board' ? (
-            <PriceBoard rows={c.price_board} newsDay={c.news_shown ? c.story_day : null} onClose={() => setSheet(null)} />
+            <MarketPanel rows={c.price_board} newsDay={c.news_shown ? c.story_day : null} onClose={() => setSheet(null)} />
           ) : null}
           {sheet === 'rumours' ? <RumourLedger rumours={rumoursHeard(c.rumours, c.backlog)} onClose={() => setSheet(null)} /> : null}
-          {sheet === 'library' ? <LibrarySheet library={c.library} onClose={() => setSheet(null)} /> : null}
+          {sheet === 'notice' ? <NoticeBoard campaign={c} campaignId={id} onClose={() => setSheet(null)} /> : null}
+          {sheet === 'library' ? <LibraryScroll library={c.library} onClose={() => setSheet(null)} /> : null}
           {title !== null && activeOverlay.kind === 'none' ? <TitleCard title={title.name} onDone={dismissTitle} /> : null}
           {activeOverlay.kind === 'timeskip' ? (
             <TitleCard title={activeOverlay.card.time_skip_label} onDone={() => setOverlay({ kind: 'news', card: activeOverlay.card })} />

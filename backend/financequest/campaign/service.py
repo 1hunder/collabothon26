@@ -210,12 +210,13 @@ def arrive(db: Session, run: CampaignRun, pack: Pack, loc: Location) -> tuple[li
 def fire_news(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     assert pack.news is not None
     run.news_shown = True
+    before = run.clock_day
     run.checkpoint, run.clock_day = clock.after_news(pack, run.clock_day)
     card = {
         "kind": "news",
         "headline": pack.news["headline"],
         "summary": pack.news["summary"],
-        "time_skip_label": clock.time_skip_label(pack),
+        "time_skip_label": clock.time_skip_label(pack, before, run.clock_day),
         "story_day": run.clock_day,
     }
     append_event(db, run, "news", card)
@@ -251,8 +252,22 @@ def require_phase(run: CampaignRun, *phases: str) -> None:
 
 
 # ---- creating a campaign ----------------------------------------------------------------------
-def pick_scenario(db: Session) -> tuple[Scenario, Pack]:
+def pick_scenario(
+    db: Session, scenario_id: uuid.UUID | None = None, sid: uuid.UUID | None = None
+) -> tuple[Scenario, Pack]:
     from financequest.db.models import ScenarioSecret
+
+    if scenario_id is not None:  # a personal quest chosen by the player
+        from financequest.campaign.pack import build_pack
+        from financequest.personal.jobs import owns_scenario
+
+        sc = db.get(Scenario, scenario_id)
+        sec = db.get(ScenarioSecret, scenario_id)
+        if sc is None or sec is None or sc.status != "playable":
+            raise ApiError(404, "no_scenario", "This quest is not available")
+        if sid is not None and not owns_scenario(db, sid, scenario_id):
+            raise ApiError(404, "no_scenario", "This quest is not available")
+        return sc, build_pack(sc, sec)
 
     rows = list(db.exec(select(Scenario).where(Scenario.status == "playable")))
     rows.sort(key=lambda s: (
@@ -272,7 +287,9 @@ def pick_scenario(db: Session) -> tuple[Scenario, Pack]:
     raise ApiError(404, "no_scenario", "No playable scenario")
 
 
-def create_campaign(db: Session, sid: uuid.UUID, interests: list[str]) -> CampaignRun:
+def create_campaign(
+    db: Session, sid: uuid.UUID, interests: list[str], scenario_id: uuid.UUID | None = None
+) -> CampaignRun:
     hero = get_hero(db, sid)
     if hero is None:
         raise ApiError(409, "hero_required", "Create your hero first")
@@ -284,7 +301,7 @@ def create_campaign(db: Session, sid: uuid.UUID, interests: list[str]) -> Campai
                 409, "campaign_in_progress", "A quest is already in progress",
                 campaign_id=str(active.id),
             )  # fmt: skip
-    sc, pack = pick_scenario(db)
+    sc, pack = pick_scenario(db, scenario_id, sid)
     cls = rules.CLASSES[hero.hero_class]
     cp, day = clock.initial_state(pack)
     run = CampaignRun(
@@ -680,7 +697,12 @@ def make_xp(db: Session, run: CampaignRun, pack: Pack, nar: Narration) -> XpAwar
         raise ApiError(409, "wrong_phase", "Finish the reflection first")
     texts = player_text(db, run, dec, deb)
     rubric = xp.rubric_for(pack.rubric)
-    raw = nar.xp(rubric, texts)
+    conf = {v: k for k, v in CONF.items()}.get(dec.confidence or 0)
+    raw = nar.xp(rubric, texts, {
+        "action": dec.action, "amount_eur": (dec.amount_cents or 0) // 100,
+        "forecast_pct": int(dec.forecast_pct) if dec.forecast_pct is not None else None,
+        "confidence": conf,
+    })  # fmt: skip
     all_text = "\n".join(texts.values())
     cats, total = xp.validate_scores(rubric, raw, all_text)
     award = XpAward(campaign_id=run.id, categories=cats, total=total)

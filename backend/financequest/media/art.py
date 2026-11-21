@@ -28,7 +28,9 @@ STYLE_GUIDE = (
     "Painterly fantasy merchant-city illustration. Palette: lapis blue #22305B, "
     "verdigris green #3E8A7E, gilt gold #C9A227, vellum cream #E8DCC2. Warm lantern light "
     "against deep blue shadows. Wide establishing shot, rich architectural detail, soft "
-    "brushwork, 16:9 landscape composition. "
+    "brushwork. Vertical 9:16 portrait composition for a phone screen: keep the focal point "
+    "and detail in the upper two-thirds; the bottom third is calm, darker ground with little "
+    "detail, because a dialogue box covers it. "
     # Anti "AI-shiny" direction: the art should read as hand-painted, not generated.
     "Make it look hand-painted by a human illustrator: visible, slightly uneven brush strokes, "
     "matte gouache and oil texture, subtle paper or canvas grain, muted and slightly desaturated "
@@ -105,7 +107,7 @@ async def genai_generate(prompt: str, anchor: bytes | None) -> bytes:
         contents=contents,
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio="16:9"),
+            image_config=types.ImageConfig(aspect_ratio="9:16"),
         ),
     )
     for cand in resp.candidates or []:

@@ -1,23 +1,50 @@
 """Gemini TTS: per-sentence synthesis, cached by hash(text, voice) under DATA_DIR/tts.
 
 Only guarded text stored in the event log is ever synthesized. FAKE_LLM=1 returns silence.
+
+Sentences are synthesized concurrently (bounded), each with a timeout and one retry; any failure
+raises ``TtsUnavailable`` (the API answers 503 and the client falls back to Web Speech).
+Concurrent requests for the same text share one synthesis.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import io
+import logging
 import re
+import time
 import wave
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from financequest.config import get_settings
+
+log = logging.getLogger("financequest.tts")
 
 Voice = Literal["dm", "buddy"]
 SAMPLE_RATE = 24000
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
+MAX_CONCURRENT = 4
+SENTENCE_TIMEOUT_S = 20.0
+TOTAL_TIMEOUT_S = 45.0
+ATTEMPTS = 2  # one try and one retry per sentence
+
+
+QUOTA_COOLDOWN_S = 300.0
+_blocked_until = 0.0
+
+
+def _is_quota(exc: Exception) -> bool:
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    return code == 429 or "429" in str(exc)[:200] or "RESOURCE_EXHAUSTED" in str(exc)[:200]
+
+
+class TtsUnavailable(RuntimeError):
+    """Speech could not be produced in time; the caller answers 503."""
+
 
 
 def split_sentences(text: str) -> list[str]:
@@ -51,31 +78,71 @@ def silent_pcm(seconds: float = 0.3) -> bytes:
     return b"\x00\x00" * int(SAMPLE_RATE * seconds)
 
 
+_client: Any = None
+_sems: dict[int, asyncio.Semaphore] = {}
+_inflight: dict[str, asyncio.Task[bytes]] = {}
+
+
+def _get_client() -> Any:
+    global _client
+    if _client is None:
+        from google import genai
+        from google.genai import types
+
+        s = get_settings()
+        # The SDK honours Retry-After on 429 (free tier: ~21 h), which looked like a hang. Never
+        # retry inside the SDK; this module owns the timeout, the single retry and the breaker.
+        _client = genai.Client(
+            api_key=s.google_genai_api_key,
+            http_options=types.HttpOptions(
+                api_version="v1beta", timeout=int(SENTENCE_TIMEOUT_S * 1000),
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
+    return _client
+
+
+def _sem() -> asyncio.Semaphore:
+    loop_id = id(asyncio.get_running_loop())
+    if loop_id not in _sems:
+        _sems.clear()  # one loop at a time in practice; drop semaphores of dead loops
+        _sems[loop_id] = asyncio.Semaphore(MAX_CONCURRENT)
+    return _sems[loop_id]
+
+
 async def _synth_pcm(sentence: str, voice: str) -> bytes:
+    """One provider call (tests replace this)."""
     s = get_settings()
     if s.fake_llm:
         return silent_pcm()
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=s.google_genai_api_key)
-    resp = await client.aio.models.generate_content(
+    # Speech generation lives on the Interactions API (generate_content rejects speechConfig).
+    interaction = await _get_client().aio.interactions.create(
         model=s.tts_model,
-        contents=sentence,
-        config=types.GenerateContentConfig(
-            response_modalities=["AUDIO"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name(voice))
-                )
-            ),
-        ),
+        input=[{"type": "user_input", "content": [{"type": "text", "text": sentence}]}],
+        response_format={"type": "audio", "mime_type": "audio/l16", "sample_rate": 24000},
+        generation_config={"speech_config": [{"voice": voice_name(voice)}]},
     )
-    for cand in resp.candidates or []:
-        for part in (cand.content.parts if cand.content else None) or []:
-            if part.inline_data and part.inline_data.data:
-                return part.inline_data.data
+    audio = getattr(interaction, "output_audio", None)
+    data = getattr(audio, "data", None)
+    if data:
+        return base64.b64decode(data) if isinstance(data, str) else bytes(data)
     raise RuntimeError("TTS returned no audio")
+
+
+async def _bounded_synth(sentence: str, voice: str) -> bytes:
+    global _blocked_until
+    last: Exception | None = None
+    for attempt in range(ATTEMPTS):
+        try:
+            async with _sem():
+                return await asyncio.wait_for(_synth_pcm(sentence, voice), SENTENCE_TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 - timeout, network or provider error
+            last = exc
+            log.warning("tts attempt %d failed: %s", attempt + 1, type(exc).__name__)
+            if _is_quota(exc):  # a retry cannot help; stop asking for a while
+                _blocked_until = time.monotonic() + QUOTA_COOLDOWN_S
+                raise TtsUnavailable("quota") from None
+    raise TtsUnavailable(type(last).__name__ if last else "unknown")
 
 
 async def _sentence_wav_pcm(sentence: str, voice: str) -> bytes:
@@ -83,20 +150,45 @@ async def _sentence_wav_pcm(sentence: str, voice: str) -> bytes:
     if path.exists():
         with wave.open(str(path), "rb") as w:
             return w.readframes(w.getnframes())
-    pcm = await _synth_pcm(sentence, voice)
+    pcm = await _bounded_synth(sentence, voice)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(pcm_to_wav(pcm))
     return pcm
 
 
-async def synthesize(text: str, voice: str) -> bytes:
-    """WAV bytes for guarded text; each sentence is synthesized and cached separately."""
-    whole = cache_path(text, voice)
-    if whole.exists():
-        return whole.read_bytes()
+async def _build(text: str, voice: str) -> bytes:
     sentences = split_sentences(text) or [text]
-    parts = await asyncio.gather(*(_sentence_wav_pcm(x, voice) for x in sentences))
+    try:
+        parts = await asyncio.wait_for(
+            asyncio.gather(*(_sentence_wav_pcm(x, voice) for x in sentences)), TOTAL_TIMEOUT_S
+        )
+    except TimeoutError:
+        raise TtsUnavailable("timeout") from None
     wav = pcm_to_wav(b"".join(parts))
+    whole = cache_path(text, voice)
     whole.parent.mkdir(parents=True, exist_ok=True)
     whole.write_bytes(wav)
     return wav
+
+
+async def synthesize(text: str, voice: str) -> bytes:
+    """WAV bytes for guarded text; sentences cached separately; raises ``TtsUnavailable``."""
+    whole = cache_path(text, voice)
+    if whole.exists():
+        return whole.read_bytes()
+    if time.monotonic() < _blocked_until:
+        raise TtsUnavailable("quota cooldown")
+    key = cache_key(text, voice)
+    task = _inflight.get(key)
+    if task is None:
+        task = asyncio.ensure_future(_build(text, voice))
+        _inflight[key] = task
+        task.add_done_callback(lambda _t: _inflight.pop(key, None))
+    try:
+        return await asyncio.shield(task)
+    except TtsUnavailable:
+        raise
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise TtsUnavailable(type(exc).__name__) from None

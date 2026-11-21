@@ -226,5 +226,53 @@ def fixtures_import(
     typer.echo(f"imported {n} scenarios from {src}")
 
 
+quest_app = typer.Typer(no_args_is_help=True)
+app.add_typer(quest_app, name="quest")
+
+
+@quest_app.command("generate")
+def quest_generate(
+    category: Annotated[str | None, typer.Option(help="Spending category, e.g. music")] = None,
+    ticker: Annotated[str | None, typer.Option(help="Company ticker inside the category")] = None,
+) -> None:
+    """Generate one personal quest now, in the foreground (e.g. the pre-created demo quest)."""
+    from datetime import date
+
+    from sqlmodel import Session
+
+    from financequest.db.models import PlayerSession
+    from financequest.db.models_personal import GenerationJob
+    from financequest.db.session import get_engine
+    from financequest.personal import jobs
+    from financequest.personal import transactions as tx
+
+    with Session(get_engine()) as s:
+        player = PlayerSession()
+        s.add(player)
+        s.commit()
+        if category:
+            cat = tx.CATEGORIES[category]
+            comp = next((c for c in cat.companies if c.ticker == ticker), cat.companies[0])
+            job = GenerationJob(session_id=player.id, kind="extra", quest_date=date.today(),
+                                category=cat.key, category_label=cat.label, company=comp.name,
+                                ticker=comp.ticker)  # fmt: skip
+            s.add(job)
+            s.flush()
+            job.pack_dir = str((Path(get_settings().data_dir) / "quests" / str(job.id)).resolve())
+            s.add(job)
+            s.commit()
+        else:
+            job = jobs._new_job(s, player.id, "extra", date.today())  # noqa: SLF001
+        job_id, company = job.id, f"{job.company} ({job.ticker})"
+    typer.echo(f"generating a quest for {company} ...")
+    jobs.run_job(job_id)
+    with Session(get_engine()) as s:
+        done = s.get(GenerationJob, job_id)
+        assert done is not None
+        typer.echo(f"status={done.status} scenario={done.scenario_id} error={done.error or '-'}")
+        if done.status != "ready":
+            raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

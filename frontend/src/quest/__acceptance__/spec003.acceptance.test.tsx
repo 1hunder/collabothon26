@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureResponse, resetFixtureDb } from '../../api/fixtures';
 import { readDb, writeDb } from '../../api/fixtures/db';
 import * as sse from '../../api/sse';
-import type { CampaignState, DiceCard, RollResult } from '../../api/types';
+import type { CampaignState, DiceCard, PlayLocation, RollResult } from '../../api/types';
 import { FIRST_EVENT_TIMEOUT_MS } from '../../api/useDmStream';
 import { investDecision, seedCampaign } from '../../test/seedCampaign';
 import config from '../../../tailwind.config';
@@ -30,7 +30,9 @@ import BuddyScene from '../play/BuddyScene';
 import DialogueBox from '../play/DialogueBox';
 import DiceMoment, { TUMBLE_MS, type DiceApi } from '../play/DiceMoment';
 import ChoiceList from '../play/ChoiceList';
-import { readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
+import { artSrc } from '../play/artSrc';
+import { readParchment, readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
+import SceneArt from '../play/SceneArt';
 import Commit from '../screens/Commit';
 import Debrief from '../screens/Debrief';
 import HeroCreate from '../screens/HeroCreate';
@@ -205,10 +207,12 @@ describe('2.3 Choosing the quest', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Got it' }));
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
   });
-  it('2.3-AC3 the opening scene opens with the Tavern briefing', async () => {
+  it('2.3-AC3 the opening scene is in the Tavern with the Tavern background and the briefing', async () => {
     renderRoutes(routes, ['/quest/disclosure']);
     await userEvent.click(await screen.findByRole('button', { name: 'Got it' }));
     await screen.findByTestId('name-tab');
+    expect(screen.getAllByText('Tavern').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Gilded Tavern/);
   });
@@ -218,10 +222,11 @@ describe('2.3 Choosing the quest', () => {
 // 2.4 Scenes and turns
 // ================================================================================================
 describe('2.4 Scenes and turns', () => {
-  it('2.4-AC1 a scene shows the shared quest background and the "Campaign Master" name tab', async () => {
+  it('2.4-AC1 a scene shows the location background and the "Campaign Master" name tab', async () => {
     setupPlay('analyst');
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
-    expect(screen.getByTestId('vn-stage')).toHaveClass('quest-background');
+    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
+    expect(screen.getByTestId('scene-art').parentElement).toHaveClass('absolute', 'inset-0');
   });
   it('2.4-AC2 a reply over 50 words is split into pages with "1 / 3" and "▼"', async () => {
     const sentence = (n: number, t: string) => `${Array.from({ length: n }, (_, i) => `${t}${i}`).join(' ')}.`;
@@ -551,13 +556,13 @@ describe('2.6 Locations', () => {
     expect(within(map).getByRole('button', { name: /Tavern/ })).toHaveTextContent('you are here');
     expect(within(map).getByRole('button', { name: /Lamp Works/ })).toHaveTextContent('this tale only');
   });
-  it('2.6-AC2 the Campaign Master describes a new location over the shared background', async () => {
+  it('2.6-AC2 tapping another location changes the background and the Campaign Master describes it, no dice', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await goTo(user, 'Library');
     await skipTitle(user);
-    expect(screen.getByTestId('vn-stage')).toHaveClass('quest-background');
+    await waitFor(() => expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/library.webp'));
     await user.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Library/);
     expect(screen.queryByRole('dialog', { name: 'Dice check' })).not.toBeInTheDocument();
@@ -595,7 +600,7 @@ describe('2.6 Locations', () => {
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
     expect(within(board).queryByRole('rowheader', { name: '61' })).not.toBeInTheDocument();
   });
@@ -608,8 +613,9 @@ describe('2.6 Locations', () => {
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
     const lib = await screen.findByRole('dialog', { name: 'Library' });
-    expect(within(lib).getByText('Guild ledger, year one')).toBeInTheDocument();
-    expect(within(lib).queryByText('Quarterly loss notice')).not.toBeInTheDocument();
+    const text = await readParchment(user, lib);
+    expect(text).toContain('Guild ledger, year one');
+    expect(text).not.toContain('Quarterly loss notice');
   });
   it('2.6-AC7 a character speaks under their own name on the tab', () => {
     render(<DialogueBox speaker="Mira Fen" text="I have read every ledger twice." onAdvance={() => undefined} />);
@@ -626,16 +632,39 @@ describe('2.6 Locations', () => {
     const card = within(await screen.findByRole('dialog', { name: 'Library' })).getByRole('region', { name: 'Company card' });
     for (const t of ['Lumenvale Guild', 'Lantern oil and lighting', 'About 4,200 workers', 'Barrels sold']) expect(card).toHaveTextContent(t);
   });
-  it('2.6-AC11 a campaign location with pending art still supports actions', async () => {
+  const loc = (o: Partial<PlayLocation>): PlayLocation => ({ id: 'l1', key: 'tavern', name: 'Tavern', description: '', fixed: true, art_status: 'placeholder', visited: true, ...o });
+  it('2.6-AC9 when a constant background file is missing, a plain backdrop with the location name remains', () => {
+    render(<SceneArt location={loc({})} />);
+    fireEventError(screen.getByTestId('scene-art'));
+    expect(screen.queryByTestId('scene-art')).not.toBeInTheDocument();
+    expect(screen.getByText('Tavern')).toBeInTheDocument();
+  });
+  it('2.6-AC10 the Tavern shows the same background file in every campaign', () => {
+    expect(artSrc(loc({ id: 'campaign-A-tavern' }))).toBe('/backgrounds/tavern.webp');
+    expect(artSrc(loc({ id: 'campaign-B-tavern' }))).toBe('/backgrounds/tavern.webp');
+  });
+  it('2.6-AC11 a campaign location with pending art shows the placeholder with its name and the player can act', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
     await goTo(user, 'Lamp Works');
     await skipTitle(user);
     await readToChoices(user);
+    expect(screen.queryByTestId('scene-art')).not.toBeInTheDocument();
+    expect(screen.getAllByText('The Lamp Works').length).toBeGreaterThan(0);
     expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
   });
+  it('2.6-AC12 ready campaign art replaces the placeholder (served by the API)', () => {
+    expect(artSrc(loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'ready' }))).toMatch(/\/locations\/abc\/art$/);
+    expect(artSrc(loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'pending' }))).toBeNull();
+    render(<SceneArt location={loc({ id: 'abc', fixed: false, key: 'hall', art_status: 'ready' })} />);
+    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', expect.stringMatching(/\/locations\/abc\/art$/));
+  });
 });
+
+function fireEventError(el: HTMLElement): void {
+  act(() => void el.dispatchEvent(new Event('error')));
+}
 
 // ================================================================================================
 // 2.7 CommerzBuddy
@@ -834,14 +863,14 @@ describe('2.9 In-period news event', () => {
     await user.click(within(await screen.findByRole('article', { name: 'Breaking news' })).getByRole('button', { name: 'Continue' }));
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '84');
     await user.click(within(board).getByRole('button', { name: /Close/ }));
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
-    expect(within(await screen.findByRole('dialog', { name: 'Library' })).getByText('Quarterly loss notice')).toBeInTheDocument();
+    expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('Quarterly loss notice');
   });
 });
 
@@ -1333,7 +1362,7 @@ describe('2.16 Safeguards', () => {
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
-    const board = await screen.findByRole('dialog', { name: 'Price board' });
+    const board = await screen.findByRole('dialog', { name: 'Market stall' });
     const storyToday = readDb().campaign?.story_day ?? 0;
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', String(storyToday));
     expect(readDb().campaign?.price_board.every((p) => p.day <= storyToday)).toBe(true);
@@ -1397,7 +1426,7 @@ describe('2.17 Focus and items', () => {
     await skipTitle(user);
     await readToChoices(user);
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
-    expect(within(await screen.findByRole('dialog', { name: 'Library' })).getByText('How many barrels were sold in a year.')).toBeInTheDocument();
+    expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('How many barrels were sold in a year.');
   });
   it('2.17-AC8 an item changes no figure on screen: starting HP and euros are the same with an item', async () => {
     seedCampaign({ phase: 'play', heroClass: 'analyst' });

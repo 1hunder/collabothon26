@@ -46,7 +46,9 @@ export const routes = [
       {
         element: (
           <ShellGuard>
-            <ShellLayout />
+            <QueryClientProvider client={queryClient}>
+              <ShellLayout />
+            </QueryClientProvider>
           </ShellGuard>
         ),
         children: [
