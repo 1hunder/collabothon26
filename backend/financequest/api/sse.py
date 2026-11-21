@@ -82,7 +82,13 @@ async def _produce(plan: StreamPlan, t0: float) -> Streamed | dict[str, Any]:
 async def _stream(plan: StreamPlan) -> AsyncIterator[ServerSentEvent]:
     t0 = time.monotonic()
     yield event("status", {"state": "writing"})
-    out = await _produce(plan, t0)
+    # Run the model call and the commit in their own task: if the client disconnects (reload,
+    # leaving the screen) the reply is still generated and saved. Cancelling it with the stream
+    # left an opening uncommitted and the campaign stuck in "setup" (every move: 409).
+    task = asyncio.ensure_future(_produce(plan, t0))
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+    out = await asyncio.shield(task)
     if isinstance(out, dict):
         yield event("error", out)
         return
