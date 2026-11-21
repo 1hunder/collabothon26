@@ -69,6 +69,8 @@ class DecideOut(BaseModel):
     portion: Literal["all", "most", "half", "some"] | None = None
     text: str = Field(default="", description="At most 120 words, ends with a question")
     suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short actions")
+    hp_loss: int = Field(default=0, description="HP lost to this decision's scene, 0 to 10; usually 0")
+    hp_reason: str = Field(default="", description="Why, in one short phrase, when hp_loss > 0")
 
 
 class TextOut(BaseModel):
@@ -87,6 +89,8 @@ class NpcOut(BaseModel):
     text: str = Field(description="At most 120 words, in the NPC's own voice, to 'you'")
     suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short actions")
     clue_ids_given: list[str] = Field(default_factory=list)
+    hp_loss: int = Field(default=0, description="HP the hero loses, 0 to 10; usually 0")
+    hp_reason: str = Field(default="", description="Why, in one short phrase, when hp_loss > 0")
     escalate: bool = Field(default=False, description="True when the Campaign Master must answer")
     escalate_reason: str = ""
 

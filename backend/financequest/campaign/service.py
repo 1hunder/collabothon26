@@ -275,9 +275,7 @@ def position_of(run: CampaignRun, trades: list[Trade]) -> ledger.Position:
 
 # ---- damage: HP is the budget bar (1 HP = 10 euros) -------------------------------------------
 HP_EUR = 10
-MAX_HP_LOSS_TURN = 10
-MAX_HP_LOSS_SHARE = Decimal("0.3")  # of the starting HP, over the whole quest
-HP_FLOOR = 10
+MAX_HP_LOSS_TURN = 10  # a schema bound only: one model reply cannot take more than this
 
 
 def hp_now(run: CampaignRun) -> int:
@@ -298,19 +296,37 @@ def hp_change_out(delta: int, reason: str, run: CampaignRun) -> dict[str, Any]:
 def apply_hp_loss(
     db: Session, run: CampaignRun, pack: Pack, loss: int, reason: str
 ) -> dict[str, Any] | None:
-    """The engine clamps what the Campaign Master asks for: at most 10 HP a turn, at most 30% of
-    the starting HP over the quest, never below 10 HP, never more than the cash in the purse, and
-    never once the decision is locked. Persists the run field and an ``hp_change`` event."""
+    """Applies what the Campaign Master asked for: at most 10 HP a turn, never below 0 HP, never
+    more than the hero owns, never once the decision is locked. No other floor or total cap.
+
+    Cash in the purse pays first. What cash cannot cover comes out of the drafted position: a
+    ``loss`` trade removes those coins at the board price (the money is gone, not paid into the
+    purse), so the budget really drops. Persists the run fields and an ``hp_change`` event."""
     if run.phase not in ("play", "commit"):
         return None
-    cap_total = int(run.hp_start * MAX_HP_LOSS_SHARE) - run.hp_lost
-    cap_floor = hp_now(run) - HP_FLOOR
-    cap_cash = int(position_of(run, trades_of(db, run.id)).cash // HP_EUR)
-    n = max(0, min(int(loss), MAX_HP_LOSS_TURN, cap_total, cap_floor, cap_cash))
+    trades = trades_of(db, run.id)
+    pos = position_of(run, trades)
+    row = ledger.fill_row(pack.rows, run.clock_day)
+    cash = max(pos.cash, portfolio.ZERO)
+    owned = cash + pos.value(row.close)
+    n = max(0, min(int(loss), MAX_HP_LOSS_TURN, hp_now(run), int(owned // HP_EUR)))
     if n <= 0:
         return None
+    loss_eur = Decimal(n * HP_EUR)
+    short = loss_eur - min(loss_eur, cash)
     run.hp_lost += n
-    run.loss_unapplied_cents += n * HP_EUR * 100
+    if short > 0:  # cash is gone: the rest is taken from the invested coins
+        sold = min(short / row.close, pos.shares)
+        db.add(Trade(
+            campaign_id=run.id, seq=len(trades) + 1, beat="damage", story_day=run.clock_day,
+            fill_day=row.day, text=reason.strip()[:200], action="loss",
+            amount_cents=int(portfolio.q_cents(short) * 100), shares=str(-sold),
+            price=str(row.close), cash_after_cents=0, shares_after=str(pos.shares - sold),
+        ))  # fmt: skip
+        run.loss_unapplied_cents = 0  # folded into the loss trade's cash_after
+        db.flush()
+    else:
+        run.loss_unapplied_cents += n * HP_EUR * 100
     out = hp_change_out(-n, reason.strip(), run)
     append_event(db, run, "hp_change", out)
     return out
@@ -687,7 +703,7 @@ def ledger_result(run: CampaignRun, pack: Pack, trades: list[Trade]) -> ledger.L
 
 def evidence_text(trades: list[Trade], note: str) -> str:
     """The player's own words across the campaign: every decision, then the closing note."""
-    lines = [t.text for t in trades]
+    lines = [t.text for t in trades if t.beat != "damage"]  # damage reasons are not the player's words
     return "\n".join([*lines, note] if note else lines)
 
 
@@ -952,13 +968,9 @@ def generated_count(db: Session, cid: uuid.UUID) -> int:
 
 def create_generated_location(
     db: Session, run: CampaignRun, spec: dict[str, Any]
-) -> Location | None:
-    """Adds the validated place and its NPC to the campaign; None once the cap is reached."""
-    from financequest.agents.campaign.context import MAX_GENERATED
-
+) -> Location:
+    """Adds the validated place and its NPC to the campaign; there is no cap on created places."""
     have = locations(db, run.id)
-    if sum(1 for x in have if x.generated) >= MAX_GENERATED:
-        return None
     taken = {x.key for x in have}
     slug = "".join(c if c.isalnum() else "_" for c in spec["name"].lower()).strip("_")[:40] or "place"
     key, n = f"gen_{slug}", 2

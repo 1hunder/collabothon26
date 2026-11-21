@@ -218,8 +218,8 @@ tavern/inn/pub; guild hall/council chamber) to `intent: "move"`. The `done` payl
 ### 9.2 Master-created places (`new_location`)
 
 The player never creates a place. When the story needs one that does not exist (a counterparty's
-warehouse, a ship, a regulator's office) the Campaign Master adds it: a `location` row (at most 3
-per campaign; beyond that the Master uses existing places), an NPC at it, a Nano Banana art job
+warehouse, a ship, a regulator's office) the Campaign Master adds it: a `location` row (no cap on how
+many; the Master creates one only when the story needs it), an NPC at it, a Nano Banana art job
 (9:16, scrubbed prompt, no text/people/logos), and the player is moved there.
 
 `done` of `POST /actions` when this happens:
@@ -274,19 +274,28 @@ escalated: bool                     // false except an NPC hand-over
 hp_change: {delta: int (negative), reason: str, hp: int, hp_eur: int} | null
 new_location: {...} | null         // see 9.2
 ```
-`hp_change` is `null` on almost every turn. The Master only takes HP when the story costs the hero
-money (a budget loss in a scene, an incorrect or reckless decision showing its cost, a setback that
-backfires after a failed check), never for asking questions. The text then says it plainly ("You
-lose 3 HP: ..."). `/buddy` and `/move` never carry damage (`null`).
+`hp_change` is `null` on most turns. The Master may take HP on ANY narrated play turn when it
+judges the story costs the hero money: an action gone wrong, an NPC turn, a move or arrival at a
+new or existing place, a `new_location` event, a dice result (a success at a price as well as a
+setback), the reaction to a decision in a decision scene, or the consequence of news. Always
+justified in the text ("You lose 3 HP: ..."), never for merely asking questions, never on
+`off_topic` or `decision_intent` turns, and never after the lock (the final outcome stays pure
+market maths). `/buddy` never carries damage (`null`).
 
 ### 9.5 Damage rules (engine, not the model)
 
-HP is the money bar: 1 HP = 10 euros, `hp_eur = hp * 10`. The engine clamps what the Master asks:
-at most 10 HP per turn, at most 30% of the starting HP in total, never below 10 HP, never more than
-the cash in the purse, nothing after the lock; the stated number in the text is rewritten to the
-applied one. It is persisted (`campaign_run.hp_lost`, event `hp_change`) and the loss comes out of
-the purse cash. The investable budget for the result is the current `hp_eur`: the purse, the
-outcome and the what-if table all start from the reduced budget.
+HP is the money bar: 1 HP = 10 euros, `hp_eur = hp * 10`. There is no minimum HP and no total
+cap: HP can fall to 0 (budget EUR 0). The engine only bounds one reply to 10 HP (also the schema's
+`hp_loss` range, 0 to 10), and a loss is never larger than what the hero owns (cash plus the
+drafted position at the board price). Nothing after the lock. The stated number in the text is
+rewritten to the applied one. It is persisted (`campaign_run.hp_lost`, event `hp_change`).
+
+Cash in the purse pays first. When cash is not enough the rest comes out of the invested draft: a
+`damage` trade (`decisions[].action: "loss"`, `beat: "damage"`, `text` = the reason) removes those
+coins at the board price, so the total budget really drops and the per-decision effects still add
+up to the result. The investable budget for the result is the current `hp_eur`: the purse, the
+outcome and the what-if table all start from the reduced budget. At HP 0 the hero holds nothing:
+the lock works with EUR 0 (`starting_budget: 0`, `pl_pct: 0`, no division by zero).
 
 Campaign state: `hp` and `hp_eur` reflect damage; `hp_start` is new (starting HP). `budget_eur`
 (and `scenario.budget_eur`) stay the starting budget. `state` SSE events carry `hp`, `hp_eur`.

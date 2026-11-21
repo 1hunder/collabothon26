@@ -36,6 +36,7 @@ from financequest.db.session import get_engine
 from financequest.llm import get_node_llm
 from financequest.media import art
 
+HOLD = "I hold my coins and keep them"
 WAREHOUSE = "I want to visit the guild's shipping warehouse at the docks"
 
 
@@ -189,16 +190,16 @@ def test_generated_art_job_writes_the_image(
     assert state(client, h, cid)["locations"][-1]["art_status"] in ("ready", "pending")
 
 
-def test_at_most_three_generated_places(
+def test_no_cap_on_generated_places(
     client: TestClient, enron: str, art_jobs: list[uuid.UUID]
 ) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
     for text in ("visit the warehouse", "go to the shipyard", "head to the regulator office"):
         assert act(client, h, cid, text)["intent"] == "new_location"
-    done = act(client, h, cid, "let's visit the bank")
-    assert done["intent"] != "new_location" and done["new_location"] is None
-    assert sum(x["generated"] for x in state(client, h, cid)["locations"]) == 3
+    fourth = act(client, h, cid, "let's visit the harbour master")
+    assert fourth["intent"] == "new_location" and fourth["new_location"] is not None
+    assert sum(x["generated"] for x in state(client, h, cid)["locations"]) == 4
 
 
 def test_npc_answers_in_character_and_never_leaks_future_evidence(
@@ -309,16 +310,69 @@ def test_damage_persists_and_reduces_the_budget(client: TestClient, enron: str) 
     assert act(client, h, cid, "I look around again")["hp_change"] is None  # default: no damage
 
 
-def test_damage_is_clamped_per_turn_and_in_total(client: TestClient, enron: str) -> None:
+def test_damage_is_clamped_per_turn_only_and_hp_can_reach_zero(
+    client: TestClient, enron: str
+) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
-    for _ in range(4):
+    with Session(get_engine()) as db:  # one reply cannot take more than 10 HP
+        run, pack, _ = load(db, uuid.UUID(cid), uuid.UUID(h["X-Session-Id"]))
+        out = service.apply_hp_loss(db, run, pack, 25, "an absurd claim")
+        assert out and out["delta"] == -10
+        db.commit()
+    for i in range(9):
         fake.script_damage(10, "a disaster")
-    seen = [act(client, h, cid, "I look around")["hp_change"] for _ in range(4)]
-    assert [c["delta"] if c else 0 for c in seen] == [-10, -10, -10, 0]  # <=10/turn, <=30% total
-    assert state(client, h, cid)["hp"] == 70
-    last = act(client, h, cid, "I look around")  # nothing queued: the stated loss is never faked
-    assert last["hp_change"] is None
+        done = act(client, h, cid, "I look around")
+        assert done["hp_change"], (i, done["text"], done["intent"], done["degraded"])
+        assert done["hp_change"]["delta"] == -10
+    s = state(client, h, cid)  # no floor, no 30% cap: all 100 HP are gone
+    assert (s["hp"], s["hp_eur"]) == (0, 0)
+    assert s["purse"]["cash_eur"] == 0.0 and s["purse"]["total_eur"] == 0.0
+    fake.script_damage(5, "more")
+    assert act(client, h, cid, "I look around")["hp_change"] is None  # nothing left to lose
+    assert state(client, h, cid)["hp"] == 0
+
+
+def test_damage_beyond_cash_comes_out_of_the_invested_draft(client: TestClient, enron: str) -> None:
+    h = new_player(client)
+    cid, _ = start(client, h)
+    with Session(get_engine()) as db:
+        run, pack, _ = load(db, uuid.UUID(cid), uuid.UUID(h["X-Session-Id"]))
+        service.record_decision(db, run, pack, "all in", "buy", None, "all")
+        assert service.position_of(run, service.trades_of(db, run.id)).cash == 0
+        out = service.apply_hp_loss(db, run, pack, 10, "a fire at the stalls")
+        assert out and out["delta"] == -10 and out["hp"] == 90
+        trades = service.trades_of(db, run.id)
+        pos = service.position_of(run, trades)
+        assert trades[-1].beat == "damage" and trades[-1].amount_cents == 10000
+        assert pos.cash == 0 and pos.shares > 0
+        assert service.budget_now(run) == 900
+        assert service.purse(db, run, pack)["total_eur"] <= 900 + 1  # the position shrank
+        db.commit()
+    play_to_decide(client, h, cid, HOLD)
+    ok = client.post(f"/campaigns/{cid}/lock", json=COMMIT, headers=h)
+    assert ok.status_code == 200, ok.text
+    b = ok.json()["breakdown"]
+    assert b["starting_budget"] == 900.0
+    effects = sum(d["effect_eur"] for d in ok.json()["decisions"])
+    assert abs(effects - b["pl_eur"]) < 0.05  # damage effects keep the ledger exact
+
+
+def test_lock_works_with_zero_budget(client: TestClient, enron: str) -> None:
+    h = new_player(client)
+    cid, _ = start(client, h)
+    for _ in range(10):
+        fake.script_damage(10, "ruin")
+        act(client, h, cid, "I look around")
+    assert state(client, h, cid)["hp"] == 0
+    play_to_decide(client, h, cid, HOLD)
+    ok = client.post(f"/campaigns/{cid}/lock", json={**COMMIT, "amount_cents": 0}, headers=h)
+    assert ok.status_code == 200, ok.text
+    body = ok.json()
+    b = body["breakdown"]
+    assert b["starting_budget"] == 0 and b["final_value"] == 0 and b["pl_pct"] == 0
+    assert b["cash_kept"] == 0 and b["invested"] == 0
+    assert body["hp_before"] == 0 and body["hp_after"] == 0
 
 
 def test_clamp_rewrites_the_stated_number() -> None:
@@ -330,12 +384,28 @@ def test_clamp_rewrites_the_stated_number() -> None:
     )
 
 
-def test_moves_never_take_damage(client: TestClient, enron: str) -> None:
+def test_moves_and_new_places_may_take_damage(
+    client: TestClient, enron: str, art_jobs: list[uuid.UUID]
+) -> None:
+    h = new_player(client)
+    cid, _ = start(client, h)
+    fake.script_damage(4, "a toll at the library door")
+    moved = act(client, h, cid, "let's go to the library")
+    assert moved["intent"] == "move" and moved["hp_change"]["delta"] == -4
+    assert "You lose 4 HP" in moved["text"]
+    fake.script_damage(2, "the dockhands demand a fee")
+    new = act(client, h, cid, WAREHOUSE)
+    assert new["intent"] == "new_location" and new["hp_change"]["delta"] == -2
+    assert state(client, h, cid)["hp"] == 94
+    assert act(client, h, cid, "tell me a joke about pizza")["hp_change"] is None  # off topic: none
+
+
+def test_off_topic_and_questions_stay_damage_free(client: TestClient, enron: str) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
     fake.script_damage(4, "x")
-    assert act(client, h, cid, "let's go to the library")["hp_change"] is None
-    assert act(client, h, cid, "I look around")["hp_change"]["delta"] == -4  # kept for a free turn
+    assert act(client, h, cid, "tell me a joke about pizza")["hp_change"] is None
+    assert act(client, h, cid, "I look around")["hp_change"]["delta"] == -4  # script kept
 
 
 def test_lock_uses_the_reduced_budget_and_rejects_over_budget(
@@ -356,7 +426,7 @@ def test_lock_uses_the_reduced_budget_and_rejects_over_budget(
     assert b["cash_kept"] + b["invested"] == 970.0
 
 
-def test_dice_setback_can_cost_hp_but_success_never(client: TestClient, enron: str) -> None:
+def test_dice_setback_can_cost_hp(client: TestClient, enron: str) -> None:
     h = new_player(client, "analyst")
     cid, s = start(client, h)
     ch = _challenge(s, "Resignation")
@@ -370,6 +440,21 @@ def test_dice_setback_can_cost_hp_but_success_never(client: TestClient, enron: s
     done = post_sse(client, f"/campaigns/{cid}/narrate-roll", h, {"roll_id": ch["id"]})[1]
     assert done["hp_change"]["delta"] == -2 and "You lose 2 HP" in done["text"]
     assert state(client, h, cid)["hp"] == 98
+
+
+def test_dice_success_can_cost_hp_too(client: TestClient, enron: str) -> None:
+    h = new_player(client, "analyst")
+    cid, s = start(client, h)
+    ch = _challenge(s, "Resignation")
+    _force_seed(
+        cid,
+        next(x for x in range(1, 5000) if dice.roll(x, "ENC-RESIGNATION", 0, ch["dc"]).success),
+    )
+    client.post(f"/campaigns/{cid}/rolls", json={"challenge_id": ch["id"]}, headers=h)
+    fake.script_damage(3, "the archivist charges for the copy")
+    done = post_sse(client, f"/campaigns/{cid}/narrate-roll", h, {"roll_id": ch["id"]})[1]
+    assert done["hp_change"]["delta"] == -3 and "You lose 3 HP" in done["text"]
+    assert state(client, h, cid)["hp"] == 97
 
 
 def test_buddy_done_payload_has_contract_fields(client: TestClient, enron: str) -> None:
@@ -397,9 +482,7 @@ def test_agent_narration_turn_unit_defaults_to_no_damage(client: TestClient, enr
     assert reply.hp_loss == 0 and service.HP_EUR == 10
 
 
-def test_engine_cap_holds_even_if_the_model_asks_for_a_fourth(
-    client: TestClient, enron: str
-) -> None:
+def test_engine_creates_a_fourth_place(client: TestClient, enron: str) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
     spec = {
@@ -413,20 +496,16 @@ def test_engine_cap_holds_even_if_the_model_asks_for_a_fourth(
         assert run
         rows = [
             service.create_generated_location(db, run, {**spec, "name": f"Place {n}"})
-            for n in "ABC"
+            for n in "ABCD"
         ]
-        assert all(rows) and len({r.key for r in rows if r}) == 3
-        assert service.create_generated_location(db, run, spec) is None
+        assert len({r.key for r in rows}) == 4
         db.commit()
-    ctx = ctx_of(cid, h["X-Session-Id"])
-    assert (
-        sanitize_new_location(
-            ctx, NewLocationSpec(name="Fourth Dock", npc=NpcSpec(name="A B", role="r"))
-        )
-        is None
-    )
-    nl = RouteOut(
-        intent="new_location",
-        new_location=NewLocationSpec(name="Fourth Dock", npc=NpcSpec(name="A B", role="r")),
-    )
-    assert validate_route(ctx, nl).intent == "free"
+
+
+def test_decision_scene_reaction_may_cost_hp(client: TestClient, enron: str) -> None:
+    h = new_player(client)
+    cid, _ = start(client, h)
+    fake.script_damage(2, "the broker takes a fee")
+    nar = AgentNarration(get_node_llm({}))
+    reply = nar.decide(ctx_of(cid, h["X-Session-Id"]), "I put half of my coins in")
+    assert reply.kind == "decision" and reply.hp_loss == 2 and "You lose 2 HP" in reply.text

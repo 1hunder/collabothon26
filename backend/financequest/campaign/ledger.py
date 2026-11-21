@@ -93,7 +93,7 @@ def effect(fill_action: str, amount: Decimal, shares: Decimal, end_close: Decima
     what the shares did until the horizon; a sell avoids (or misses) exactly that."""
     if fill_action == "buy":
         return shares * end_close - amount
-    if fill_action == "sell":
+    if fill_action in ("sell", "loss"):  # a loss removes coins at the board price, paying nothing out
         return amount + shares * end_close  # shares is negative
     return ZERO
 

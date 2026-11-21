@@ -54,7 +54,7 @@ MIN_RETRY_S = 5.0
 DM_WORDS = 150
 NPC_WORDS = 120
 HP_NOTE = "hp_loss is above 0 but the text does not state the loss (write 'You lose N HP: reason')"
-NO_DAMAGE_INTENTS = ("move", "new_location", "off_topic", "decision_intent")
+NO_DAMAGE_INTENTS = ("off_topic", "decision_intent")  # everything else may cost HP
 
 
 # =====================================================================================
@@ -324,15 +324,13 @@ _FALLBACK_NPC = ("Brim Ostler", "A local keeper of the place")
 
 
 def sanitize_new_location(ctx: C.AgentContext, spec: NewLocationSpec) -> NewLocationSpec | None:
-    """The engine, not the model, decides whether a created place is acceptable: the cap, a
+    """The engine, not the model, decides whether a created place is acceptable: a
     clean name, and no real identity term anywhere (names fall back, free text is scrubbed)."""
     from financequest.media.art import scrub_subject
 
     terms = ctx.pack.leak_terms
     name = " ".join(spec.name.split())[:60]
     if not name or len(name) < 3 or re.search(r"\d", name) or leak_violations(name, terms):
-        return None
-    if ctx.generated_count >= C.MAX_GENERATED:
         return None
     npc_name = " ".join(spec.npc.name.split())[:40]
     npc_role = " ".join(spec.npc.role.split())[:80]
@@ -396,11 +394,8 @@ def _route_facts(ctx: C.AgentContext) -> str:
     return (
         f"# Ids you may use\nChallenges: {'; '.join(chs) or 'none'}\n"
         f"Characters: {'; '.join(chars) or 'none'}\nLocations: {'; '.join(locs)}\n"
-        + (f"Created places: {ctx.generated_count} of {C.MAX_GENERATED}; the cap is reached, never "
-           "use new_location, pick the closest listed location or free."
-           if ctx.generated_count >= C.MAX_GENERATED
-           else f"Created places so far: {ctx.generated_count} of {C.MAX_GENERATED} (new_location "
-                "is allowed).")
+        + f"Created places so far: {ctx.generated_count} (new_location is allowed whenever the story "
+          "needs a place that is not listed)."
     )
 
 
@@ -439,7 +434,7 @@ def turn_extra(ctx: C.AgentContext, r: RouteOut) -> tuple[str, set[str]]:
             f"has only now come into the story, a first visit. Place: {n.description}\n"
             f"Someone is here: {n.npc.name}, {n.npc.role}. Introduce them by name in the text, in "
             f"one or two sentences, and offer 'Ask {n.npc.name} ...' as one of the suggestions. "
-            "Reveal no clues and give no clue_ids. hp_loss is 0. Speaker: chronicler.",
+            "Reveal no clues and give no clue_ids. Speaker: chronicler.",
             set(),
         )
     if r.intent == "talk":
@@ -655,6 +650,8 @@ def _npc_texts(o: NpcOut) -> dict[str, str]:
     t = {"text": o.text}
     if o.suggestions:
         t["suggestions"] = " / ".join(o.suggestions)
+    if o.hp_loss > 0 and o.hp_reason.strip():
+        t["hp_reason"] = o.hp_reason
     return t
 
 
@@ -671,7 +668,7 @@ def _npc_answer(state: NpcState) -> dict[str, Any]:
     spec = GuardedSpec(
         llm=state["llm"], node="campaign_npc", schema=NpcOut, effort="medium",
         messages=lambda notes: C.build_messages(ctx, prompts.NPC, text, corrective=notes, extra=extra),
-        texts=_npc_texts, rules=rules_,
+        texts=_npc_texts, rules=rules_, checks=hp_checks,
         template=lambda: NpcOut(text=SAFE_FALLBACK, escalate=True, escalate_reason="guards"),
         ctx=ctx, llm_context={"ctx": ctx, "input": text, "extra": extra, "npc": npc},
     )  # fmt: skip
@@ -701,9 +698,11 @@ def _npc_reply(state: NpcState) -> dict[str, Any]:
             break
         if extra_s not in sugg:
             sugg.append(extra_s)
+    hp_loss = max(0, min(int(out.hp_loss or 0), 10))
     return {"reply": TurnReply(
         text=out.text.strip(), speaker=str(npc["name"]), speaker_id=str(npc["id"]),
         speaker_kind="npc", intent="talk", clue_ids_given=given, suggestions=sugg,
+        hp_loss=hp_loss, hp_reason=out.hp_reason.strip() if hp_loss else "",
         rejected_clue_ids=[c for c in out.clue_ids_given if c not in may],
     )}  # fmt: skip
 
