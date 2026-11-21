@@ -131,6 +131,15 @@ export function faceToViewer(face: D20Face): Mat3 {
   return [cross(r2, r3), r2, r3];
 }
 
+/**
+ * A small tilt on the resting pose so the die reads as 3D. Kept small so the rolled face stays
+ * in the centre of the die: a bigger tilt moves it off to the side.
+ */
+export const REST_TILT: Mat3 = multiply(rotation([0, 1, 0], 0.1), rotation([1, 0, 0], 0.13));
+
+/** Where the die rests when it shows `value`: that face toward the viewer, centred and upright. */
+export const restingPose = (value: number): Mat3 => multiply(REST_TILT, faceToViewer(faceFor(value)));
+
 /** CSS `matrix3d` (column-major) for a rotation, optionally with a translation in px. */
 export function cssMatrix(M: Mat3, t: Vec3 = [0, 0, 0]): string {
   return `matrix3d(${M[0][0]},${M[1][0]},${M[2][0]},0,${M[0][1]},${M[1][1]},${M[2][1]},0,${M[0][2]},${M[1][2]},${M[2][2]},0,${t[0]},${t[1]},${t[2]},1)`;
