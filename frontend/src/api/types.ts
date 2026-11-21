@@ -148,6 +148,7 @@ export interface MarketScene {
 
 export interface MarketCard {
   kind: 'market';
+  audio_text_id?: number | null;
   beat: DecisionBeat;
   text: string;
   suggestions: string[];
@@ -277,6 +278,8 @@ export interface PlayLocation {
 
 export interface BacklogEntry {
   seq: number;
+  /** Server audio of a Campaign Master or Buddy line (GET /tts/{id}). */
+  audio_text_id?: number | null;
   /** "You", "You (to Buddy)", "Campaign Master", "CommerzBuddy" or a character name */
   speaker: string;
   text: string;

@@ -61,6 +61,30 @@ describe('AudioUrlProvider', () => {
   });
 });
 
+describe('AudioUrlProvider speed and superseded lines', () => {
+  it('plays the narrator 15% faster with the pitch kept, Buddy at normal speed', () => {
+    const audio = fakeAudio() as ReturnType<typeof fakeAudio> & { playbackRate?: number; preservesPitch?: boolean };
+    const p = new AudioUrlProvider(null, () => audio as never);
+    p.speak('1', 'narration', 'dm');
+    expect(audio.playbackRate).toBe(1.15);
+    expect(audio.preservesPitch).toBe(true);
+    p.speak('2', 'buddy line', 'buddy');
+    expect(audio.playbackRate).toBe(1);
+  });
+
+  it('a line replaced by a newer one never falls back to the browser voice', async () => {
+    const audio = fakeAudio();
+    audio.play.mockRejectedValueOnce(Object.assign(new Error('interrupted'), { name: 'AbortError' }));
+    const fb = fakeImpl();
+    const p = new AudioUrlProvider(fb, () => audio);
+    p.speak('1', 'old line', 'dm');
+    p.speak('2', 'new line', 'dm');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fb.calls.filter((c) => c.startsWith('speak'))).toEqual([]);
+  });
+});
+
 describe('AudioUrlProvider timeout and errors', () => {
   it('falls back to Web Speech when /tts errors', () => {
     const audio = fakeAudio();

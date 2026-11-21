@@ -58,7 +58,9 @@ export default function DialogueBox({
   const spoken = useRef<number>(-1);
   const pageReady = final || !last;
   useEffect(() => {
-    if (!pageReady || page === '') return;
+    // Nothing is spoken while the reply is still arriving: the finished reply brings its server
+    // audio id, and a page already spoken by the browser voice would block that audio.
+    if (!final || !pageReady || page === '') return;
     // Server audio covers the whole reply: start it once with page one and let it run across pages.
     if (final && audioTextId != null) {
       if (spoken.current >= 0) return;
