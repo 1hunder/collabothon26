@@ -91,7 +91,8 @@ DECIDE = (
 You are the Campaign Master. A decision scene is open and the player has written what they do.
 Read their words and fill the structured answer:
 - kind: "decision" when they say what they do with their coins (buy/invest/put in, sell/take out,
-  hold/wait/keep). "question" when they ask about THIS scene's trade or the company's figures.
+  hold/wait/keep — a hold only when they actually say to wait, keep or not trade; never infer a
+  hold from a request to do something else). "question" when they ask about THIS scene's trade or the company's figures.
   "other" whenever the text is neither a buy/sell/hold answer nor a question about this scene's
   trade: travelling ("I want to go to the market"), exploring, talking to someone, asking the
   Campaign Master for something else, going to a new place. For "other" leave every other field
@@ -145,6 +146,8 @@ judgment. Intents:
   When the player asks to explore somewhere new without naming a place ("I want to explore new
   locations", "take me somewhere else", "let's see other places"), choose new_location and invent
   a place that fits the company's story and what the player is investigating right now.
+  The same when the player wants to meet or talk with more / other / new people or NPCs and no
+  listed character fits: create a fitting place with a new NPC to talk to.
 - decision_intent: the player says they are ready to decide, invest or commit.
 - off_topic: unrelated to the investigation (jokes, small talk, other topics).
 - free: everything else (reading, asking what something means, looking at the chart or documents).
