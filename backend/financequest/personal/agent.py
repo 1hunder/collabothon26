@@ -100,6 +100,27 @@ def parse_research(text: str, n_windows: int) -> tuple[int, str]:
 
 # ---- the graph --------------------------------------------------------------------------------
 
+def _reply_text(content: Any) -> str:
+    """The text of a chat reply (thinking and other non-text blocks are skipped)."""
+    if isinstance(content, str):
+        return content
+    parts = []
+    for b in content or []:
+        if isinstance(b, str):
+            parts.append(b)
+        elif isinstance(b, dict) and b.get("type") == "text":
+            parts.append(str(b.get("text", "")))
+    return "".join(parts)
+
+
+def _json_object(text: str) -> str:
+    """The outermost JSON object in a reply, tolerating a code fence or stray prose."""
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError("the reply contains no JSON object")
+    return text[start : end + 1]
+
+
 
 def build_quest_graph(
     company: Company,
@@ -177,8 +198,11 @@ def build_quest_graph(
         for fallback in (False, True):  # a refusal is retried once, as in the gate graph
             res = llm.run("research_company", messages, schema=GuesserReport, effort="high",
                           web_search_max_uses=cfg.web_search_max_uses, fallback=fallback)  # fmt: skip  # noqa: E501
-            if not res.refused:
+            # A refusal, or a turn that stopped on a stray tool call (seen live:
+            # stop_reason "tool_use" with only the web search server tool), is retried once.
+            if not res.refused and res.stop_reason in (None, "end_turn"):
                 break
+            _log.info("research for %s ended with %s; retrying once", pack_id, res.stop_reason)
         if res is None or res.refused or res.stop_reason not in (None, "end_turn"):
             raise QuestFailed(f"research call ended with {res.stop_reason if res else None}")
         idx, case = parse_research(res.text, len(windows))
@@ -222,17 +246,24 @@ def build_quest_graph(
             f"Case id: {pack_id}\nPrice table: {pack.price_dates[0]} to {pack.price_dates[-1]}, "
             f"{len(pack.price_rows)} rows.{extra}\n\n--- CASE MARKDOWN ---\n{pack.markdown}"
         )
+        human += (
+            "\n\nReturn the campaign manifest as ONE JSON object only (no prose, no code fence), "
+            "valid against this JSON schema. Every numeric field must be a plain number.\n"
+            + json.dumps(CampaignManifest.model_json_schema())
+        )
         convo: list[Any] = [("system", MANIFEST_SYSTEM), ("human", human)]
         errors: list[str] = []
         for _ in range(MANIFEST_REPAIRS + 1):
             try:
                 # The structured-output parser itself raises on an invalid value (e.g. a figure
                 # written as "low 30s"), so the call belongs inside the repair loop.
-                # json_schema: forced tool calling is not supported on this model / with thinking
-                raw = model.with_structured_output(
-                    CampaignManifest, method="json_schema"
-                ).invoke(convo)
-                m = raw if isinstance(raw, CampaignManifest) else CampaignManifest.model_validate(raw)  # noqa: E501
+                # Plain JSON in the reply, validated here: json_schema output rejects this schema
+                # ("compiled grammar is too large") and forced tool calling is not supported on
+                # this model, so the repair loop below is the only schema enforcement.
+                reply = model.invoke(convo)
+                text = _reply_text(reply.content)
+                convo = [*convo, ("ai", text or "(empty reply)")]
+                m = CampaignManifest.model_validate_json(_json_object(text))
             except Exception as exc:  # noqa: BLE001 - schema problems are repaired below
                 errors = [f"schema: {exc}"[:2000]]
                 jr.append({"step": "draft_error", "draft": n, "errors": errors})

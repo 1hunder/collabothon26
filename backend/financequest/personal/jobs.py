@@ -271,7 +271,10 @@ def daily_quest(
 ) -> GenerationJob:
     today = today or date.today()
     todays = [j for j in _jobs(db, sid) if j.kind == "daily" and j.quest_date == today]
-    current = next((j for j in todays if j.status not in ("failed", "rejected")), None)
+    # Today's newest job is today's quest even when it failed: the page polls this endpoint, and
+    # skipping failed jobs started a new company on every poll (an endless, costly cascade).
+    # Only the regenerate button starts a new generation after a failure.
+    current = todays[0] if todays else None
     if current is not None and (not regenerate or current.status in ACTIVE):
         return current  # newest first; a running regeneration is never stacked
     if get_settings().demo_mode:
