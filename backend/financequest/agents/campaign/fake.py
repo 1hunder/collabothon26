@@ -68,6 +68,21 @@ def _with_damage(body: str, loss: int, reason: str) -> str:
     return f"{body} You lose {loss} HP: {reason}." if loss > 0 else body
 
 
+# ---- scripted offers of the all-in plot: FAKE_LLM defaults to a buyback ---------------------------
+OFFER_SCRIPT: list[str] = []
+_BROKERS = ("Harrel Voss", "Ysolde Marsh", "Cato Brindle")
+_LENDERS = ("Ismene Dray", "Orlan Pike", "Veda Quillon")
+
+
+def script_offer(kind: str) -> None:
+    """Queue the kind (buyback / loan / fast_forward) of the next offer the Master makes."""
+    OFFER_SCRIPT.append(kind)
+
+
+def clear_offers() -> None:
+    OFFER_SCRIPT.clear()
+
+
 # ---- movement phrasing and place synonyms ----------------------------------------------------
 _MOVE_PHRASES = (
     "go to", "go back", "visit", "head to", "head for", "head back", "walk to", "travel", "enter",
@@ -482,6 +497,52 @@ class CampaignFakeLLM:
         beat = str(c.get("beat") or "story")
         text = self._SCENES.get(beat, self._SCENES["story"])
         return S.TextOut(text=text.format(market=ctx.pack.market_name, company=ctx.pack.company_name))
+
+    def offer(self, c: dict[str, Any]) -> S.OfferOut:
+        ctx: C.AgentContext = c["ctx"]
+        allowed: list[str] = c["allowed"]
+        want = OFFER_SCRIPT.pop(0) if OFFER_SCRIPT else "buyback"
+        kind = want if want in allowed else allowed[0]
+        facts = ctx.offer_facts or {}
+        pick = int(ctx.campaign_id.replace("-", "")[:8] or "0", 16)
+        if kind == "buyback":
+            return S.OfferOut(
+                kind="buyback", name=_BROKERS[pick % len(_BROKERS)], role="Guild broker",
+                text="A broker in a gilded coat draws you aside: for anyone who wants coins back in "
+                     "hand, he will buy part of your stake in the company at today's board price, up "
+                     f"to {facts['buyback']['max_eur']} euros worth. How do you answer?",
+                suggestions=["Sell half of my coins", "No, I keep them all", "I look around instead"],
+            )  # fmt: skip
+        if kind == "loan":
+            t = facts["loan"]
+            return S.OfferOut(
+                kind="loan", name=_LENDERS[pick % len(_LENDERS)], role="Moneylender",
+                text=f"A moneylender of the guild offers you up to {t['principal_eur']} euros now, at "
+                     f"flat interest of {t['interest_pct']} percent: {t['repay_eur']} euros repaid "
+                     f"{t['due']}. How do you answer?",
+                suggestions=["I take the loan", "No, I decline", "I look around instead"],
+            )  # fmt: skip
+        return S.OfferOut(
+            kind="fast_forward",
+            text="With everything committed, the days begin to pass. Are you ready to wait?",
+        )  # fmt: skip
+
+    def offer_answer(self, c: dict[str, Any]) -> S.TextOut:
+        return S.TextOut(
+            text="The lender counts the coins into your purse and the room goes back to its own "
+                 "business. What do you do next?"
+        )  # fmt: skip
+
+    def forward(self, c: dict[str, Any]) -> S.TextOut:
+        why = str(c.get("why") or "")
+        lead = {
+            "declined": "You turn the offer down, and the offerer shrugs and fades into the crowd. ",
+            "ignored": "The offer goes unanswered, and the offerer drifts away to other customers. ",
+        }.get(why.split(":")[0], "")
+        return S.TextOut(
+            text=lead + "With everything committed, nothing is left for you to decide. The days pass "
+            "over the guild's halls, the rain comes and goes, and the horizon draws near."
+        )  # fmt: skip
 
     def decide(self, c: dict[str, Any]) -> S.DecideOut:
         ctx: C.AgentContext = c["ctx"]

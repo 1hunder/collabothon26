@@ -57,7 +57,22 @@ class DecisionReply:
     reasoning_sufficient: bool = False  # concrete enough to proceed without asking
 
 
+@dataclass
+class OfferReply:
+    """The Master's choice for a hero with nothing left at stake (the engine adds the terms)."""
+
+    kind: str  # buyback / loan / fast_forward
+    name: str
+    role: str
+    text: str
+    suggestions: list[str] = field(default_factory=list)
+    degraded: bool = False
+
+
 class Narration(Protocol):
+    def offer(self, ctx: AgentContext, allowed: list[str]) -> OfferReply: ...
+    def offer_answer(self, ctx: AgentContext) -> TurnReply: ...
+    def fast_forward(self, ctx: AgentContext, why: str) -> TurnReply: ...
     def market_scene(self, ctx: AgentContext, beat: str) -> TurnReply: ...
     def decide(self, ctx: AgentContext, text: str) -> DecisionReply: ...
     def setup(self, ctx: AgentContext) -> dict[str, Any]: ...

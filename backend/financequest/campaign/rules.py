@@ -167,3 +167,43 @@ def adhoc_key(skill: str, target: str, location_key: str) -> str:
     """One check per skill + target + place: the key is the identity (campaign + key is unique)."""
     slug = "-".join(re.findall(r"[a-z0-9]+", target.lower()))[:40] or "here"
     return f"skill-{skill}-{slug}-{location_key}"
+
+
+# ---- the all-in plot: nothing left at stake ------------------------------------------------------
+ALL_IN_CASH_PCT = 2  # free cash at or under this share of the starting budget counts as all in
+LOAN_PRINCIPAL_PCT = 50  # a moneylender lends up to this share of the starting budget
+LOAN_INTEREST_PCT = 10  # flat, repaid with the principal at the end of the horizon
+OFFER_IGNORED_MAX = 2  # something else twice in front of an open offer: the plot moves on
+
+_DONE_RE = re.compile(r"\b(done|that'?s it|that is it|finished|all out|out for good|no more|enough)\b", re.I)
+_DECLINE_RE = re.compile(
+    r"\b(no|nope|decline|declined|refuse|reject|not interested|no thanks|pass|never|don'?t|do not|"
+    r"won'?t|will not|keep (my|what|it)|hold)\b", re.I)
+_ACCEPT_RE = re.compile(
+    r"\b(accept|agree|deal|yes|yeah|yep|sure|okay|ok|take (it|the|your|that)|i'?ll take|let'?s do it|"
+    r"borrow|sell|lend|go ahead)\b", re.I)
+_LOAN_AMOUNT_RE = re.compile(r"(?:€\s*)?(\d[\d,]*)(?!\s*%)", re.I)
+
+
+def says_done(text: str) -> bool:
+    return bool(_DONE_RE.search(text))
+
+
+def read_offer_answer(text: str) -> str:
+    """accept / decline / other: a plain reading of the player's words about an open offer. A
+    refusal wins over acceptance wording; anything that is neither is "other" (something else)."""
+    if _DECLINE_RE.search(text):
+        return "decline"
+    if _ACCEPT_RE.search(text):
+        return "accept"
+    return "other"
+
+
+def loan_amount(text: str, maximum: int) -> int:
+    """The sum the player asks to borrow (a number or "half"), clamped to the offer; else all of it."""
+    m = _LOAN_AMOUNT_RE.search(text)
+    if m and 0 < int(m.group(1).replace(",", "")) <= maximum:
+        return int(m.group(1).replace(",", ""))
+    if "half" in text.lower():
+        return maximum // 2
+    return maximum
