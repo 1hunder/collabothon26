@@ -9,7 +9,7 @@ export interface ChoiceListProps {
   purse?: Purse;
   /** Show "I'm ready to decide". */
   canDecide: boolean;
-  /** The Campaign Master asked why: the next message is the player's reasoning. */
+  /** The curious trader asked why: the next message is the player's reasoning. */
   awaitingReasoning?: boolean;
   /** Freeze every button while a request is in flight. */
   busy?: boolean;

@@ -55,6 +55,14 @@ def test_sufficient_versus_thin_versus_missing() -> None:
     assert not reasoning.is_sufficient(None)
 
 
+def backlog(cid: str) -> list[dict[str, Any]]:
+    from financequest.campaign import journal
+
+    with Session(get_engine()) as db:
+        rows = db.exec(select(Event).where(Event.campaign_id == uuid.UUID(cid)).order_by(Event.seq))  # type: ignore[arg-type]
+        return journal.backlog(list(rows))
+
+
 # ---- the decision turn ----------------------------------------------------------------------
 def test_sufficient_inline_reasoning_is_stored_and_nothing_is_asked(
     client: TestClient, enron: str
@@ -74,7 +82,13 @@ def test_missing_reasoning_is_asked_once_and_the_next_message_is_recorded_verbat
     h, cid = setup(client)
     done = act(client, h, cid, "buy 20")
     assert done["awaiting_reasoning"] is True
-    assert done["text"].rstrip().endswith("What made you choose that?")
+    prompt = done["reasoning_prompt"]
+    assert prompt["role"] == "curious trader"
+    assert prompt["speaker"] == reasoning.trader_name(uuid.UUID(cid))
+    assert prompt["text"].endswith("What made you choose that?")
+    assert "What made you choose that?" not in done["text"] and done["speaker"] == "Campaign Master"
+    seen = [(b["speaker"], b["text"]) for b in backlog(cid)]
+    assert (prompt["speaker"], prompt["text"]) in seen
     assert campaign_state(client, h, cid)["awaiting_reasoning"] is True
     d = first_decision(client, h, cid)
     assert d["reasoning"] is None and d["reasoning_source"] is None
@@ -82,7 +96,9 @@ def test_missing_reasoning_is_asked_once_and_the_next_message_is_recorded_verbat
     words = "The debt note scared me, honestly!  buy more"  # trade words: still not an action
     ack = act(client, h, cid, words)
     assert ack["awaiting_reasoning"] is False
-    assert "What do you do next?" in ack["text"]
+    assert ack["speaker"] == prompt["speaker"] and ack["speaker_kind"] == "npc"
+    assert ack["reasoning_prompt"] is None and "recorded" not in ack["text"].lower()
+    assert "What do you do next" not in ack["text"] and ack["text"] in reasoning.ACKS
     judging = ("good", "great", "smart", "wise", "right", "wrong")
     assert not any(w in ack["text"].lower() for w in judging)
     d = first_decision(client, h, cid)
@@ -99,7 +115,8 @@ def test_thin_reasoning_gets_a_gentler_follow_up_and_is_extended(
     h, cid = setup(client)
     done = act(client, h, cid, "buy 20 because I like it")
     assert done["awaiting_reasoning"] is True
-    assert done["text"].rstrip().endswith("Can you say a bit more about why?")
+    assert done["reasoning_prompt"]["text"].endswith("a bit more about why?")
+    assert "about why" not in done["text"]
     act(client, h, cid, "the report shows debt rising")
     d = first_decision(client, h, cid)
     assert d["reasoning"] == "I like it. the report shows debt rising"
@@ -114,7 +131,7 @@ def test_skip_records_skipped_and_the_game_continues(client: TestClient, enron: 
     h, cid = setup(client)
     act(client, h, cid, "buy 20")
     ack = act(client, h, cid, "skip")
-    assert ack["awaiting_reasoning"] is False and "What do you do next?" in ack["text"]
+    assert ack["awaiting_reasoning"] is False and ack["speaker_kind"] == "npc"
     d = first_decision(client, h, cid)
     assert d["reasoning"] is None and d["reasoning_source"] == "skipped"
     assert reasoning_events(cid)[0]["skipped"] is True

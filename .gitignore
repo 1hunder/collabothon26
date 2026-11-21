@@ -15,6 +15,10 @@ docs/screenshots/
 *.save
 .env.local
 /.vercel
+<<<<<<< HEAD
 
 # TTS sample output (backend/scripts/tts_samples.py)
 tts-samples/
+=======
+.claude/worktrees/
+>>>>>>> origin/main

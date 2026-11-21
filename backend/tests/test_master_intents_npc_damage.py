@@ -231,7 +231,7 @@ def test_npc_answers_in_character_and_never_leaks_future_evidence(
     [
         ("Let's go to the library", "move"),
         ("I am ready to invest my coins", "decision_intent"),
-        ("I sneak past the guard and steal the cargo", "free"),
+        ("I sneak past the guard and steal the cargo", "challenge"),  # an uncertain skill check
         ("Tell me a joke about the weather", "off_topic"),
     ],
 )

@@ -300,6 +300,8 @@ export interface BacklogEntry {
   /** "You", "You (to Buddy)", "Campaign Master", "CommerzBuddy" or a character name */
   speaker: string;
   text: string;
+  /** "npc" for a character's line (set on the curious trader's entries). */
+  speaker_kind?: SpeakerKind;
 }
 
 export interface ClueEntry {
@@ -354,6 +356,7 @@ export interface ChallengeInfo {
   optional: boolean;
   result: string | null;
   location: string | null;
+  skill?: string | null;
 }
 
 export interface PendingRoll {
@@ -419,7 +422,7 @@ export interface CampaignState {
   commit_draft?: Partial<CommitDraft> | null;
   purse?: Purse;
   market_scene?: MarketScene | null;
-  /** The Campaign Master asked "why?" about the last decision and waits for the next message. */
+  /** The curious trader asked "why?" about the last decision and waits for the next message. */
   awaiting_reasoning?: boolean;
   decisions?: DecisionEntry[];
   xp?: XpResult;
@@ -485,6 +488,8 @@ export interface DiceCard {
   bonus: number;
   keen_eye_available: boolean;
   keen_eye_left: number;
+  /** Set for an unplanned skill check ("Insight"); absent for a listed challenge. */
+  skill?: string | null;
 }
 
 export interface NewsCard {
@@ -536,6 +541,13 @@ export interface NewLocation {
 
 export type SpeakerKind = 'npc' | 'master' | 'buddy';
 
+/** The curious trader's question after a decision whose reasoning is missing or thin. */
+export interface ReasoningPrompt {
+  speaker: string;
+  role: string;
+  text: string;
+}
+
 export interface TurnExtras {
   speaker?: string;
   speaker_kind?: SpeakerKind;
@@ -546,6 +558,7 @@ export interface TurnExtras {
   suggestions?: string[];
   show_decide?: boolean;
   awaiting_reasoning?: boolean;
+  reasoning_prompt?: ReasoningPrompt | null;
   location?: { id: string; key: string; name: string };
   first_visit?: boolean;
   news_text?: string;

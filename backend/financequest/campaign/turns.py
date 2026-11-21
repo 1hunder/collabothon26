@@ -81,6 +81,7 @@ def _done_fields(p: dict[str, Any]) -> dict[str, Any]:
     return {
         "speaker_kind": _speaker_kind(p), "escalated": bool(p.get("escalated", False)),
         "hp_change": p.get("hp_change"), "new_location": p.get("new_location"),
+        "reasoning_prompt": p.get("reasoning_prompt"),
     }
 
 
@@ -308,10 +309,11 @@ def commit_reasoning(
         trade = service.awaiting_trade(db, run)
         if trade is not None:
             service.resolve_reasoning(db, run, trade, text, skipped=skip)
-        say = reasoning_mod.SKIP_ACK if skip else reasoning_mod.ACKS[len(text) % len(reasoning_mod.ACKS)]
+        say = reasoning_mod.ack_text(text, skip)
         ctx = C.build_agent_context(db, run, pack, hero)
         payload = {
-            "text": say, "speaker": C.DM_NAME, "speaker_id": C.CHRONICLER, "intent": "reasoning",
+            "text": say, "speaker": reasoning_mod.trader_name(cid), "speaker_id": "curious_trader",
+            "speaker_kind": "npc", "intent": "reasoning",
             "suggestions": nar_suggestions(ctx), "hp_change": None, "clue_ids_given": [],
             "card": None, "news": None, "degraded": False, "nothing_more_to_uncover": False,
             "show_decide": bool(service.decide_ready(db, run, pack)), "first_visit": None,
@@ -467,6 +469,11 @@ def commit_turn(
             ch = db.get(Challenge, uuid.UUID(reply.challenge_id))
             if ch and ch.campaign_id == run.id and ch.state == "open" and gv.at_checkpoint(ch.checkpoint):
                 card = service.offer_roll(run, ch, hero)
+        if reply.intent == "challenge" and reply.check and not reply.challenge_id:
+            cur = db.get(Location, run.current_location_id) if run.current_location_id else None
+            ch = service.create_adhoc_challenge(db, run, pack, reply.check, cur.key if cur else "")
+            if ch is not None:
+                card = service.offer_roll(run, ch, hero)
         if loc is not None:
             granted, first = service.arrive(db, run, pack, loc)
             append_event(db, run, "move", {"location_id": str(loc.id), "key": loc.key,
@@ -608,6 +615,7 @@ def commit_decision(
         receipt = None
         say, sugg = reply.text, reply.suggestions
         hp_change = None
+        prompt = None
         if reply.kind == "decision" and reply.action in ("buy", "sell", "hold") and run.market_scene:
             problem = service.decision_problem(db, run, reply.action, reply.amount_eur, reply.portion)
             if problem:  # nothing to execute yet: ask, and keep the scene open
@@ -624,7 +632,8 @@ def commit_decision(
                     say = reconcile_hp_text(say, -hp_change["delta"] if hp_change else 0)
                 receipt = trade_card(trade, service.purse(db, run, pack))
                 if trade.reasoning_source == reasoning_mod.AWAITING:  # ask once, neutrally
-                    say = reasoning_mod.ask_text(say, trade.reasoning)
+                    say = reasoning_mod.strip_question(say)
+                    prompt = reasoning_mod.reasoning_prompt(cid, trade.reasoning, trade.seq)
                     sugg = [reasoning_mod.SKIP_CHIP]
         ready = service.decide_ready(db, run, pack)
         payload = {
@@ -634,9 +643,14 @@ def commit_decision(
             "clue_ids_given": [], "card": receipt, "news": None, "degraded": reply.degraded,
             "nothing_more_to_uncover": False,
             "show_decide": bool(receipt and receipt["beat"] == "decision" and ready),
-            "first_visit": None, "location": None,
+            "first_visit": None, "location": None, "reasoning_prompt": prompt,
         }  # fmt: skip
         ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
+        if prompt:  # the trader's question is its own entry: the backlog and a replay show it
+            append_event(db, run, "dm_reply", {
+                "text": prompt["text"], "speaker": prompt["speaker"], "speaker_kind": "npc",
+                "speaker_id": "curious_trader", "intent": "reasoning_prompt",
+            })  # fmt: skip
         _finish(db, run)
         out = _streamed(db, run, pack, ev, [receipt] if receipt else [])
     return out
@@ -681,9 +695,13 @@ def plan_narrate_roll(sid: uuid.UUID, cid: uuid.UUID, roll_id: uuid.UUID) -> Str
             ev = pack.evidence_by_id(ch.clue_id)
             clue = {"title": ev.title, "text": ev.text} if ev else {
                 "title": "A bonus lead", "text": service.BONUS_TEXT}  # fmt: skip
+        adhoc = rules.is_adhoc(ch.kind)
         roll = {
-            "title": ch.title, "result": ch.result, "alt_source": ch.alt_source, "dc": ch.dc,
-            "total": ch.total, "used": max(ch.dice) if ch.dice else None, "clue": clue,
+            "title": ch.title, "result": ch.result, "dc": ch.dc, "clue": clue,
+            "alt_source": None if adhoc else ch.alt_source,
+            "total": ch.total, "used": max(ch.dice) if ch.dice else None,
+            "skill": rules.adhoc_skill(ch.kind),
+            "stakes": ch.alt_source if adhoc else None,
         }  # fmt: skip
         ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
         db.rollback()

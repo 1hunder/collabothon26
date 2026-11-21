@@ -634,6 +634,66 @@ def challenge_of(db: Session, run: CampaignRun, rid: uuid.UUID) -> Challenge:
     return ch
 
 
+def adhoc_clue(
+    db: Session, run: CampaignRun, pack: Pack, loc_key: str, target: str, skill: str
+) -> str | None:
+    """The one real, unlocked, not-yet-found clue an ad-hoc success may reveal, or None (then the
+    Master tells a useful non-evidence detail). Never a dice-gated clue (those have their own
+    challenge), never a locked one, never one found or already promised to another check. A
+    person's own clues come first when the check is aimed at them."""
+    gv = gated_view(run)
+    gated = rules.gated_clue_ids(pack)
+    taken = found_ids(db, run.id) | {
+        c.clue_id for c in challenges(db, run.id)
+        if rules.is_adhoc(c.kind) and c.clue_id and c.result != "setback"
+    }
+    chars = [
+        c for c in pack.characters
+        if rules.normalize_location(c.location) == loc_key
+    ]
+    def held(c: Any) -> list[str]:
+        return [i for cp, ids in c.may_reveal.items() if gv.at_checkpoint(cp) for i in ids]
+    named = [c for c in chars if c.name.lower() in target.lower()]
+    pools: list[list[str]] = [held(c) for c in named]
+    pools.append([
+        e.id for e in pack.evidence
+        if rules.normalize_location(e.location) == loc_key and gv.at_checkpoint(e.checkpoint)
+    ])
+    if not named:
+        pools += [held(c) for c in chars]
+    for pool in pools:
+        for cid in pool:
+            e = pack.evidence_by_id(cid)
+            if e is not None and cid not in taken and cid not in gated \
+                    and gv.at_checkpoint(e.checkpoint):
+                return cid
+    return None
+
+
+def create_adhoc_challenge(
+    db: Session, run: CampaignRun, pack: Pack, check: dict[str, Any], loc_key: str
+) -> Challenge | None:
+    """Opens the dice check for an ad-hoc skill attempt. None when the same skill + target was
+    already attempted at this place (campaign + key is unique), or the check is malformed."""
+    skill = str(check.get("skill") or "")
+    target = " ".join(str(check.get("target") or "").split())[:80]
+    if skill not in rules.SKILLS or not target or not loc_key:
+        return None
+    key = rules.adhoc_key(skill, target, loc_key)
+    if db.exec(select(Challenge).where(Challenge.campaign_id == run.id, Challenge.key == key)).first():
+        return None
+    ch = Challenge(
+        campaign_id=run.id, key=key, title=target[:1].upper() + target[1:],
+        kind=f"{rules.ADHOC_KIND}{skill}", dc=rules.adhoc_dc(str(check.get("difficulty"))),
+        checkpoint=run.checkpoint, location_key=loc_key, optional=True,
+        clue_id=adhoc_clue(db, run, pack, loc_key, target, skill),
+        alt_source=" ".join(str(check.get("stakes") or "").split())[:120] or None,
+    )  # fmt: skip
+    db.add(ch)
+    db.flush()
+    return ch
+
+
 def _roll_payload(
     ch: Challenge, run: CampaignRun, final: bool, options: tuple[str, ...]
 ) -> dict[str, Any]:
@@ -643,7 +703,8 @@ def _roll_payload(
         "used": max(dice_) if dice_ else None, "bonus": dice.BONUS, "total": ch.total, "dc": ch.dc,
         "result": ch.result, "final": final, "options": list(options), "rerolled": ch.rerolled,
         "rerolls_left": run.rerolls_left, "keen_eye_left": run.keen_eye_left,
-        "alt_source": ch.alt_source if ch.result == "setback" else None,
+        "alt_source": ch.alt_source if ch.result == "setback" and not rules.is_adhoc(ch.kind) else None,
+        "skill": rules.adhoc_skill(ch.kind),
     }  # fmt: skip
 
 
@@ -653,7 +714,7 @@ def _finalize(db: Session, run: CampaignRun, pack: Pack, ch: Challenge) -> None:
     if ch.result == "success":
         if ch.clue_id:
             grant_clue(db, run, pack, ch.clue_id, "dice")
-    else:
+    elif not rules.is_adhoc(ch.kind):  # an ad-hoc check never guards key evidence
         e = pack.evidence_by_id(ch.clue_id or "")
         if e is not None and e.key:  # failure-forward: key evidence is never behind luck
             grant_clue(db, run, pack, e.id, "failure_forward")
@@ -667,6 +728,7 @@ def offer_roll(run: CampaignRun, ch: Challenge, hero: Hero) -> dict[str, Any]:
         "dc": ch.dc, "bonus": dice.BONUS,
         "keen_eye_available": hero.hero_class == "investigator" and run.keen_eye_left > 0,
         "keen_eye_left": run.keen_eye_left,
+        "skill": rules.adhoc_skill(ch.kind),
     }  # fmt: skip
 
 
@@ -1134,7 +1196,7 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "characters": [{k: v for k, v in c.items() if k not in ("never", "may_reveal")} for c in content["characters"]],
         "challenges": [
             {"id": str(c.id), "title": c.title, "dc": c.dc, "state": c.state, "optional": c.optional,
-             "result": c.result, "location": c.location_key}
+             "result": c.result, "location": c.location_key, "skill": rules.adhoc_skill(c.kind)}
             for c in challenges(db, run.id) if gv.at_checkpoint(c.checkpoint)
         ],
         "pending": run.pending,

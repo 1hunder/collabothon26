@@ -29,6 +29,7 @@ export function normalizeCard(raw: Record<string, unknown>): QuestCard | null {
       bonus: int(raw.bonus, 2),
       keen_eye_available: raw.keen_eye_available === true,
       keen_eye_left: int(raw.keen_eye_left),
+      skill: typeof raw.skill === 'string' && raw.skill ? raw.skill : null,
     };
   }
   if (kind === 'news') {
