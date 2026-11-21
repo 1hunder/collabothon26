@@ -167,17 +167,12 @@ describe('PlayScreen: map, titles and places', () => {
 });
 
 describe('PlayScreen: scene hotspots', () => {
-  it('the Tavern notice board opens a notice from campaign state and closes back to the scene', async () => {
+  it('the Tavern has no notice board: no hotspot and no chip', async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(screen.getByRole('button', { name: 'Read the notice board' }));
-    const notice = await screen.findByRole('dialog', { name: 'Notice board' });
-    expect(await within(notice).findByText('No news posted yet. Check back as the days pass.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Read the notice board' })).not.toBeInTheDocument();
-    await user.click(within(notice).getByRole('button', { name: 'Close Notice board' }));
-    expect(screen.queryByRole('dialog', { name: 'Notice board' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Read the notice board' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Notice board' })).not.toBeInTheDocument();
   });
 
   it("the Library books open the parchment; the Library documents chip still reaches it", async () => {
@@ -212,11 +207,14 @@ describe('PlayScreen: scene hotspots', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
+    await moveTo(user, 'Library');
+    await readToChoices(user);
+    expect(screen.getByRole('button', { name: "Read the guild's records" })).toBeInTheDocument();
     await user.click(choiceButton('Map'));
-    expect(screen.queryByRole('button', { name: 'Read the notice board' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: "Read the guild's records" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole('dialog', { name: 'The map' })).getByRole('button', { name: /Close/ }));
     await user.click(choiceButton('Buddy'));
-    expect(screen.queryByRole('button', { name: 'Read the notice board' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: "Read the guild's records" })).not.toBeInTheDocument();
   });
 });
 

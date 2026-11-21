@@ -22,7 +22,6 @@ import JournalSheet from './JournalSheet';
 import LibraryScroll from './LibraryScroll';
 import MapSheet from './MapSheet';
 import MarketPanel from './MarketPanel';
-import NoticeBoard from './NoticeBoard';
 import HotspotLayer from './HotspotLayer';
 import type { HotspotTarget } from './sceneHotspots';
 import RumourLedger from './RumourLedger';
@@ -58,7 +57,7 @@ type Overlay =
   | { kind: 'market'; card: MarketCard }
   | { kind: 'trade'; card: TradeCard };
 
-type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | 'notice' | null;
+type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | null;
 
 interface TitleInfo {
   name: string;
@@ -372,7 +371,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
 
   const openHotspot = (t: HotspotTarget): void => {
     stopVoice();
-    setSheet(t === 'library' ? 'library' : t === 'market' ? 'board' : 'notice');
+    setSheet(t === 'library' ? 'library' : 'board');
   };
 
   const chips =
@@ -383,8 +382,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       </>
     ) : locKey === 'library' ? (
       <Chip label="Library documents" onClick={() => setSheet('library')} />
-    ) : locKey === 'tavern' ? (
-      <Chip label="Notice board" onClick={() => setSheet('notice')} />
     ) : null;
 
   return (
@@ -426,7 +423,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
             <MarketPanel rows={c.price_board} newsDay={c.news_shown ? c.story_day : null} onClose={() => setSheet(null)} />
           ) : null}
           {sheet === 'rumours' ? <RumourLedger rumours={rumoursHeard(c.rumours, c.backlog)} onClose={() => setSheet(null)} /> : null}
-          {sheet === 'notice' ? <NoticeBoard campaign={c} campaignId={id} onClose={() => setSheet(null)} /> : null}
           {sheet === 'library' ? <LibraryScroll library={c.library} onClose={() => setSheet(null)} /> : null}
           {title !== null && activeOverlay.kind === 'none' ? <TitleCard title={title.name} onDone={dismissTitle} /> : null}
           {activeOverlay.kind === 'timeskip' ? (

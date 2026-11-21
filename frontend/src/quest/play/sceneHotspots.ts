@@ -4,7 +4,7 @@
  * webp files, so they follow the art however the stage crops it.
  */
 
-export type HotspotTarget = 'library' | 'market' | 'notice';
+export type HotspotTarget = 'library' | 'market';
 
 export interface ImageRect {
   /** left edge, percent of image width */
@@ -40,11 +40,6 @@ export const sceneHotspots: Readonly<Record<string, SceneHotspotConfig>> = {
     natural: { width: 941, height: 1670 },
     // the glowing stall on the left: canopy, scales, chest
     hotspots: [{ target: 'market', label: 'Visit the market stall', rect: { x: 0, y: 22, w: 34, h: 46 } }],
-  },
-  tavern: {
-    natural: { width: 1051, height: 1497 },
-    // the glowing notice board on the wall
-    hotspots: [{ target: 'notice', label: 'Read the notice board', rect: { x: 34, y: 21.5, w: 20, h: 19.5 } }],
   },
 };
 
