@@ -19,6 +19,7 @@ from financequest.api.deps import DbSession, SessionId
 from financequest.api.errors import ApiError
 from financequest.db.models import Decision, Event, Scenario, ScenarioSecret
 from financequest.engine.gate import StoryClock, gate_beats, gate_chart
+from financequest.refpack import real_events
 
 router = APIRouter(tags=["scenarios"])
 
@@ -70,6 +71,7 @@ class NewsPointOut(BaseModel):
     real_date: str
     real_price: str
     headline: str
+    detail: str = ""
 
 
 class RevealOut(BaseModel):
@@ -183,9 +185,21 @@ def post_event(scenario_id: uuid.UUID, body: EventIn, db: DbSession, sid: Sessio
     return EventOut(id=ev.id, type=ev.type)
 
 
+def _real_news_point(b: dict[str, Any], bundled: dict[str, tuple[str, str]]) -> NewsPointOut:
+    """Real events only: stored real text when the beat has a real headline, else the pack's
+    bundled real event for that evidence id (rows approved before real events were stored)."""
+    head, text = b.get("headline"), b.get("text") or ""
+    if not head and b.get("evidence_id") in bundled:
+        head, text = bundled[b["evidence_id"]]
+    return NewsPointOut(
+        story_day=int(b["day"]), real_date=b["date"], real_price=str(b["price"]),
+        headline=head or text, detail=text if head else "",
+    )  # fmt: skip
+
+
 @router.get("/scenario/{scenario_id}/reveal", response_model=RevealOut)
 def reveal(scenario_id: uuid.UUID, db: DbSession, sid: SessionId) -> RevealOut:
-    _scenario(db, scenario_id)
+    sc = _scenario(db, scenario_id)
     if not (
         _has_decision(db, sid, scenario_id) and _has_event(db, sid, scenario_id, "debrief_complete")
     ):
@@ -194,21 +208,15 @@ def reveal(scenario_id: uuid.UUID, db: DbSession, sid: SessionId) -> RevealOut:
     if sec is None:
         raise ApiError(404, "scenario_not_found", "Scenario not found")
     rb: dict[str, Any] = sec.real_beats or {}
+    pack_id = (sc.manifest if isinstance(sc.manifest, dict) else {}).get("pack_id")
+    bundled = real_events.bundled(str(pack_id)) if pack_id else {}
     if sec.price_series_ref:
         series = _read_series(sec.price_series_ref)
     else:
         series = [
             SeriesPointOut(date=p["date"], price=str(p["price"])) for p in rb.get("series", [])
         ]
-    news = [
-        NewsPointOut(
-            story_day=int(b["day"]),
-            real_date=b["date"],
-            real_price=str(b["price"]),
-            headline=b.get("headline") or b.get("text") or "",
-        )
-        for b in rb.get("beats", [])
-    ]
+    news = [_real_news_point(b, bundled) for b in rb.get("beats", [])]
     return RevealOut(
         real_name=sec.real_name,
         ticker=sec.ticker,

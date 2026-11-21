@@ -274,6 +274,7 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
     beat_src.append((m.news.checkpoint, "news", m.news.headline, m.news.summary))
     beats, real_beats = [], []
     rev = {fid: f.value for fid, f in figs.items()}
+    real_ev = {e.evidence_id: e for e in m.secret.real_events}
     for cp, eid, title, text in sorted(beat_src, key=lambda b: ids.index(b[0])):
         day = sd[cp]
         beats.append(
@@ -285,7 +286,8 @@ def approve_pack(pack_dir: Path, session: Session, salt: int = 0) -> ApproveResu
                 "day": day,
                 "price": str(close_on(cps[cp].cutoff_date)),
                 "evidence_id": eid,
-                "text": _fill(text, rev, [], eid),
+                "text": _fill(real_ev[eid].text if eid in real_ev else text, rev, [], eid),
+                **({"headline": real_ev[eid].headline} if eid in real_ev else {}),
             }
         )
     beats = _render(beats, values, [])
