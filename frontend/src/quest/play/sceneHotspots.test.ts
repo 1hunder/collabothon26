@@ -27,19 +27,8 @@ describe('coverRect (object-fit: cover, centred)', () => {
     expect(r.height).toBeCloseTo(296, 0);
   });
 
-  it('tavern at 430x932 and 360x740 shifts with the crop', () => {
-    const { natural, rect } = rectOf('tavern');
-    // 430x932: scale 0.6226, shown width 654.3, offset -112.1
-    const a = coverRect({ width: 430, height: 932 }, natural, rect);
-    expect(a.left).toBeCloseTo(110.4, 0);
-    expect(a.width).toBeCloseTo(130.9, 0);
-    expect(a.top).toBeCloseTo(200.4, 0);
-    // 360x740: scale 0.4943, shown width 519.5, offset -79.7
-    const b = coverRect({ width: 360, height: 740 }, natural, rect);
-    expect(b.left).toBeCloseTo(96.9, 0);
-    expect(b.width).toBeCloseTo(103.9, 0);
-    expect(b.top).toBeCloseTo(159.1, 0);
-    expect(b.height).toBeCloseTo(144.3, 0);
+  it('the tavern has no hotspot: the notice board was removed', () => {
+    expect(sceneHotspots.tavern).toBeUndefined();
   });
 
   it('market stall at 430x932 starts at the left edge', () => {

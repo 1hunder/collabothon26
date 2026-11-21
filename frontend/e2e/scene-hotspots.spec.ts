@@ -62,17 +62,11 @@ async function expectReachable(page: Page, name: string): Promise<void> {
   expect(top.r.l + top.r.w).toBeLessThanOrEqual(top.vw + 0.5);
 }
 
-test('Tavern: the notice board opens the pinned notice', async ({ page }, testInfo) => {
+test('Tavern: there is no notice board', async ({ page }, testInfo) => {
   await startQuest(page);
-  await expectReachable(page, 'Read the notice board');
   await shot(page, 'tavern-scene', testInfo.project.name);
-  await page.getByRole('button', { name: 'Read the notice board' }).click();
-  const notice = page.getByRole('dialog', { name: 'Notice board' });
-  await expect(notice).toBeVisible();
-  await expect(notice).toContainText('No news posted yet');
-  await shot(page, 'tavern-notice', testInfo.project.name);
-  await notice.getByRole('button', { name: 'Close Notice board' }).click();
-  await expect(notice).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Read the notice board' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Notice board' })).toHaveCount(0);
 });
 
 test('Library: the glowing books open the parchment, which pages', async ({ page }, testInfo) => {
