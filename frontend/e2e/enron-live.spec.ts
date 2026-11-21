@@ -39,10 +39,11 @@ async function playUntilReady(page: Page, opts: { needNews: boolean }): Promise<
       await title.click();
       continue;
     }
-    const choices = page.getByRole('region', { name: 'Your turn' });
+    const choices = page.getByRole('region', { name: 'Choices' });
     if ((await choices.count()) > 0) {
-      await choices.getByRole('textbox').fill('Look around carefully');
-      await choices.getByRole('button', { name: 'Send' }).click();
+      // Prefer a suggestion that is not the Buddy/hint/decide controls.
+      const first = choices.getByRole('button').first();
+      await first.click();
       await page.waitForTimeout(400);
       continue;
     }
@@ -64,7 +65,7 @@ async function openMapAndGo(page: Page, name: string): Promise<void> {
 
 async function finishReading(page: Page): Promise<void> {
   for (let i = 0; i < 30; i++) {
-    if ((await page.getByRole('region', { name: 'Your turn' }).count()) > 0) return;
+    if ((await page.getByRole('region', { name: 'Choices' }).count()) > 0) return;
     const title = page.getByTestId('title-card');
     if ((await title.count()) > 0) await title.click();
     const box = page.getByTestId('dialogue-box');

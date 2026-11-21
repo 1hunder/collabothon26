@@ -25,7 +25,7 @@ async function startQuest(page: Page): Promise<void> {
 
 async function readUntilChoices(page: Page): Promise<void> {
   for (let i = 0; i < 60; i++) {
-    if ((await page.getByRole('region', { name: 'Your turn' }).count()) > 0 && (await page.getByTestId('title-card').count()) === 0) return;
+    if ((await page.getByRole('region', { name: 'Choices' }).count()) > 0 && (await page.getByTestId('title-card').count()) === 0) return;
     const title = page.getByTestId('title-card');
     if ((await title.count()) > 0) await title.click({ timeout: 2000 }).catch(() => undefined);
     const box = page.getByTestId('dialogue-box');
