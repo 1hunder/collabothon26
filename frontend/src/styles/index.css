@@ -12,6 +12,13 @@
   }
 }
 
+.quest-background {
+  background-image: url('../assets/menu background.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
 @keyframes fid-scan {
   0% { transform: translateY(0); opacity: 0; }
   10%, 90% { opacity: 1; }

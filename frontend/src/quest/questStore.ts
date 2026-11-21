@@ -195,11 +195,11 @@ export function getDisclosureSeen(): boolean {
   return getQuestMeta().disclosureSeen;
 }
 
-export function startQuest(): void {
+export function startQuest(path = DEFAULT_PATH): void {
   writeRecord({
     v: 2,
     status: 'in_progress',
-    lastPath: DEFAULT_PATH,
+    lastPath: path,
     campaignId: null,
     scenarioId: null,
     disclosureSeen: false,

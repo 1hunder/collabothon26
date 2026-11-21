@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useCampaign, useHero } from '../api/campaign';
 import { phaseToPath } from './phase';
 import { saveProgress } from './questStore';
+import { HERO_CLASS_PATH, type QuestEntryState } from './setupNavigation';
 
 interface PhaseGuardProps {
   /** The route this screen lives at, or 'hero-new' for hero creation. */
@@ -33,12 +34,16 @@ export default function PhaseGuard({ screen, children }: PhaseGuardProps): React
 
   const go = (to: string): React.ReactNode => <Navigate to={to} replace state={location.state} />;
   if (hero.data === null) return here === HERO_NEW ? children : go(HERO_NEW);
-  if (here === HERO_NEW) return go('/quest');
+  if (here === HERO_NEW) {
+    return activeId === null && (location.state as QuestEntryState | null)?.newHero
+      ? children
+      : go('/quest');
+  }
   if (campaign.data) {
     const target = phaseToPath(campaign.data.phase);
     // The server never stores `reflect`: the reflection screen is a client-only step of `debrief`.
     const reflecting = campaign.data.phase === 'debrief' && here === '/quest/reflect';
     return target === here || reflecting ? children : go(target);
   }
-  return here === '/quest/interests' ? children : go('/quest/interests');
+  return here === '/quest/disclosure' || here === HERO_CLASS_PATH ? children : go('/quest/disclosure');
 }

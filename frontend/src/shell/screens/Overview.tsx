@@ -15,7 +15,7 @@ export default function Overview(): React.JSX.Element {
   const location = useLocation();
   const { inProgress } = useQuestMeta();
   const showToast = (): void => toast.show();
-  const openQuest = (): void => void navigate('/quest', { state: { origin: location.pathname } });
+  const openQuest = (path = '/quest'): void => void navigate(path, { state: { origin: location.pathname } });
   return (
     <div className="flex flex-col gap-4 p-4">
       <h1 className="text-2xl font-semibold text-petrol">Hello, {persona.firstName}</h1>

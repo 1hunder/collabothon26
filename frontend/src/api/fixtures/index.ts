@@ -99,14 +99,24 @@ function createHero(body: unknown): Hero {
   return hero;
 }
 
+function chooseHeroClass(body: unknown): Hero {
+  const db = readDb();
+  const heroClass = (body as Partial<CreateHeroRequest> | undefined)?.class;
+  if (!db.hero) throw new FixtureHttpError(404);
+  if (db.hero.active_campaign_id) throw new FixtureHttpError(409);
+  if (!heroClass || !(heroClass in classHp)) throw new FixtureHttpError(422);
+  const hero = { ...db.hero, class: heroClass };
+  writeDb({ ...db, hero });
+  return hero;
+}
+
 function createCampaign(body: unknown): CampaignState {
   const db = readDb();
   const req = body as Partial<CreateCampaignRequest> | undefined;
   if (!db.hero) throw new FixtureHttpError(409);
-  if (!req?.interests?.length) throw new FixtureHttpError(422);
   const hp = classHp[db.hero.class];
   const campaign: CampaignState = {
-    ...fixtureNewCampaign(db.hero, req.interests),
+    ...fixtureNewCampaign(db.hero, req?.interests ?? []),
     budget_eur: hp * 10,
     horizon_days: 75,
     offers_spread: true,
@@ -114,6 +124,14 @@ function createCampaign(body: unknown): CampaignState {
   };
   writeDb({ hero: { ...db.hero, active_campaign_id: campaign.id }, campaign });
   return campaign;
+}
+
+function abandonCampaign(id: string): null {
+  const { hero } = readDb();
+  if (hero?.active_campaign_id === id) {
+    writeDb({ hero: { ...hero, active_campaign_id: null }, campaign: null });
+  }
+  return null;
 }
 
 const fixtureRate = 0.018775; // invested money keeps 1.8775% (a near-total loss)
@@ -272,6 +290,7 @@ export function fixtureResponse(method: string, path: string, body?: unknown): u
     return hero;
   }
   if (m === 'POST' && path === '/hero') return createHero(body);
+  if (m === 'PATCH' && path === '/hero') return chooseHeroClass(body);
   if (m === 'GET' && path === '/me/transactions') return fixtureTransactions;
   if (m === 'POST' && path === '/quests/daily') return fixtureDailyQuest();
   if (m === 'GET' && path === '/quests') return [fixtureDailyQuest()];
@@ -279,6 +298,8 @@ export function fixtureResponse(method: string, path: string, body?: unknown): u
     return { ...fixtureDailyQuest(), id: 'fixture-extra', kind: 'extra', category: 'gaming', category_label: 'Games & consoles' };
   }
   if (m === 'POST' && path === '/campaigns') return createCampaign(body);
+  const abandon = /^\/campaigns\/([^/]+)\/abandon$/.exec(path);
+  if (m === 'POST' && abandon) return abandonCampaign(abandon[1]!);
   if (m === 'GET' && /^\/campaigns\/[^/]+$/.test(path)) {
     const { campaign } = readDb();
     if (!campaign || path !== `/campaigns/${campaign.id}`) throw new FixtureHttpError(404);

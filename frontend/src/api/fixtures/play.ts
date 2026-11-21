@@ -105,7 +105,7 @@ function backlogOf(events: FixtureEvent[]): BacklogEntry[] {
 export function fixtureNewCampaign(hero: Hero, interests: string[]): CampaignState {
   const hp = classHp[hero.class];
   return {
-    id: 'fixture-campaign',
+    id: crypto.randomUUID(),
     scenario_id: SCENARIO_ID,
     phase: 'setup',
     interests,

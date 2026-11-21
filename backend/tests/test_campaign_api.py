@@ -119,6 +119,36 @@ def finish_campaign(client: TestClient, h: dict[str, str]) -> tuple[str, dict[st
     return cid, {"lock": lock.json(), "debrief": deb_done, "xp": xp.json(), "ref": ref.json()}
 
 
+def test_abandon_campaign_allows_new_game_and_preserves_hero(
+    client: TestClient, enron: str
+) -> None:
+    headers = new_player(client)
+    finished_id, _ = finish_campaign(client, headers)
+    assert client.post(f"/campaigns/{finished_id}/finish", headers=headers).status_code == 200
+    saved_hero = client.get("/hero", headers=headers).json()
+
+    old_id, _ = start(client, headers)
+    assert client.patch("/hero", json={"class": "guardian"}, headers=headers).status_code == 409
+    url = f"/campaigns/{old_id}/abandon"
+    assert client.post(url, headers=new_player(client)).status_code == 404
+    assert client.post(url, headers=headers).status_code == 204
+    assert client.get(f"/campaigns/{old_id}", headers=headers).status_code == 404
+    assert client.post(f"/campaigns/{old_id}/finish", headers=headers).status_code == 404
+    assert client.get("/hero", headers=headers).json() == saved_hero
+
+    change = client.patch("/hero", json={"class": "guardian"}, headers=headers)
+    assert change.status_code == 200, change.text
+    assert change.json() == {**saved_hero, "class": "guardian"}
+    new_campaign = client.post("/campaigns", json={}, headers=headers)
+    assert new_campaign.status_code == 201
+    new_id = new_campaign.json()["id"]
+    assert new_id != old_id
+    assert new_campaign.json()["phase"] == "setup"
+    assert new_campaign.json()["hp"] == 120
+    assert client.post(url, headers=headers).status_code == 204
+    assert client.get("/hero", headers=headers).json()["active_campaign_id"] == new_id
+
+
 def test_hero_validation(client: TestClient) -> None:
     sid = client.post("/session").json()["session_id"]
     h = {"X-Session-Id": sid}

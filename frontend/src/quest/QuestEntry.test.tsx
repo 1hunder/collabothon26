@@ -18,14 +18,14 @@ afterEach(() => vi.unstubAllEnvs());
 const entryRoutes = [
   { path: '/quest', element: <QuestEntry /> },
   { path: '/quest/hero/new', element: <p>hero screen</p> },
-  { path: '/quest/interests', element: <p>interests screen</p> },
+  { path: '/quest/disclosure', element: <p>disclosure screen</p> },
   { path: '/quest/play', element: <p>play screen</p> },
 ];
 
 const routes = [
   { path: '/quest', element: <QuestEntry /> },
   { path: '/quest/hero/new', element: <p>hero screen</p> },
-  { path: '/quest/interests', element: <PhaseGuard screen="/quest/interests"><p>interests screen</p></PhaseGuard> },
+  { path: '/quest/disclosure', element: <PhaseGuard screen="/quest/disclosure"><p>disclosure screen</p></PhaseGuard> },
   { path: '/quest/play', element: <PhaseGuard screen="/quest/play"><p>play screen</p></PhaseGuard> },
   { path: '/quest/commit', element: <PhaseGuard screen="/quest/commit"><p>commit screen</p></PhaseGuard> },
 ];
@@ -37,11 +37,11 @@ describe('QuestEntry', () => {
     expect(router.state.location.pathname).toBe('/quest/hero/new');
   });
 
-  it('hero without a campaign -> interests', async () => {
+  it('hero without a campaign -> disclosure', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' });
     const router = renderRoutes(entryRoutes, ['/quest']);
-    expect(await screen.findByText('interests screen')).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/quest/interests');
+    expect(await screen.findByText('disclosure screen')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/disclosure');
   });
 
   it('active campaign -> the route of its phase', async () => {
@@ -62,9 +62,9 @@ describe('PhaseGuard', () => {
     expect(router.state.location.pathname).toBe('/quest/play');
   });
 
-  it('sends a campaign screen without a campaign to interests', async () => {
+  it('sends a campaign screen without a campaign to disclosure', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'analyst' });
     renderRoutes(routes, ['/quest/play']);
-    expect(await screen.findByText('interests screen')).toBeInTheDocument();
+    expect(await screen.findByText('disclosure screen')).toBeInTheDocument();
   });
 });

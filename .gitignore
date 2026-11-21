@@ -10,3 +10,6 @@ backend/data/
 backend/.cache/
 docs/screenshots/
 *.parquet.tmp
+/.agent-workspace/
+.DS_Store
+*.save

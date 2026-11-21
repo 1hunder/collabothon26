@@ -1,8 +1,9 @@
 interface DisclosureNoteProps {
   onDismiss: () => void;
+  pending?: boolean;
 }
 
-export default function DisclosureNote({ onDismiss }: DisclosureNoteProps): React.JSX.Element {
+export default function DisclosureNote({ onDismiss, pending }: DisclosureNoteProps): React.JSX.Element {
   return (
     <section className="rounded-lg border border-quest-gilt bg-quest-lapis p-4 font-quest text-quest-vellum">
       <p>
@@ -12,9 +13,10 @@ export default function DisclosureNote({ onDismiss }: DisclosureNoteProps): Reac
       <button
         type="button"
         onClick={onDismiss}
+        disabled={pending}
         className="mt-3 min-h-11 rounded-md bg-quest-verdigris px-5 font-quest-sans text-quest-vellum"
       >
-        Got it
+        {pending ? 'Finding your quest…' : 'Got it'}
       </button>
     </section>
   );

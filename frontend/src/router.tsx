@@ -23,7 +23,8 @@ import Xp from './quest/screens/Xp';
 import PlayScreen from './quest/play/PlayScreen';
 import QuestPlaceholder from './quest/screens/QuestPlaceholder';
 import RevealRoute from './quest/screens/RevealRoute';
-import WhatAreYouInto from './quest/screens/WhatAreYouInto';
+import QuestDisclosure from './quest/screens/QuestDisclosure';
+import { HERO_CLASS_PATH } from './quest/setupNavigation';
 
 // Screens whose task has not landed yet render a titled placeholder under the phase guard.
 const phaseScreens = [
@@ -85,10 +86,19 @@ export const routes = [
             ),
           },
           {
-            path: 'interests',
+            path: HERO_CLASS_PATH,
             element: (
-              <PhaseGuard screen="/quest/interests">
-                <WhatAreYouInto />
+              <PhaseGuard screen={HERO_CLASS_PATH}>
+                <HeroCreate chooseClass />
+              </PhaseGuard>
+            ),
+          },
+          { path: 'interests', element: <QuestEntry /> },
+          {
+            path: 'disclosure',
+            element: (
+              <PhaseGuard screen="/quest/disclosure">
+                <QuestDisclosure />
               </PhaseGuard>
             ),
           },

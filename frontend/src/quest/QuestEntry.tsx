@@ -15,5 +15,5 @@ export default function QuestEntry(): React.ReactNode {
   const go = (to: string): React.ReactNode => <Navigate to={to} replace state={location.state} />;
   if (hero.data === null) return go('/quest/hero/new');
   if (campaign.data) return go(phaseToPath(campaign.data.phase));
-  return go('/quest/interests');
+  return go('/quest/disclosure');
 }

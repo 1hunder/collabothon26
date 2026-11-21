@@ -67,7 +67,7 @@ class CampaignRun(SQLModel, table=True):
     scenario_id: uuid.UUID = Field(sa_column=Column(ForeignKey("scenario.id"), nullable=False))
     interests: Any = _jsonb()
     phase: str = "setup"
-    status: str = "active"  # active / finished
+    status: str = "active"  # active / finished / abandoned
     checkpoint: str = "G0"
     clock_day: int = 0  # story day
     turn_count: int = 0

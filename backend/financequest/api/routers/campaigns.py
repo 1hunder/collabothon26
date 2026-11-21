@@ -65,16 +65,7 @@ class ReflectIn(BaseModel):
 def _load(
     db: Session, cid: uuid.UUID, sid: uuid.UUID, write: bool = True
 ) -> tuple[CampaignRun, Pack, Hero]:
-    if write:
-        run = service.lock_run(db, cid, sid)
-    else:
-        found = db.get(CampaignRun, cid)
-        if found is None or found.player_id != sid:
-            raise ApiError(404, "not_found", "Campaign not found")
-        run = found
-    hero = db.get(Hero, run.hero_id)
-    assert hero is not None
-    return run, service.pack_of(db, run), hero
+    return service.load(db, cid, sid, write=write)
 
 
 def _finish(db: Session, run: CampaignRun) -> None:
@@ -97,6 +88,11 @@ async def create_campaign(body: CreateIn, db: DbSession, sid: SessionId) -> dict
             if not loc.fixed:
                 start_art_job(loc.id, pack.leak_terms)
     return await run_in_threadpool(lambda: service.build_state(db, run, service.pack_of(db, run)))
+
+
+@router.post("/{cid}/abandon", status_code=204)
+def abandon_campaign(cid: uuid.UUID, db: DbSession, sid: SessionId) -> None:
+    service.abandon_campaign(db, cid, sid)
 
 
 @router.get("/{cid}")
