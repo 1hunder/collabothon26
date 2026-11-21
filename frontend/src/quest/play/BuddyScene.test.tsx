@@ -12,19 +12,14 @@ function stream(state: DmStreamState = { phase: 'idle' }): DmStream {
 beforeEach(() => window.sessionStorage.clear());
 
 describe('BuddyScene', () => {
-  it('summons the token beside the box, speaks under the CommerzBuddy tab and opens the question box', () => {
+  it('speaks under the CommerzBuddy tab and opens the question box', () => {
     render(<BuddyScene stream={stream()} onClose={() => undefined} />);
     expect(screen.getByTestId('name-tab')).toHaveTextContent('CommerzBuddy');
     expect(screen.getByTestId('name-tab')).toHaveClass('bg-quest-verdigris-light');
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toBeInTheDocument();
-    expect(document.querySelector('svg.animate-summon')).not.toBeNull();
+    expect(document.querySelector('svg.animate-summon')).toBeNull();
     expect(screen.getByTestId('dialogue-live')).toBeInTheDocument();
     expect(BUDDY_GREETING.length).toBeGreaterThan(0);
-  });
-
-  it('the summon animation is switched off under reduced motion', () => {
-    render(<BuddyScene stream={stream()} onClose={() => undefined} />);
-    expect(document.querySelector('svg.animate-summon')).toHaveClass('motion-reduce:animate-none');
   });
 
   it('keeps the typed draft when closed and reopened', async () => {

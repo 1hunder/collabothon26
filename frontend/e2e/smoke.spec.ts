@@ -241,14 +241,12 @@ test('unfinished quest survives a reload; corrupt storage falls back to Start', 
   expect(errors).toEqual([]);
 });
 
-test('new player: hero creation, disclosure note, then play', async ({ page }) => {
+test('new player: hero creation leads straight to play', async ({ page }) => {
   await unlock(page);
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Begin' })).toBeDisabled();
   await page.getByRole('radio', { name: /Analyst/ }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(page).toHaveURL(/\/quest\/disclosure$/);
-  await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL(/\/quest\/play$/);
   await expect(page.getByRole('navigation', { name: 'Quest dock' })).toBeVisible();
 });

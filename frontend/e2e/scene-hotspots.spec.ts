@@ -19,9 +19,6 @@ async function startQuest(page: Page): Promise<void> {
   await page.getByLabel('Name').fill('Mira');
   await page.getByRole('radio', { name: /Analyst/ }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await page.getByRole('button', { name: 'Tech' }).click();
-  await page.getByRole('button', { name: 'Find my quest' }).click();
-  await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL(/\/quest\/play$/);
   await readUntilChoices(page);
 }

@@ -18,7 +18,6 @@ async function newHero(page: Page, cls: RegExp, name = 'Lena'): Promise<void> {
   await page.getByLabel('Name').fill(name);
   await page.getByRole('radio', { name: cls }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
-  await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL(/\/quest\/play$/);
 }
 
