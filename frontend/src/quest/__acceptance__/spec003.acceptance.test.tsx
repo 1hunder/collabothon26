@@ -1062,7 +1062,7 @@ describe('2.12 Committing the decision', () => {
     await screen.findByRole('region', { name: 'Your decisions' });
     expect(screen.queryByRole('radio', { name: 'Invest' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Amount in euros')).not.toBeInTheDocument();
-    expect(screen.getByText(/Now: cash €600.00 · in the company €400.00/)).toBeInTheDocument();
+    expect(screen.getByText(/Now: cash €600 · in the company €400/)).toBeInTheDocument();
   });
   it('2.12-AC5 with a confidence chosen the summary shows the answers and Lock is enabled', async () => {
     const user = userEvent.setup();
@@ -1127,8 +1127,8 @@ describe('2.13 Reveal and HP update', () => {
     seedCampaign({ phase: 'reveal', decision: investDecision });
     renderRoutes(routes, ['/quest/outcome']);
     expect(await screen.findByText('100 HP → 61 HP')).toBeInTheDocument();
-    expect(screen.getByText('Final value').closest('div')).toHaveTextContent('€607.51');
-    expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−€392.49 (−39.2%)');
+    expect(screen.getByText('Final value').closest('div')).toHaveTextContent('€608');
+    expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−€392 (−39%)');
   });
   it('2.13-AC3 for Don\'t invest the figures shown are the server\'s unchanged budget and HP', async () => {
     seedCampaign({ phase: 'reveal', decision: { evidence: 'x'.repeat(30), forecast_pct: 50, confidence: 'low' } });

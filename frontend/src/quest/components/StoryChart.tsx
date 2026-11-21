@@ -23,6 +23,8 @@ export type StoryChartProps =
   | { mode: 'real'; points: { date: string; price: number }[]; markers?: StoryMarker[] };
 
 const DAY = 86_400;
+/** Price scale labels and tooltips are whole numbers, like everything else the player reads. */
+const wholePrice = (p: number): string => Math.round(p).toLocaleString('en-US');
 
 export default function StoryChart(props: StoryChartProps): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
@@ -45,10 +47,14 @@ export default function StoryChart(props: StoryChartProps): React.JSX.Element {
           : { rightOffset: 3, tickMarkFormatter: formatRealTick },
       localization:
         props.mode === 'story'
-          ? { locale: LOCALE, timeFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
-          : { locale: LOCALE, timeFormatter: formatRealDate },
+          ? { locale: LOCALE, priceFormatter: wholePrice, timeFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
+          : { locale: LOCALE, priceFormatter: wholePrice, timeFormatter: formatRealDate },
     });
-    const series = chart.addSeries(LineSeries, { color: '#6FB5A8', lineWidth: 2 });
+    const series = chart.addSeries(LineSeries, {
+      color: '#6FB5A8',
+      lineWidth: 2,
+      priceFormat: { type: 'custom', formatter: wholePrice, minMove: 1 },
+    });
     const toTime = (at: number | string): Time =>
       (typeof at === 'number' ? at * DAY : at) as UTCTimestamp | Time;
     const data: LineData[] =

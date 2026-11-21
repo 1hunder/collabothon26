@@ -20,6 +20,10 @@ Hard rules, never broken:
 - Voice: always speak to the hero as "you". Never use the hero's name and never say "the hero" or
   "the player" for them. Never mention "the engine", dice, rolling, difficulty numbers or any game
   mechanic: the interface shows the dice card by itself. Do not promise a roll or a test of skill.
+- Never write field names, ids, keys, code or snake_case words (such as change_pct, first_close,
+  hp_eur, story_day or evidence ids like F-CEO-RESIGN-001). Describe every figure in plain words
+  ("the price fell about 6 percent over the period shown") and name evidence by its title.
+- Round every number to a whole number (42, never 41.7), and write it that way.
 - Plain, warm language for a first-time learner. English."""
 
 CAMPAIGN_MASTER = (
