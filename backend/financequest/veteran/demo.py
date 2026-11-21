@@ -30,7 +30,7 @@ log = logging.getLogger("financequest.veteran.demo")
 STYLES: tuple[dict[str, Any], ...] = (
     {
         "scenes": {
-            "opening": "I buy 300 coins: the guild ledgers look clean and the docks are busy, "
+            "opening": "I buy 300 gp: the guild ledgers look clean and the docks are busy, "
             "so I take a stake.",
             "news": "Get out before it sinks! Sell everything, quick!",
             "decision": "Get out before it sinks! Sell everything, quick!",
@@ -59,7 +59,7 @@ STYLES: tuple[dict[str, Any], ...] = (
         "scenes": {
             "opening": "I hold for now, because I have not seen the guild's records yet.",
             "news": "I hold through the news since the records I read do not match the rumour.",
-            "decision": "I invest 200 coins because the cash flow ledger looks healthier than the "
+            "decision": "I invest 200 gp because the cash flow ledger looks healthier than the "
             "crowd thinks, but I keep most of my purse.",
         },
         "forecast": 80, "confidence": "high",

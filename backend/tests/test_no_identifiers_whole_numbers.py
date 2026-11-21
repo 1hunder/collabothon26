@@ -89,7 +89,7 @@ def test_outcome_rendering_is_plain_and_whole() -> None:
         "value_now": "607.51", "final": "1307.51", "pnl": "307.51", "pnl_pct": "-39.2",
         "hp_before": 100, "hp_after": 61,
     })  # fmt: skip
-    assert "608 euros" in text and "1308 euros" in text and "39 percent" in text
+    assert "608 gold pieces" in text and "1308 gold pieces" in text and "39 percent" in text
     assert not SNAKE.search(text) and not re.search(r"\d\.\d", text)
 
 

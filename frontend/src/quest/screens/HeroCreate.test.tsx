@@ -43,7 +43,7 @@ describe('HeroCreate', () => {
     setup();
     expect(screen.getByLabelText('Name')).toHaveValue('Lena');
     expect(screen.getAllByRole('radio')).toHaveLength(3);
-    expect(screen.getByText('Safety Cushion — start each campaign with 120 HP (€1,200)')).toBeInTheDocument();
+    expect(screen.getByText('Safety Cushion — start each campaign with 120 HP (1,200 gp)')).toBeInTheDocument();
     expect(screen.getByText('Second Look — reroll one failed dice check per campaign')).toBeInTheDocument();
     expect(screen.getByText('Keen Eye — roll one dice check per campaign with advantage')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Begin' })).toBeDisabled();

@@ -68,7 +68,7 @@ def adapt_gate_scenario(sc: Scenario) -> dict[str, Any]:
     evidence.append(news_ev)
     g0 = [e["id"] for e in evidence if e["checkpoint"] == "G0"]
     return {
-        "meta": {"campaign_title": sc.invented_name, "currency": "EUR", "case_id": str(sc.id)},
+        "meta": {"campaign_title": sc.invented_name, "currency": "GP", "case_id": str(sc.id)},
         "world": {
             "setting_name": "the realm",
             "company_name": sc.invented_name,

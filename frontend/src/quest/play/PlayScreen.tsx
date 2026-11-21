@@ -33,6 +33,7 @@ import TitleCard from './TitleCard';
 import VeteranScene, { VeteranChip } from './VeteranScene';
 import VeteranTimeline from './VeteranTimeline';
 import VnStage from './VnStage';
+import { formatGold } from '../lib/gold';
 
 export interface PlayScreenProps {
   /** Voice toggle state. Left out, the screen keeps its own (the voice module owns it later). */
@@ -86,7 +87,7 @@ interface DamageToast {
   text: string;
 }
 
-const damageText = (h: HpChange): string => `−${Math.abs(h.delta)} HP (−€${(Math.abs(h.delta) * 10).toLocaleString('en-US')}): ${h.reason}`;
+const damageText = (h: HpChange): string => `−${Math.abs(h.delta)} HP (−${formatGold(Math.abs(h.delta) * 10)}): ${h.reason}`;
 
 const notYou = (speaker: string): boolean => !speaker.startsWith('You') && speaker !== 'CommerzBuddy';
 const TAVERN = 'tavern';

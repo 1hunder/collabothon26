@@ -41,12 +41,12 @@ describe('Commit (SealScroll)', () => {
     setup();
     const list = await screen.findByRole('region', { name: 'Your decisions' });
     expect(list).toHaveTextContent('Day 2');
-    expect(list).toHaveTextContent('Put in €200');
+    expect(list).toHaveTextContent('Put in 200 gp');
     expect(list).toHaveTextContent('I put 200 coins in, the guild looks strong.');
     expect(list).toHaveTextContent('Day 83');
     expect(list).toHaveTextContent('Held');
     expect(screen.queryByRole('radio', { name: 'Invest' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Amount in euros')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Amount in gold pieces')).not.toBeInTheDocument();
     expect(screen.getByRole('slider')).toHaveValue('50');
     expect(screen.getByRole('slider')).toHaveAttribute('step', '5');
     expect(screen.getByText(/higher at the end of about 75 days than today/)).toBeInTheDocument();
@@ -102,8 +102,8 @@ describe('Commit budget after damage', () => {
     writeDb({ ...db, campaign: { ...db.campaign!, hp_eur: 150, purse: { cash_eur: 0, position_eur: 400 } as never } });
     cleanup();
     renderRoutes([{ path: '/quest/commit', element: <PhaseGuard screen="/quest/commit"><Commit /></PhaseGuard> }], ['/quest/commit']);
-    expect(await screen.findByTestId('budget')).toHaveTextContent('€150');
-    expect(screen.getByRole('alert')).toHaveTextContent('more than your budget of €150');
+    expect(await screen.findByTestId('budget')).toHaveTextContent('150 gp');
+    expect(screen.getByRole('alert')).toHaveTextContent('more than your budget of 150 gp');
     await user.click(screen.getByRole('radio', { name: 'High' }));
     expect(lockButton()).toBeDisabled();
   });
@@ -117,7 +117,7 @@ describe('Commit budget after damage', () => {
     writeDb({ ...db, campaign: { ...db.campaign!, hp_eur: 100 } });
     await user.click(lockButton());
     await user.click(screen.getByRole('button', { name: 'Lock' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('more than your budget of €100');
+    expect(await screen.findByRole('alert')).toHaveTextContent('more than your budget of 100 gp');
     expect(screen.queryByText('Could not lock your decision. Please try again.')).not.toBeInTheDocument();
   });
 });

@@ -67,7 +67,7 @@ class AgentContext:
     company_revealed: bool = False
     deadline: float | None = None
     campaign_id: str = ""
-    # decisions throughout the campaign (euro figures only; engine computed)
+    # decisions throughout the campaign (gold figures only; engine computed)
     purse: dict[str, Any] | None = None  # cash_eur, position_eur, total_eur
     decisions: list[dict[str, Any]] = field(default_factory=list)
     final_reasoning: str | None = None  # the note written at the seal (after the lock)
@@ -232,24 +232,24 @@ def render_screen(screen: dict[str, Any]) -> str:
 
 
 _OUTCOME_EUR = (
-    ("cash", "cash kept"), ("invested", "euros invested"), ("value_now", "value of the coins now"),
-    ("final", "final purse"), ("pnl", "gain or loss in euros"),
+    ("cash", "cash kept"), ("invested", "gold pieces invested"), ("value_now", "value of the coins now"),
+    ("final", "final purse"), ("pnl", "gain or loss in gold pieces"),
 )  # fmt: skip
 
 
 def render_outcome(o: dict[str, Any]) -> str:
     """The locked result as plain sentences, whole numbers, no field names."""
     parts = [
-        f"decision: {o['action']}", f"amount: {whole(o['amount_eur'])} euros",
-        f"budget: {whole(o['budget'])} euros",
+        f"decision: {o['action']}", f"amount: {whole(o['amount_eur'])} gold pieces",
+        f"budget: {whole(o['budget'])} gold pieces",
     ]
-    parts += [f"{label}: {whole(o[k])} euros" for k, label in _OUTCOME_EUR if o.get(k) is not None]
+    parts += [f"{label}: {whole(o[k])} gold pieces" for k, label in _OUTCOME_EUR if o.get(k) is not None]
     if o.get("pnl_pct") is not None:
         parts.append(f"gain or loss in percent: {whole(o['pnl_pct'])} percent")
     if o.get("hp_before") is not None:
         parts.append(f"budget bar before: {o['hp_before']}, after: {o['hp_after']}")
     if o.get("loan_repay") is not None:
-        parts.append(f"loan to repay: {whole(o['loan_repay'])} euros")
+        parts.append(f"loan to repay: {whole(o['loan_repay'])} gold pieces")
     return "Result of the decision: " + "; ".join(parts) + "."
 
 
@@ -467,7 +467,7 @@ def stable_prefix(ctx: AgentContext) -> str:
     lines = [
         "# Reference data for this campaign (the only facts you may state)",
         f"Campaign: {p.title}. Setting: {p.setting}. Company: {p.company_name} ({p.trade}).",
-        f"Market: {p.market_name}. Budget: {ctx.budget} euros. Horizon: {clock.horizon_sentence(p)}.",
+        f"Market: {p.market_name}. Budget: {ctx.budget} gold pieces. Horizon: {clock.horizon_sentence(p)}.",
         f"Checkpoint {c['checkpoint']}, story day {c['story_day']}.",
         "", "## Evidence visible now (id | location | title | text)",
     ]
@@ -525,7 +525,7 @@ def facts_block(ctx: AgentContext) -> str:
         f"Clues not found yet (never quote their text): {'; '.join(unfound) or 'none'}.",
         f"Challenges: {'; '.join(chs) or 'none'}.",
         f"Player may decide now: {ctx.can_decide}.",
-        f"HP (the budget bar, 1 HP is 10 euros): {ctx.hp_start - ctx.hp_lost} of {ctx.hp_start}; "
+        f"HP (the budget bar, 1 HP is 10 gold pieces): {ctx.hp_start - ctx.hp_lost} of {ctx.hp_start}; "
         f"lost so far: {ctx.hp_lost}.",
         f"Places the Master created so far: {ctx.generated_count} (no limit; only when the story needs one).",
         *purse_lines(ctx),
@@ -538,12 +538,12 @@ def purse_lines(ctx: AgentContext) -> list[str]:
         return []
     p = ctx.purse
     lines = [
-        f"Purse (engine computed, euros): cash {whole(p['cash_eur'])}, coins in the company worth "
+        f"Purse (engine computed, gold pieces): cash {whole(p['cash_eur'])}, coins in the company worth "
         f"{whole(p['position_eur'])}, total {whole(p['total_eur'])}."
     ]
     for d in ctx.decisions:
         lines.append(
-            f"Decision on {d['day_label']} ({d['beat']}): {d['action']} {whole(d['amount_eur'])} euros. "
+            f"Decision on {d['day_label']} ({d['beat']}): {d['action']} {whole(d['amount_eur'])} gold pieces. "
             f"In their words: \"{d['text']}\""
             + (f". Their reasons: \"{d['reasoning']}\"" if d.get("reasoning") else "")
         )
@@ -551,8 +551,8 @@ def purse_lines(ctx: AgentContext) -> list[str]:
         lines.append("Investment decisions so far: none.")
     if p.get("loan"):
         lines.append(
-            f"The hero owes a loan from {p['loan']['lender']}: {whole(p['loan']['principal_eur'])} euros "
-            f"taken, {whole(p['loan']['repay_eur'])} euros to repay at the end of the horizon."
+            f"The hero owes a loan from {p['loan']['lender']}: {whole(p['loan']['principal_eur'])} gold pieces "
+            f"taken, {whole(p['loan']['repay_eur'])} gold pieces to repay at the end of the horizon."
         )
     if ctx.scene:
         lines.append(f"A decision scene is open ({ctx.scene.get('beat')}): the hero owes an answer.")

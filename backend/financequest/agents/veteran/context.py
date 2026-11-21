@@ -105,7 +105,7 @@ def facts_block(ctx: VeteranContext) -> str:
         real = f["real_name"] or "not revealed"
         lines.append(f"In-story company: {f['company']}. Revealed real company: {real}.")
         lines.append(
-            "Decisions in order (when | action | coins | the player's own words | judgement | luck):"
+            "Decisions in order (when | action | gold pieces | the player's own words | judgement | luck):"
         )
         for d in f["decisions"]:
             lines.append(
@@ -122,7 +122,7 @@ def facts_block(ctx: VeteranContext) -> str:
         )
         r = f["result"]
         lines.append(
-            f"Result: {r['kind']}, {whole(r['pnl_pct'])}% ({whole(r['pnl_eur'])} coins of {whole(r['budget_eur'])}). XP {f['xp']}."
+            f"Result: {r['kind']}, {whole(r['pnl_pct'])}% ({whole(r['pnl_eur'])} gp of {whole(r['budget_eur'])} gp). XP {f['xp']}."
         )
         lines.append("Key clues they never found: " + (", ".join(f["missed"]) or "none"))
         d = f["debrief"]

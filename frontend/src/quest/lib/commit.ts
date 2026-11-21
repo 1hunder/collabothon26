@@ -1,4 +1,5 @@
 import type { CommitDraft, CommitRequest, DecisionEntry } from '../../api/types';
+import { formatGold } from './gold';
 
 export const REFLECTION_MIN = 10;
 
@@ -16,17 +17,13 @@ export function toRequest(d: CommitDraft): CommitRequest | null {
   return { ...(note ? { evidence: note } : {}), forecast_pct: d.forecast_pct, confidence: d.confidence };
 }
 
-/** One decision in plain words: "Put in €300", "Took out €120", "Held". */
+/** One decision in plain words: "Put in 300 gp", "Took out 120 gp", "Held". */
 export function decisionLabel(d: Pick<DecisionEntry, 'action' | 'amount_eur'>): string {
-  if (d.action === 'buy') return `Put in ${formatEur(d.amount_eur)}`;
-  if (d.action === 'sell') return `Took out ${formatEur(d.amount_eur)}`;
-  if (d.action === 'loan') return `Borrowed ${formatEur(d.amount_eur)}`;
-  if (d.action === 'loss') return `Lost ${formatEur(d.amount_eur)} to damage`;
+  if (d.action === 'buy') return `Put in ${formatGold(d.amount_eur)}`;
+  if (d.action === 'sell') return `Took out ${formatGold(d.amount_eur)}`;
+  if (d.action === 'loan') return `Borrowed ${formatGold(d.amount_eur)}`;
+  if (d.action === 'loss') return `Lost ${formatGold(d.amount_eur)} to damage`;
   return 'Held';
-}
-
-export function formatEur(n: number): string {
-  return `€${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
 export function formatPct(n: number): string {
@@ -34,5 +31,5 @@ export function formatPct(n: number): string {
 }
 
 export function formatSigned(n: number): string {
-  return `${n < 0 ? '−' : n > 0 ? '+' : ''}${formatEur(Math.abs(n))}`;
+  return `${n < 0 ? '−' : n > 0 ? '+' : ''}${formatGold(Math.abs(n))}`;
 }

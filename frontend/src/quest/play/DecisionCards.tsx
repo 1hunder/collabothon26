@@ -1,5 +1,5 @@
 import type { MarketCard, Offer, Purse, TradeCard } from '../../api/types';
-import { formatEur } from '../lib/commit';
+import { formatGold } from '../lib/gold';
 import type { OfferMomentCard } from './cards';
 
 const beatTitle: Record<MarketCard['beat'], string> = {
@@ -14,9 +14,9 @@ const beatTitle: Record<MarketCard['beat'], string> = {
 export function offerTerms(offer: Pick<Offer, 'kind' | 'terms'>): string {
   const t = offer.terms;
   if (offer.kind === 'loan') {
-    return `Up to ${formatEur(Number(t.principal_eur))} now, ${Math.round(Number(t.interest_pct))}% flat interest: repay ${formatEur(Number(t.repay_eur))} ${t.due}.`;
+    return `Up to ${formatGold(Number(t.principal_eur))} now, ${Math.round(Number(t.interest_pct))}% flat interest: repay ${formatGold(Number(t.repay_eur))} ${t.due}.`;
   }
-  return `Buys back up to ${formatEur(Number(t.max_eur))} of your coins at ${t.price}.`;
+  return `Buys back up to ${formatGold(Number(t.max_eur))} of your coins at ${t.price}.`;
 }
 
 /** Cash and coins in the company, exactly as the server computed them. */
@@ -25,11 +25,11 @@ export function PurseLine({ purse, className = '' }: { purse: Purse; className?:
     <dl aria-label="Your purse" className={`flex flex-wrap gap-x-4 gap-y-1 font-quest-sans text-[15px] ${className}`}>
       <div>
         <dt className="inline text-quest-vellum-dim">Cash </dt>
-        <dd className="inline font-bold">{formatEur(purse.cash_eur)}</dd>
+        <dd className="inline font-bold">{formatGold(purse.cash_eur)}</dd>
       </div>
       <div>
         <dt className="inline text-quest-vellum-dim">In the company </dt>
-        <dd className="inline font-bold">{formatEur(purse.position_eur)}</dd>
+        <dd className="inline font-bold">{formatGold(purse.position_eur)}</dd>
       </div>
       {purse.loan ? (
         <div className="basis-full">
@@ -128,7 +128,7 @@ export function TradeReceipt({ card, onContinue }: TradeReceiptProps): React.JSX
           {card.day_label} · Decision {card.seq}
         </p>
         <h2 className="mt-1 font-quest-title text-3xl leading-tight text-quest-lapis">
-          {card.action === 'hold' ? verb.hold : `${verb[card.action]} ${formatEur(card.amount_eur)}`}
+          {card.action === 'hold' ? verb.hold : `${verb[card.action]} ${formatGold(card.amount_eur)}`}
         </h2>
         <p className="mt-2 font-quest-sans text-sm">
           {card.loan ? card.loan.label : 'Done at today\u2019s price on the board.'}

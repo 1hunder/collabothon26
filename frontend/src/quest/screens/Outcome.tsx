@@ -2,7 +2,8 @@ import { lazy, Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { patchCampaignCache, streamDebrief, useOutcome } from '../../api/campaign';
-import { decisionLabel, formatEur, formatPct, formatSigned } from '../lib/commit';
+import { decisionLabel, formatPct, formatSigned } from '../lib/commit';
+import { formatGold } from '../lib/gold';
 import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
 
@@ -42,13 +43,13 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
 
   const decisions = o.decisions ?? [];
   const rows: [string, string][] = [
-    ['Starting budget', formatEur(b.starting_budget)],
-    ['Cash kept', formatEur(b.cash_kept)],
-    ['Invested', formatEur(b.invested)],
-    ['Value now', formatEur(b.value_now)],
-    ['Fees', formatEur(b.fees)],
-    ...(b.loan ? ([['Loan repayment', `−${formatEur(b.loan.repay_eur)} (${b.loan.lender})`]] as [string, string][]) : []),
-    ['Final value', formatEur(b.final_value)],
+    ['Starting budget', formatGold(b.starting_budget)],
+    ['Cash kept', formatGold(b.cash_kept)],
+    ['Invested', formatGold(b.invested)],
+    ['Value now', formatGold(b.value_now)],
+    ['Fees', formatGold(b.fees)],
+    ...(b.loan ? ([['Loan repayment', `−${formatGold(b.loan.repay_eur)} (${b.loan.lender})`]] as [string, string][]) : []),
+    ['Final value', formatGold(b.final_value)],
     ['Profit / loss', `${formatSigned(b.pl_eur)} (${formatPct(b.pl_pct)})`],
   ];
 

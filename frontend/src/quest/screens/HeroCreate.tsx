@@ -38,7 +38,7 @@ const classes: readonly ClassCard[] = [
     art: shieldArt,
     name: 'The Guardian',
     tagline: 'Keeps a safety cushion',
-    advantage: 'Safety Cushion — start each campaign with 120 HP (€1,200)',
+    advantage: 'Safety Cushion — start each campaign with 120 HP (1,200 gp)',
   },
   {
     id: 'investigator',

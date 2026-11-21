@@ -47,7 +47,7 @@ describe('PlayScreen: scene and hero status', () => {
     setupPlay('analyst');
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
     expect(screen.getByText('Mira')).toBeInTheDocument();
-    expect(screen.getByText(/100 HP/)).toHaveTextContent('100 HP · €1,000');
+    expect(screen.getByText(/100 HP/)).toHaveTextContent('100 HP · 1,000 gp');
     expect(screen.getByText('Focus: 3')).toBeInTheDocument();
     expect(screen.getByText('Rerolls: 1')).toBeInTheDocument();
     expect(screen.queryByText(/Keen Eye/)).not.toBeInTheDocument();
@@ -242,7 +242,7 @@ describe('PlayScreen: dice', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Dice check' })).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/ledger/i));
     expect(choiceButton('Map')).toBeEnabled();
-    expect(screen.getByText(/120 HP/)).toHaveTextContent('120 HP · €1,200');
+    expect(screen.getByText(/120 HP/)).toHaveTextContent('120 HP · 1,200 gp');
   });
 
   it('an Analyst setback offers Second Look; the reroll lowers Rerolls to 0 and the clue lands in the journal', async () => {

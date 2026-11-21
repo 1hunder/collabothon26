@@ -282,7 +282,7 @@ def test_2_3_ac3_opening_scene_is_the_tavern_briefing(client: TestClient, enron:
     assert s["scenario"]["company_name"] in text  # the world and the company's fantasy name
     assert s["scenario"]["trade"].split()[0] in text or "trading" in text  # and trade
     assert "investigate" in text.lower()  # the objective
-    assert "1000 euros" in text or "€1,000" in text  # the budget in euros
+    assert "1000 gold pieces" in text  # the budget in gold pieces
     assert "75 days" in text  # the horizon in story days
     assert "Library" in text and "Market" in text or "Exchange" in text  # where to look
     for ch in s["characters"]:
@@ -1169,7 +1169,7 @@ def test_2_13_ac2b_enron_numbers_through_the_api(client: TestClient, enron: str)
     b = o["breakdown"]
     assert (b["starting_budget"], b["cash_kept"], b["invested"], b["fees"], b["final_value"], b["pl_eur"]) == (1000.0, 600.0, 400.0, 0.0, 607.45, -392.55)
     assert b["pl_pct"] == -39.3 and (o["hp_before"], o["hp_after"]) == (100, 61)
-    assert o["currency_note"] == "Prices in the company's original currency; exchange-rate changes are not included."
+    assert o["currency_note"] == "Every figure here is in gold pieces (gp)."
 
 
 @pytest.mark.parametrize("action", ["dont_invest", "wait"])

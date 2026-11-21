@@ -179,6 +179,16 @@ def voice_violations(text: str, hero_name: str = "") -> list[str]:
     return out
 
 
+# ---- currency: the quest's money is gold pieces, never euros ------------------------------------
+_REAL_CURRENCY = re.compile(r"€|\b(euros?|eur)\b", re.I)
+CURRENCY_NOTE = "uses real-world currency (euro, €); the quest's money is gold pieces (gp)"
+
+
+def currency_violations(text: str) -> list[str]:
+    """Quest replies talk about gold pieces; a slip back to euros is a guard failure."""
+    return [CURRENCY_NOTE] if _REAL_CURRENCY.search(text) else []
+
+
 # ---- internal identifiers (field names, ids, code) never reach the player -------------------------
 _SNAKE = re.compile(r"\b[a-z]+_[a-z0-9_]+\b")
 _CAMEL = re.compile(r"\b[a-z]{2,}[A-Z][a-z0-9]+[A-Za-z0-9]*\b")
@@ -245,6 +255,7 @@ class GuardRules:
             if rule.question and not ends_with_question(text):
                 out.append(f"{name} must end with a question")
             out += number_violations(text, self.allowed)
+            out += currency_violations(text)
             out += ident_violations(text)
             if self.voice:
                 out += voice_violations(text, self.hero_name)

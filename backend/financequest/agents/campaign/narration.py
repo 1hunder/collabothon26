@@ -63,7 +63,7 @@ def decisions_block(ctx: C.AgentContext) -> str:
     computed). The debrief weighs the reasoning at each step, not just the final number."""
     if not ctx.decisions:
         return "Decisions during the campaign: none."
-    lines = ["# Decisions during the campaign (engine computed effects, euros)"]
+    lines = ["# Decisions during the campaign (engine computed effects, gold pieces)"]
     for d in ctx.decisions:
         eff = d.get("effect_eur")
         lines.append(
@@ -97,15 +97,15 @@ def _offer_template(kind: str, facts: dict[str, Any]) -> dict[str, Any]:
         return {
             "name": "Harrel Voss", "role": "Guild broker", "suggestions": _OFFER_SUGGESTIONS["buyback"],
             "text": "A guild broker draws you aside: he will buy back part of your coins in the "
-                    f"company at today's board price, up to {whole(facts['buyback']['max_eur'])} euros "
+                    f"company at today's board price, up to {whole(facts['buyback']['max_eur'])} gold pieces "
                     "worth. How do you answer?",
         }  # fmt: skip
     if kind == "loan":
         t = facts["loan"]
         return {
             "name": "Ismene Dray", "role": "Moneylender", "suggestions": _OFFER_SUGGESTIONS["loan"],
-            "text": f"A moneylender offers you up to {whole(t['principal_eur'])} euros now, at flat "
-                    f"interest of {whole(t['interest_pct'])} percent: {whole(t['repay_eur'])} euros repaid "
+            "text": f"A moneylender offers you up to {whole(t['principal_eur'])} gold pieces now, at flat "
+                    f"interest of {whole(t['interest_pct'])} percent: {whole(t['repay_eur'])} gold pieces repaid "
                     f"{t['due']}. How do you answer?",
         }  # fmt: skip
     return {"name": "", "role": "", "suggestions": [],
@@ -312,12 +312,12 @@ class AgentNarration:
         kinds = [k for k in allowed if k == "fast_forward" or k in facts] or ["fast_forward"]
         first = kinds[0]
         extra = (
-            "# Offer facts (engine computed, euros)\n"
+            "# Offer facts (engine computed, gold pieces)\n"
             f"Allowed kinds: {', '.join(kinds)}.\n"
-            + (f"buyback terms: a broker takes back up to {whole(facts['buyback']['max_eur'])} euros of their "
+            + (f"buyback terms: a broker takes back up to {whole(facts['buyback']['max_eur'])} gold pieces of their "
                "coins at today's board price.\n" if "buyback" in kinds and "buyback" in facts else "")
-            + (f"loan terms: lends up to {whole(facts['loan']['principal_eur'])} euros, flat interest "
-               f"{whole(facts['loan']['interest_pct'])} percent, {whole(facts['loan']['repay_eur'])} euros repaid "
+            + (f"loan terms: lends up to {whole(facts['loan']['principal_eur'])} gold pieces, flat interest "
+               f"{whole(facts['loan']['interest_pct'])} percent, {whole(facts['loan']['repay_eur'])} gold pieces repaid "
                f"{facts['loan']['due']}.\n" if "loan" in kinds and "loan" in facts else "")
             + "\n".join(C.purse_lines(ctx))
         )  # fmt: skip
