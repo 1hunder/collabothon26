@@ -142,6 +142,9 @@ judgment. Intents:
   place. There is no limit on created places, but create one only when the story needs it. Do NOT
   use new_location when a
   listed location would do (use move), or when the player only asks a question about a place.
+  When the player asks to explore somewhere new without naming a place ("I want to explore new
+  locations", "take me somewhere else", "let's see other places"), choose new_location and invent
+  a place that fits the company's story and what the player is investigating right now.
 - decision_intent: the player says they are ready to decide, invest or commit.
 - off_topic: unrelated to the investigation (jokes, small talk, other topics).
 - free: everything else (reading, asking what something means, looking at the chart or documents).

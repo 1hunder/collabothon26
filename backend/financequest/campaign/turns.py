@@ -290,6 +290,13 @@ def _plan_normal_turn(
     )  # fmt: skip
 
 
+_EXPLORE_RE = re.compile(
+    r"\b(explore|exploring|travel|travelling|visit|leave|walk|wander|journey|go to|going to|"
+    r"head to|head over|head back|talk to|speak to|speak with|meet|new (?:place|places|location|"
+    r"locations|area|areas)|elsewhere|somewhere else|other (?:place|places|locations))\b"
+)
+
+
 def _plan_scene_answer(
     sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
 ) -> StreamPlan:
@@ -297,10 +304,19 @@ def _plan_scene_answer(
     else entirely (travel, talk, explore): that last one passes the scene and runs a normal turn."""
 
     def work() -> DecisionReply | TurnReply:
-        if not rules.parse_decision(text)[0] and names_travel(ctx, text):  # no LLM call needed
+        no_trade_words = not rules.parse_decision(text)[0]
+        # No LLM call needed: travel to a known place, or any explore/travel/talk wording with no
+        # buy/sell/hold in it (e.g. "I want to explore some new locations").
+        if no_trade_words and (names_travel(ctx, text) or _EXPLORE_RE.search(text.lower())):
             return _normal_turn_work(nar, ctx, text)
         reply = nar.decide(ctx, text)
-        return _normal_turn_work(nar, ctx, text) if reply.kind == "other" else reply
+        if reply.kind == "other":
+            return _normal_turn_work(nar, ctx, text)
+        # The model called it a decision but found no buy/sell/hold in it and neither did the
+        # parser: it isn't an answer to the scene, so let the Master handle it as a normal turn.
+        if reply.kind == "decision" and no_trade_words and reply.action not in ("buy", "sell", "hold"):
+            return _normal_turn_work(nar, ctx, text)
+        return reply
 
     def commit(reply: DecisionReply | TurnReply) -> Streamed:
         if isinstance(reply, DecisionReply):
