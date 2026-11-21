@@ -32,7 +32,10 @@ def backlog(events: list[Event]) -> list[dict[str, Any]]:
             out.append({"seq": e.seq, "speaker": "You", "text": p.get("text", "")})
         elif e.type in ("dm_reply", "buddy_a"):
             who = "CommerzBuddy" if e.type == "buddy_a" else p.get("speaker", "Campaign Master")
-            out.append({"seq": e.seq, "speaker": who, "text": p.get("text", "")})
+            entry = {"seq": e.seq, "speaker": who, "text": p.get("text", "")}
+            if p.get("speaker_kind") == "npc":
+                entry["speaker_kind"] = "npc"
+            out.append(entry)
         elif e.type == "buddy_q":
             out.append({"seq": e.seq, "speaker": "You (to Buddy)", "text": p.get("text", "")})
     return out

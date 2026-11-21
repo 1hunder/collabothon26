@@ -15,3 +15,4 @@ docs/screenshots/
 *.save
 .env.local
 /.vercel
+.claude/worktrees/

@@ -322,14 +322,24 @@ trade first, then:
 | Case | Result |
 |---|---|
 | reasoning present and sufficient | stored, `reasoning_source: "inline"`, nothing asked |
-| missing | reply ends with "What made you choose that?" |
-| thin | reply ends with "Can you say a bit more about why?" (the thin reason is kept) |
+| missing | the curious trader asks "... What made you choose that?" |
+| thin | the curious trader asks "... Can you tell me a bit more about why?" (the thin reason is kept) |
+
+**The curious trader.** The question never comes from the Campaign Master. A recurring in-world
+character, "a curious trader" (fixed per campaign, a fantasy name picked from the campaign id, e.g.
+Pell Ashby, Odran Vey, Mirel Tansk), asks it in a short, neutral, templated line (no model call; no
+judgement, advice or hint). The Master's decision reply (`text`) does not contain the question. The
+`done` of the decision turn gains `reasoning_prompt: {speaker, role: "curious trader", text} | null`
+(null when nothing is asked); the trader's line is also stored as its own `dm_reply` event
+(`speaker` = the trader, `speaker_kind: "npc"`) so the backlog and replays show it. The client shows
+it as one more dialogue page (NPC name tab) after the Master's pages.
 
 When it asks, the decision awaits its answer and the `done` of that turn has `awaiting_reasoning: true`
 (suggestions: one "I'd rather skip that" chip). The player's NEXT message to `POST /actions` is
-recorded verbatim (appended to a thin first reason), `reasoning_source: "asked"`, and answered with a
-short templated, neutral acknowledgement ending "What do you do next?" (no model call, so no praise,
-advice or hint). Asked at most once per decision. A clear skip ("skip", "no reason", "rather not")
+recorded verbatim (appended to a thin first reason), `reasoning_source: "asked"`, and answered ONLY by
+the trader thanking the player in a short templated neutral line (the `speaker` SSE event and `done`
+carry `speaker` = the trader's name and `speaker_kind: "npc"`; no Master text follows, no model call).
+Then the input returns to normal. Asked at most once per decision. A clear skip ("skip", "no reason", "rather not")
 records `reasoning_source: "skipped"` (a thin reason already given is kept; otherwise
 `reasoning: null`). Travel/exploring wording (or `POST /move`, or the lock) never waits: the question
 is dropped as `skipped` and the action runs normally. A follow-up is not blocked by trade words: the
