@@ -26,7 +26,7 @@ export function setupPlay(heroClass: HeroClass = 'analyst', props: React.Compone
   );
 }
 
-const choices = (): HTMLElement | null => screen.queryByRole('region', { name: 'Choices' });
+const choices = (): HTMLElement | null => screen.queryByRole('region', { name: 'Your turn' });
 
 /** Tap through every page of the current reply until the choices appear (or an overlay opens). */
 export async function readToChoices(user: UserEvent, stopAt: () => boolean = () => false): Promise<void> {
