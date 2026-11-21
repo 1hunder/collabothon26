@@ -58,6 +58,7 @@ describe('learning moments', () => {
     expect(screen.getAllByTestId('edu-bubble')).toHaveLength(3);
     const btn = screen.getByRole('button', { name: /3 learning moments waiting/ });
     expect(btn).toHaveAttribute('data-awake', 'true');
+    expect(btn.querySelector('.buddy-frames')).not.toBeNull();
   });
 
   it('pops a new bubble when edu_new arrives', async () => {

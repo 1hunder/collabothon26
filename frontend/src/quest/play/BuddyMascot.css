@@ -31,3 +31,11 @@
 @keyframes buddy-wake { 0% { transform: translateY(0) scale(.96); } 40% { transform: translateY(-10px) scale(1.04); } 100% { transform: translateY(0) scale(1); } }
 @keyframes buddy-glow { 50% { filter: drop-shadow(0 0 16px rgba(111,181,168,.95)); } }
 @media (prefers-reduced-motion: reduce) { .buddy-mascot[data-awake="true"] { animation: none; } }
+
+/* Awake: play the sleep-to-stand frames once and hold the standing frame (instant when reduced motion). */
+.buddy-mascot[data-awake="true"] .buddy-frames {
+  animation-name: buddy-frames; animation-duration: 1.1s; animation-fill-mode: forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .buddy-mascot[data-awake="true"] .buddy-frames { animation-duration: 1ms; }
+}

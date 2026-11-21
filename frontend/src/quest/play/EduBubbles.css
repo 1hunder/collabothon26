@@ -1,6 +1,6 @@
-.edu-bubbles { position: absolute; right: 6px; bottom: calc(100% + 2px); width: 44px; height: 0; pointer-events: none; z-index: 2; }
+.edu-bubbles { position: absolute; right: 20%; bottom: calc(100% - 6px); width: 44px; height: 0; pointer-events: none; z-index: 2; }
 .edu-bubble {
-  position: absolute; right: calc(var(--i) * 14px); bottom: calc(var(--i) * 30px);
+  position: absolute; right: calc(var(--i) * 12px); bottom: calc(var(--i) * 28px);
   display: grid; place-items: center; width: 30px; height: 28px; border-radius: 14px 14px 14px 4px;
   background: #e8dcc2; color: #7a1f1f; border: 2px solid #c9a227; font: 800 18px/1 'Alegreya Sans', sans-serif;
   box-shadow: 0 2px 6px rgba(0,0,0,.4);

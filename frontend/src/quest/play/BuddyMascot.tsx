@@ -31,7 +31,7 @@ export default function BuddyMascot({ onOpenChat, pending = [], poppedId = null 
       data-playing={playing}
       onClick={() => setPlaying(true)}
     >
-      <span className="buddy-frames" onAnimationEnd={onOpenChat} style={{
+      <span className="buddy-frames" onAnimationEnd={() => { if (playing) onOpenChat(); }} style={{
         animationTimingFunction: `steps(${frames.length}, jump-none)`,
         '--last-frame': `${(1 - frames.length) * 100}%`,
       } as React.CSSProperties}>
