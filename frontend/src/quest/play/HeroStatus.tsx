@@ -1,6 +1,7 @@
 import { Coins, Heart, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CampaignState } from '../../api/types';
+import { formatGold } from '../lib/gold';
 
 const className = { guardian: 'the Guardian', analyst: 'the Analyst', investigator: 'the Investigator' } as const;
 
@@ -49,7 +50,7 @@ export default function HeroStatus({ campaign, hitKey = 0, onOpen }: HeroStatusP
           className={`inline-flex items-center gap-1 text-quest-gilt ${hitKey > 0 ? 'motion-safe:animate-hp-hit' : ''}`}
         >
           <Heart aria-hidden="true" size={15} />
-          {hp} HP <span>· €{campaign.hp_eur.toLocaleString('en-US')}</span>
+          {hp} HP <span>· {formatGold(campaign.hp_eur)}</span>
         </span>
         <span>XP {hero.total_xp}</span>
         <span className="inline-flex items-center gap-1">
@@ -62,8 +63,7 @@ export default function HeroStatus({ campaign, hitKey = 0, onOpen }: HeroStatusP
       {campaign.purse && campaign.purse.position_eur > 0 ? (
         <span className="inline-flex items-center gap-1 text-quest-vellum-dim">
           <Coins aria-hidden="true" size={15} />
-          Cash €{campaign.purse.cash_eur.toLocaleString('en-US')} · In the company €
-          {campaign.purse.position_eur.toLocaleString('en-US')}
+          Cash {formatGold(campaign.purse.cash_eur)} · In the company {formatGold(campaign.purse.position_eur)}
         </span>
       ) : null}
     </button>

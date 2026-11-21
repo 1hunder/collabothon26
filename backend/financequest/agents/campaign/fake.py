@@ -510,15 +510,15 @@ class CampaignFakeLLM:
                 kind="buyback", name=_BROKERS[pick % len(_BROKERS)], role="Guild broker",
                 text="A broker in a gilded coat draws you aside: for anyone who wants coins back in "
                      "hand, he will buy part of your stake in the company at today's board price, up "
-                     f"to {facts['buyback']['max_eur']} euros worth. How do you answer?",
+                     f"to {facts['buyback']['max_eur']} gold pieces worth. How do you answer?",
                 suggestions=["Sell half of my coins", "No, I keep them all", "I look around instead"],
             )  # fmt: skip
         if kind == "loan":
             t = facts["loan"]
             return S.OfferOut(
                 kind="loan", name=_LENDERS[pick % len(_LENDERS)], role="Moneylender",
-                text=f"A moneylender of the guild offers you up to {t['principal_eur']} euros now, at "
-                     f"flat interest of {t['interest_pct']} percent: {t['repay_eur']} euros repaid "
+                text=f"A moneylender of the guild offers you up to {t['principal_eur']} gold pieces now, at "
+                     f"flat interest of {t['interest_pct']} percent: {t['repay_eur']} gold pieces repaid "
                      f"{t['due']}. How do you answer?",
                 suggestions=["I take the loan", "No, I decline", "I look around instead"],
             )  # fmt: skip

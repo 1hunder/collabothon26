@@ -128,7 +128,7 @@ export interface CommitRequest {
 
 // ---- decisions throughout the campaign ----
 
-/** The hero's coins at today's board price. Euros only (engine computed). */
+/** The hero's coins at today's board price. Gold pieces only (engine computed). */
 export interface Purse {
   cash_eur: number;
   position_eur: number;
@@ -144,7 +144,7 @@ export interface LoanInfo {
   principal_eur: number;
   repay_eur: number;
   interest_eur: number;
-  /** "Loan from <lender>: +€X now, repay €Y at the end" */
+  /** "Loan from <lender>: +X gp now, repay Y gp at the end" */
   label: string;
 }
 
@@ -203,7 +203,7 @@ export interface DecisionEntry {
   /** Why the player chose it, in their own words; null when none was given. */
   reasoning?: string | null;
   reasoning_source?: 'inline' | 'asked' | 'commit' | 'skipped' | null;
-  /** After the lock only: what this decision did to the final result, in euros. */
+  /** After the lock only: what this decision did to the final result, in gold pieces. */
   effect_eur?: number;
 }
 
@@ -551,7 +551,7 @@ export interface RollResult {
 
 /** Extra fields of a `done` event for a Campaign Master turn. */
 export interface HpChange {
-  /** Negative: HP lost (1 HP = €10). */
+  /** Negative: HP lost (1 HP = 10 gp). */
   delta: number;
   reason: string;
   hp: number;

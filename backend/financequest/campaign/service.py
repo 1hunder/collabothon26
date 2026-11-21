@@ -276,7 +276,7 @@ def position_of(run: CampaignRun, trades: list[Trade]) -> ledger.Position:
     return ledger.Position(Decimal(last.cash_after_cents) / 100 - lost, Decimal(last.shares_after))
 
 
-# ---- damage: HP is the budget bar (1 HP = 10 euros) -------------------------------------------
+# ---- damage: HP is the budget bar (1 HP = 10 gold pieces) -------------------------------------------
 HP_EUR = 10
 LOAN_TEXT = "Loan from "
 MAX_HP_LOSS_TURN = 10  # a schema bound only: one model reply cannot take more than this
@@ -341,7 +341,7 @@ def _eur(x: Decimal) -> float:
 
 
 def purse(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
-    """Cash and the value of the coins in the company at today's board price (euros only)."""
+    """Cash and the value of the coins in the company at today's board price (gold pieces only)."""
     pos = position_of(run, trades_of(db, run.id))
     price = ledger.fill_row(pack.rows, run.clock_day).close
     held = pos.value(price)
@@ -375,7 +375,7 @@ def loan_out(loan: Loan) -> dict[str, Any]:
     return {
         "lender": loan.lender, "principal_eur": _eur(loan.principal), "repay_eur": _eur(loan.repay),
         "interest_eur": _eur(loan.repay - loan.principal),
-        "label": f"Loan from {loan.lender}: +€{_eur(loan.principal):g} now, repay €{_eur(loan.repay):g} at the end",
+        "label": f"Loan from {loan.lender}: +{_eur(loan.principal):g} gp now, repay {_eur(loan.repay):g} gp at the end",
     }
 
 
@@ -509,7 +509,7 @@ def nothing_at_stake(db: Session, run: CampaignRun, pack: Pack, trade: Trade, te
 
 
 def offer_facts(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
-    """The engine's figures for the two offers the Master may make (euros only)."""
+    """The engine's figures for the two offers the Master may make (gold pieces only)."""
     p = purse(db, run, pack)
     return {
         "buyback": {"max_eur": p["position_eur"], "price": "today's board price",
@@ -546,7 +546,7 @@ def note_offer_ignored(db: Session, run: CampaignRun, text: str) -> int:
 
 def accept_loan(db: Session, run: CampaignRun, pack: Pack, text: str) -> Trade:
     """The player takes the moneylender's loan: the principal joins the purse now, the repayment
-    comes off the final result. Stored as a ``loan`` trade (price holds the repayment in euros)."""
+    comes off the final result. Stored as a ``loan`` trade (price holds the repayment in gold pieces)."""
     offer = offer_out(run)
     assert offer is not None and offer["kind"] == "loan"
     terms = offer["terms"]
@@ -648,7 +648,7 @@ def reasoning_fields(source: str | None, reasoning: str | None) -> dict[str, Any
 
 
 def decisions_out(db: Session, run: CampaignRun, pack: Pack) -> list[dict[str, Any]]:
-    """The player's decisions in euros; once the decision is locked, each one's effect too."""
+    """The player's decisions in gold pieces; once the decision is locked, each one's effect too."""
     locked = phase_at_least(run, "timeskip")
     out = []
     for t in trades_of(db, run.id):

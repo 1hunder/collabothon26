@@ -61,9 +61,9 @@ describe('new location with an NPC', () => {
     await user.type(await screen.findByRole('textbox'), 'break into the vault');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(await screen.findByText('The Campaign Master steps in')).toBeInTheDocument();
-    expect(await screen.findByTestId('damage-toast')).toHaveTextContent('−5 HP (−€50): The vault guards caught you');
+    expect(await screen.findByTestId('damage-toast')).toHaveTextContent('−5 HP (−50 gp): The vault guards caught you');
     expect(screen.getByTestId('hp')).toHaveAttribute('data-hit', 'true');
-    await waitFor(() => expect(screen.getByTestId('hp')).toHaveTextContent('95 HP · €950'));
+    await waitFor(() => expect(screen.getByTestId('hp')).toHaveTextContent('95 HP · 950 gp'));
     expect(screen.getByTestId('name-tab')).toHaveTextContent('Campaign Master');
   }, 15000);
 });

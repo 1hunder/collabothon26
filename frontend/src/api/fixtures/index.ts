@@ -186,7 +186,7 @@ function outcomeFor(budget: number, decisions: readonly DecisionEntry[]): Outcom
     investment_return_pct: Math.round((fixtureRate - 1) * 1000) / 10,
     hp_before: budget / 10,
     hp_after: Math.round(finalValue / 10),
-    currency_note: "Prices in the company's original currency; exchange-rate changes are not included.",
+    currency_note: "Every figure here is in gold pieces (gp).",
   };
 }
 

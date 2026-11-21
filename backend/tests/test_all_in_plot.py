@@ -112,7 +112,7 @@ def test_loan_offer_accepted_adds_cash_and_the_outcome_subtracts_the_repayment(
     purse = done["purse"]
     assert purse["cash_eur"] == 500 and purse["loan"]["repay_eur"] == 550
     assert purse["loan"]["label"] == (
-        f"Loan from {offer['by']['name']}: +€500 now, repay €550 at the end")
+        f"Loan from {offer['by']['name']}: +500 gp now, repay 550 gp at the end")
     assert purse["net_eur"] == pytest.approx(purse["total_eur"] - 550, abs=0.01)
     loan_row = trades(cid)[-1]
     assert (loan_row.action, loan_row.amount_cents) == ("loan", 50000)

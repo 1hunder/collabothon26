@@ -6,7 +6,7 @@ the purse never leaks a future price. The result is valued at the horizon close,
 decision's own effect is computed so that the effects add up exactly to the profit or loss.
 
 Share counts and fill prices are real-price figures and never leave the engine; responses carry
-euro amounts only.
+gold amount only.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class Position:
 @dataclass(frozen=True)
 class Fill:
     action: str
-    amount: Decimal  # euros moved: spent on a buy, received on a sell (0 for hold)
+    amount: Decimal  # gold pieces moved: spent on a buy, received on a sell (0 for hold)
     shares: Decimal  # +bought / -sold
     price: Decimal
     fill_day: int
@@ -53,7 +53,7 @@ class Fill:
 def resolve_amount(
     action: str, pos: Position, price: Decimal, amount_eur: int | None, portion: str | None
 ) -> Decimal:
-    """The euro amount a decision asks for, clamped to what the player has: cash for a buy, the
+    """The gold amount a decision asks for, clamped to what the player has: cash for a buy, the
     position's current value for a sell."""
     if action == "hold":
         return ZERO

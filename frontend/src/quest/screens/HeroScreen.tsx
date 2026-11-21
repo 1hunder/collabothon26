@@ -3,7 +3,7 @@ import { useHero } from '../../api/campaign';
 import type { HeroClass } from '../../api/types';
 
 const advantages: Record<HeroClass, string> = {
-  guardian: 'Safety Cushion — start each campaign with 120 HP (€1,200)',
+  guardian: 'Safety Cushion — start each campaign with 120 HP (1,200 gp)',
   analyst: 'Second Look — reroll one failed dice check per campaign',
   investigator: 'Keen Eye — roll one dice check per campaign with advantage',
 };

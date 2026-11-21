@@ -48,21 +48,21 @@ describe('Outcome', () => {
     expect(await screen.findByText('Locked at Day 84, evening · horizon 75 days')).toBeInTheDocument();
     expect(screen.getByTestId('chart')).toHaveAttribute('data-mode', 'story');
     const dl = screen.getByText('Final value').closest('div');
-    expect(dl).toHaveTextContent('€607.51');
-    expect(screen.getByText('Starting budget').closest('div')).toHaveTextContent('€1,000.00');
-    expect(screen.getByText('Cash kept').closest('div')).toHaveTextContent('€600.00');
-    expect(screen.getByText('Invested').closest('div')).toHaveTextContent('€400.00');
-    expect(screen.getByText('Value now').closest('div')).toHaveTextContent('€7.51');
-    expect(screen.getByText('Fees').closest('div')).toHaveTextContent('€0.00');
-    expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−€392.49 (−39.2%)');
+    expect(dl).toHaveTextContent('607.51 gp');
+    expect(screen.getByText('Starting budget').closest('div')).toHaveTextContent('1,000 gp');
+    expect(screen.getByText('Cash kept').closest('div')).toHaveTextContent('600 gp');
+    expect(screen.getByText('Invested').closest('div')).toHaveTextContent('400 gp');
+    expect(screen.getByText('Value now').closest('div')).toHaveTextContent('7.51 gp');
+    expect(screen.getByText('Fees').closest('div')).toHaveTextContent('0 gp');
+    expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−392.49 gp (−39.2%)');
     expect(screen.getByText('100 HP → 61 HP')).toBeInTheDocument();
     expect(
-      screen.getByText("Prices in the company's original currency; exchange-rate changes are not included."),
+      screen.getByText("Every figure here is in gold pieces (gp)."),
     ).toBeInTheDocument();
     const decisions = screen.getByRole('region', { name: 'Your decisions' });
-    expect(decisions).toHaveTextContent('#1 · Day 2 · Put in €200.00');
+    expect(decisions).toHaveTextContent('#1 · Day 2 · Put in 200 gp');
     expect(decisions).toHaveTextContent('I put 200 coins in, the guild looks strong.');
-    expect(decisions).toHaveTextContent(/−€196\.2\d/);
+    expect(decisions).toHaveTextContent(/−196\.2\d gp/);
   });
 
   it('moves on to the debrief', async () => {

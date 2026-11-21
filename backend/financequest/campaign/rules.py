@@ -123,7 +123,7 @@ _PORTION_RE = (
     ("half", re.compile(r"\b(half)\b", re.I)),
     ("some", re.compile(r"\b(some|a little|a bit|a quarter|small)\b", re.I)),
 )
-_AMOUNT_RE = re.compile(r"(?:€\s*)?(\d[\d,]*)(?:\s*(?:€|eur|euros?|coins?|gold))?", re.I)
+_AMOUNT_RE = re.compile(r"(?:€\s*)?(\d[\d,]*)(?:\s*(?:€|eur|euros?|gp|gold(?:\s+pieces?)?|coins?))?", re.I)
 
 
 def parse_decision(text: str) -> tuple[str | None, int | None, str | None]:

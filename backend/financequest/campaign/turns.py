@@ -597,7 +597,7 @@ def frame_scene(
 
 
 def trade_card(trade: Trade, purse: dict[str, Any]) -> dict[str, Any]:
-    """The receipt for an executed decision: engine figures, euros only."""
+    """The receipt for an executed decision: engine figures, gold pieces only."""
     return {
         "kind": "trade", "seq": trade.seq, "beat": trade.beat, "action": trade.action,
         "amount_eur": trade.amount_cents / 100, "day_label": clock.day_label(trade.story_day),

@@ -818,7 +818,7 @@ def prepared_setup(ctx: C.AgentContext) -> SetupOut:
     text = (
         f"Rain drums on the stained glass of the tavern in {p.setting}. The talk of the room is "
         f"{p.company_name}, {p.trade[:1].lower() + p.trade[1:]}. Your task: investigate, then decide "
-        f"what to do with your {ctx.budget} euros. {knows}In this story {clock.horizon_sentence(ctx.pack)}. "
+        f"what to do with your {ctx.budget} gold pieces. {knows}In this story {clock.horizon_sentence(ctx.pack)}. "
         f"The Library holds {docs}. The {p.market_name} shows the price board and the crowd's "
         f"mood. {who + ' can be questioned. ' if who else ''}"
         "CommerzBuddy can be called at any time. What would you do?"

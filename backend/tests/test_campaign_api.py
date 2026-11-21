@@ -229,7 +229,7 @@ def test_full_flow_enron_numbers_and_finish(client: TestClient, enron: str) -> N
     assert lk["breakdown"]["pl_eur"] == -392.55 and lk["breakdown"]["starting_budget"] == 1000.0
     assert lk["locked_at"].startswith("Day ") and lk["series"][0].keys() == {"story_day", "price"}
     assert (lk["hp_before"], lk["hp_after"]) == (100, 61)
-    assert lk["currency_note"].startswith("Prices in the company's original currency")
+    assert lk["currency_note"].startswith("Every figure here is in gold pieces")
     assert lk["horizon_label"].startswith("about ")
     assert not re.search(
         r"20\d\d|Enron|31\.95",

@@ -93,6 +93,7 @@ def test_whatif_rows_put_the_players_path_next_to_simple_alternatives() -> None:
         ("I wait and watch", ("hold", None, None)),
         ("I don't invest yet", ("hold", None, None)),
         ("Keep my coins for now", ("hold", None, None)),
+        ("buy 250 gp", ("buy", 250, None)),
         ("buy €250", ("buy", 250, None)),
         ("What does the ledger say?", (None, None, None)),
     ],

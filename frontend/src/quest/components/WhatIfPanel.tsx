@@ -1,5 +1,6 @@
 import type { WhatIfRow } from '../../api/types';
-import { formatEur, formatPct } from '../lib/commit';
+import { formatPct } from '../lib/commit';
+import { formatGold } from '../lib/gold';
 
 /** Rewind view: server-computed rows; the player's own choice is highlighted. */
 export default function WhatIfPanel({ rows }: { rows: WhatIfRow[] }): React.JSX.Element {
@@ -22,7 +23,7 @@ export default function WhatIfPanel({ rows }: { rows: WhatIfRow[] }): React.JSX.
               {r.is_yours ? ' (your choice)' : ''}
             </span>
             <span>
-              {formatEur(r.final_value)} · {formatPct(r.pct)}
+              {formatGold(r.final_value)} · {formatPct(r.pct)}
             </span>
           </li>
         ))}

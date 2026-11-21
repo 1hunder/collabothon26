@@ -5,7 +5,8 @@ import { lockDecision, patchCampaignCache, queryKeys, resumePlay, saveCommitDraf
 import { ApiError } from '../../api/client';
 import type { CampaignState, CommitDraft, Confidence } from '../../api/types';
 import ScreenBuddy from '../play/ScreenBuddy';
-import { decisionLabel, emptyDraft, formatEur, toRequest } from '../lib/commit';
+import { decisionLabel, emptyDraft, toRequest } from '../lib/commit';
+import { formatGold } from '../lib/gold';
 
 const DRAFT_KEY = 'fq.commit.v1';
 const SEAL_MS = 800;
@@ -180,15 +181,15 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
         )}
         {purse ? (
           <p className="font-quest-sans text-sm">
-            Now: cash {formatEur(purse.cash_eur)} · in the company {formatEur(purse.position_eur)}
+            Now: cash {formatGold(purse.cash_eur)} · in the company {formatGold(purse.position_eur)}
           </p>
         ) : null}
         <p data-testid="budget" className="font-quest-sans text-sm">
-          Your budget now: {formatEur(budget)}
+          Your budget now: {formatGold(budget)}
         </p>
         {exceeds || overBudget ? (
           <p role="alert" className="font-quest-sans text-sm text-quest-wax-light">
-            Your coins in the company are more than your budget of {formatEur(budget)} after the damage you took. Go back and take some out.
+            Your coins in the company are more than your budget of {formatGold(budget)} after the damage you took. Go back and take some out.
           </p>
         ) : null}
       </section>

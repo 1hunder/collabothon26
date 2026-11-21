@@ -253,7 +253,7 @@ def _walk(ctx: VeteranContext) -> VeteranOut:
         d = decisions[step]
         verb = ACTION.get(d["action"], "you chose")
         amount = (
-            f" {d['amount_eur']} coins"
+            f" {d['amount_eur']} gp"
             if d["action"] in ("buy", "sell") and d["amount_eur"]
             else ""
         )

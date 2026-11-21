@@ -1,4 +1,4 @@
-"""Portfolio math on Decimal. Only recorded prices count; FX is ignored (currency note)."""
+"""Portfolio math on Decimal. Only recorded prices count; no exchange rates in the quest (currency note)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from decimal import ROUND_HALF_UP, Decimal
 CENTS = Decimal("0.01")
 PCT = Decimal("0.1")
 ZERO = Decimal(0)
-CURRENCY_NOTE = "Prices in the company's original currency; exchange-rate changes are not included."
+CURRENCY_NOTE = "Every figure here is in gold pieces (gp)."
 ACTIONS = ("invest", "spread", "dont_invest", "wait")
 
 

@@ -86,11 +86,21 @@ def event_types(cid: str) -> list[str]:
 # ==================================================================================================
 # guards (pure)
 # ==================================================================================================
+def test_currency_guard_accepts_gold_and_rejects_euros() -> None:
+    for ok in ("You hold 1,000 gold pieces.", "You lose 3 HP (30 gp).", "Spend your gold wisely."):
+        assert G.currency_violations(ok) == [], ok
+    for bad in ("You hold 1,000 euros.", "That costs 50 EUR.", "Only \u20ac50 remains.", "A euro buys little."):
+        assert G.currency_violations(bad), bad
+    rules = G.GuardRules(allowed={"1000"}, leak_enabled=False, voice=False, advice=False)
+    assert rules.static_violations({"text": "You hold 1000 euros."})
+    assert rules.static_violations({"text": "You hold 1000 gp."}) == []
+
+
 def test_number_guard_blocks_invented_amount_and_allows_free_numbers(world: SimpleNamespace) -> None:
     ctx = world.ctx()
     allowed = C.allowlist(ctx)
-    assert G.number_violations("You hold 1,000 euros and roll a 14 against 12.", allowed) == []
-    for bad in ("The guild earned €1,234 last year.", "That is $1234.", "About 1.2k coins."):
+    assert G.number_violations("You hold 1,000 gold pieces and roll a 14 against 12.", allowed) == []
+    for bad in ("The guild earned 1,234 gp last year.", "That is $1234.", "About 1.2k coins."):
         assert G.number_violations(bad, allowed), bad
     assert G.number_violations("The ledger says 11 in ready coin.", allowed) == []  # from the data
     assert G.number_violations("It happened in 2001.", allowed)  # a year is never allowed
@@ -242,9 +252,9 @@ class _Reply:
 
 def test_number_guard_blocks_invented_euro_figure_in_dm_and_buddy(world: SimpleNamespace) -> None:
     free = {"campaign_route": [S.RouteOut(intent="free")]}
-    nar, _ = scripted({**free, "campaign_turn": [bad_turn("Profits hit €1,234 that year. What next?")]})
+    nar, _ = scripted({**free, "campaign_turn": [bad_turn("Profits hit 1,234 gp that year. What next?")]})
     assert run_turn(world, nar, "look").text == G.SAFE_FALLBACK
-    nar, _ = scripted({"campaign_buddy": [S.BuddyOut(text="It earned €1,234 in sales.")]})
+    nar, _ = scripted({"campaign_buddy": [S.BuddyOut(text="It earned 1,234 gp in sales.")]})
     assert nar.buddy(world.ctx(), "tell me").text == G.SAFE_FALLBACK
 
 

@@ -168,7 +168,7 @@ describe('2.2 Classes', () => {
   it('2.2-AC1 the hero creation shows three class cards with their advantage wording', () => {
     renderRoutes([{ path: '/quest/hero/new', element: <HeroCreate /> }], ['/quest/hero/new']);
     for (const t of ['The Guardian', 'The Analyst', 'The Investigator']) expect(screen.getByText(t)).toBeInTheDocument();
-    expect(screen.getByText('Safety Cushion — start each campaign with 120 HP (€1,200)')).toBeInTheDocument();
+    expect(screen.getByText('Safety Cushion — start each campaign with 120 HP (1,200 gp)')).toBeInTheDocument();
     expect(screen.getByText('Second Look — reroll one failed dice check per campaign')).toBeInTheDocument();
     expect(screen.getByText('Keen Eye — roll one dice check per campaign with advantage')).toBeInTheDocument();
   });
@@ -180,18 +180,18 @@ describe('2.2 Classes', () => {
     await userEvent.click(g!);
     expect([g, a, i].map((r) => r!.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
   });
-  it('2.2-AC3 a Guardian starts with "120 HP · €1,200"', async () => {
+  it('2.2-AC3 a Guardian starts with "120 HP · 1,200 gp"', async () => {
     setupPlay('guardian');
-    expect(await screen.findByText(/120 HP/)).toHaveTextContent('120 HP · €1,200');
+    expect(await screen.findByText(/120 HP/)).toHaveTextContent('120 HP · 1,200 gp');
   });
-  it('2.2-AC4 an Analyst starts with "100 HP · €1,000" and "Rerolls: 1"', async () => {
+  it('2.2-AC4 an Analyst starts with "100 HP · 1,000 gp" and "Rerolls: 1"', async () => {
     setupPlay('analyst');
-    expect(await screen.findByText(/100 HP/)).toHaveTextContent('100 HP · €1,000');
+    expect(await screen.findByText(/100 HP/)).toHaveTextContent('100 HP · 1,000 gp');
     expect(screen.getByText('Rerolls: 1')).toBeInTheDocument();
   });
-  it('2.2-AC5 an Investigator starts with "100 HP · €1,000" and "Keen Eye: 1"', async () => {
+  it('2.2-AC5 an Investigator starts with "100 HP · 1,000 gp" and "Keen Eye: 1"', async () => {
     setupPlay('investigator');
-    expect(await screen.findByText(/100 HP/)).toHaveTextContent('100 HP · €1,000');
+    expect(await screen.findByText(/100 HP/)).toHaveTextContent('100 HP · 1,000 gp');
     expect(screen.getByText('Keen Eye: 1')).toBeInTheDocument();
   });
 });
@@ -532,7 +532,7 @@ describe('2.5 Dice checks', () => {
     await user.click(within(dice).getByRole('button', { name: 'Roll' }));
     await user.click(await within(dice).findByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Dice check' })).not.toBeInTheDocument());
-    expect(screen.getByText(/120 HP/)).toHaveTextContent('120 HP · €1,200');
+    expect(screen.getByText(/120 HP/)).toHaveTextContent('120 HP · 1,200 gp');
   });
 });
 
@@ -988,12 +988,12 @@ describe('2.10 Voice narration', () => {
 // 2.11 Hero status
 // ================================================================================================
 describe('2.11 Hero status', () => {
-  it('2.11-AC1 a scene shows name, class, HP with euros, total XP, "Focus: 3" and the class use', async () => {
+  it('2.11-AC1 a scene shows name, class, HP with gold, total XP, "Focus: 3" and the class use', async () => {
     setupPlay('investigator');
     const bar = await screen.findByRole('button', { name: 'Hero status' });
     expect(bar).toHaveTextContent('Mira');
     expect(bar).toHaveTextContent('the Investigator');
-    expect(bar).toHaveTextContent('100 HP · €1,000');
+    expect(bar).toHaveTextContent('100 HP · 1,000 gp');
     expect(bar).toHaveTextContent('XP 0');
     expect(bar).toHaveTextContent('Focus: 3');
     expect(bar).toHaveTextContent('Keen Eye: 1');
@@ -1009,7 +1009,7 @@ describe('2.11 Hero status', () => {
     await user.click(within(dice).getByRole('button', { name: 'Accept setback' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Dice check' })).not.toBeInTheDocument());
     const bar = screen.getByRole('button', { name: 'Hero status' });
-    expect(bar).toHaveTextContent('100 HP · €1,000');
+    expect(bar).toHaveTextContent('100 HP · 1,000 gp');
     expect(bar).toHaveTextContent('XP 0');
   });
   it('2.11-AC3 tapping the status bar opens the hero screen with the advantage and finished campaigns', async () => {
@@ -1061,8 +1061,8 @@ describe('2.12 Committing the decision', () => {
     renderRoutes(commitRoutes, ['/quest/commit']);
     await screen.findByRole('region', { name: 'Your decisions' });
     expect(screen.queryByRole('radio', { name: 'Invest' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Amount in euros')).not.toBeInTheDocument();
-    expect(screen.getByText(/Now: cash €600.00 · in the company €400.00/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Amount in gold pieces')).not.toBeInTheDocument();
+    expect(screen.getByText(/Now: cash 600 gp · in the company 400 gp/)).toBeInTheDocument();
   });
   it('2.12-AC5 with a confidence chosen the summary shows the answers and Lock is enabled', async () => {
     const user = userEvent.setup();
@@ -1123,12 +1123,12 @@ describe('2.13 Reveal and HP update', () => {
     await user.click(await screen.findByText('75 days later…', {}, { timeout: 3000 }));
     expect(await screen.findByRole('img', { name: 'Price chart' })).toHaveAttribute('data-mode', 'story');
   });
-  it('2.13-AC2 the reveal shows final value, loss in euros and percent, and the HP change from the server', async () => {
+  it('2.13-AC2 the reveal shows final value, loss in gold and percent, and the HP change from the server', async () => {
     seedCampaign({ phase: 'reveal', decision: investDecision });
     renderRoutes(routes, ['/quest/outcome']);
     expect(await screen.findByText('100 HP → 61 HP')).toBeInTheDocument();
-    expect(screen.getByText('Final value').closest('div')).toHaveTextContent('€607.51');
-    expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−€392.49 (−39.2%)');
+    expect(screen.getByText('Final value').closest('div')).toHaveTextContent('607.51 gp');
+    expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−392.49 gp (−39.2%)');
   });
   it('2.13-AC3 for Don\'t invest the figures shown are the server\'s unchanged budget and HP', async () => {
     seedCampaign({ phase: 'reveal', decision: { evidence: 'x'.repeat(30), forecast_pct: 50, confidence: 'low' } });
@@ -1376,7 +1376,7 @@ describe('2.17 Focus and items', () => {
     await user.click(await screen.findByRole('button', { name: 'Library documents' }));
     expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('How many barrels were sold in a year.');
   });
-  it('2.17-AC8 an item changes no figure on screen: starting HP and euros are the same with an item', async () => {
+  it('2.17-AC8 an item changes no figure on screen: starting HP and gold are the same with an item', async () => {
     seedCampaign({ phase: 'play', heroClass: 'analyst' });
     const db = readDb();
     if (db.campaign) {
@@ -1384,7 +1384,7 @@ describe('2.17 Focus and items', () => {
       writeDb(db);
     }
     renderRoutes([{ path: '/quest/play', element: <PlayScreen /> }], ['/quest/play']);
-    expect(await screen.findByText(/100 HP/)).toHaveTextContent('100 HP · €1,000');
+    expect(await screen.findByText(/100 HP/)).toHaveTextContent('100 HP · 1,000 gp');
   });
 });
 
