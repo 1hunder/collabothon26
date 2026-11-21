@@ -386,7 +386,16 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       return (
         <DialogueBox
           key={state.clientMsgId}
-          speaker={DM_NAME}
+          // The server names the speaker before the first word; until then, at a place with an
+          // NPC the NPC is the likely speaker (the Master only steps in when the NPC hands over).
+          speaker={(state.phase === 'streaming' ? state.speaker : null) ?? location?.npc?.name ?? DM_NAME}
+          speakerKind={
+            state.phase === 'streaming' && state.speakerKind
+              ? (state.speakerKind as SpeakerKind)
+              : location?.npc
+                ? 'npc'
+                : undefined
+          }
           text={state.phase === 'streaming' ? state.text : ''}
           final={false}
           writing

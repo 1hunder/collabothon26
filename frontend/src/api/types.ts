@@ -455,6 +455,7 @@ export interface QuestJob {
 export type DmEvent =
   | { event: 'status'; data: { state: string } }
   | { event: 'token'; data: { text: string } }
+  | { event: 'speaker'; data: { speaker?: string | null; speaker_kind?: SpeakerKind | null } }
   | { event: 'card'; data: { kind: 'dice' | 'news' | 'market' | 'trade'; [field: string]: unknown } }
   | { event: 'state'; data: { can_decide?: boolean; art_ready?: string[]; [field: string]: unknown } }
   | { event: 'done'; data: { text: string; audio_text_id?: number | string | null; [field: string]: unknown } }
