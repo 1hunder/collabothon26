@@ -22,8 +22,6 @@ export function seedCampaign(opts: {
 }
 
 export const investDecision: CommitRequest = {
-  action: 'invest',
-  amount_eur: 400,
   evidence: 'The debt figures worry me a lot',
   forecast_pct: 40,
   confidence: 'medium',

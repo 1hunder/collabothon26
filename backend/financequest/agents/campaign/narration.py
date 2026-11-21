@@ -20,16 +20,59 @@ from financequest.agents.campaign.guards import SAFE_FALLBACK, FieldRule, GuardR
 from financequest.agents.campaign.schemas import (
     BuddyOut,
     DebriefOut,
+    DecideOut,
     RouteOut,
     SummaryOut,
     TextOut,
     XpOut,
 )
-from financequest.campaign.narration import TurnReply
+from financequest.campaign import rules
+from financequest.campaign.narration import DecisionReply, TurnReply
 from financequest.campaign.xp import RawScore, excerpt
 from financequest.llm import NodeLLM, get_node_llm
 
 log = logging.getLogger("financequest.agents")
+SCENE_WORDS = 100
+DECIDE_WORDS = 120
+SCENE_BEATS = {
+    "opening": "the first chance to put coins in, before the hero has learned much",
+    "news": "the market reacts to the breaking news; the hero may change course",
+    "decision": "the day of decision: the last chance to set the purse before the long wait",
+    "story": "a moment in the story that asks the hero to commit coins or not",
+}
+SCENE_TEMPLATES = {
+    "opening": "A guild broker leans over the counter: shares are on offer today, for anyone "
+               "brave enough. Do you put coins in now, or keep them while you look around?",
+    "news": "The square is loud with the news, and traders crowd the brokers' stalls. Your coins "
+            "are where you left them. Do you change anything now?",
+    "decision": "The bell for the last trading of the season rings. Whatever you choose now, you "
+                "will live with until the horizon. What do you do with your coins?",
+    "story": "Someone is waiting for your answer about your coins. What do you do with them now?",
+}  # fmt: skip
+
+
+def decisions_block(ctx: C.AgentContext) -> str:
+    """Every decision the player wrote, in order, with what it did to the result (engine
+    computed). The debrief weighs the reasoning at each step, not just the final number."""
+    if not ctx.decisions:
+        return "Decisions during the campaign: none."
+    lines = ["# Decisions during the campaign (engine computed effects, euros)"]
+    for d in ctx.decisions:
+        eff = d.get("effect_eur")
+        lines.append(
+            f"{d['day_label']} ({d['beat']}): {d['action']} {d['amount_eur']}"
+            + (f"; effect on the result {eff}" if eff is not None else "")
+            + f". Their words: \"{d['text']}\""
+        )
+    return "\n".join(lines)
+
+
+def decision_suggestions(ctx: C.AgentContext) -> list[str]:
+    if ctx.holds_shares:
+        return ["Hold what I have", "Sell half my shares", "Buy more with my cash"]
+    return ["Invest a quarter of my coins", "Invest half of my coins", "Keep my coins for now"]
+
+
 BUDDY_WORDS = 120
 NEWS_WORDS = 80
 HINT_WORDS = 80
@@ -126,6 +169,54 @@ class AgentNarration:
         )  # fmt: skip
         return TurnReply(text=text, degraded=degraded, intent="news")
 
+    # ---- decisions throughout the campaign --------------------------------------------------------
+    def market_scene(self, ctx: C.AgentContext, beat: str) -> TurnReply:
+        """Sets a scene that puts an investment choice to the hero; the purse card has the figures."""
+        extra = (
+            f"# Decision scene\nBeat: {beat} ({SCENE_BEATS.get(beat, SCENE_BEATS['story'])}).\n"
+            + "\n".join(C.purse_lines(ctx))
+        )
+        text, degraded = self._text_node(
+            ctx, node="campaign_scene", prompt=prompts.MARKET_SCENE, user="Set the scene.",
+            extra=extra, effort="low", max_words=SCENE_WORDS, question=True,
+            template=SCENE_TEMPLATES.get(beat, SCENE_TEMPLATES["story"]),
+            llm_context={"beat": beat},
+        )  # fmt: skip
+        return TurnReply(text=text, degraded=degraded, intent="market_scene",
+                         suggestions=decision_suggestions(ctx))  # fmt: skip
+
+    def decide(self, ctx: C.AgentContext, text: str) -> DecisionReply:
+        """Reads the player's written decision. The engine clamps and executes it; the model only
+        reads the words and narrates the world's reaction. A failed reading falls back to a plain
+        parse of the same words."""
+        action, amount, portion = rules.parse_decision(text)
+        fallback = DecideOut(
+            kind="decision" if action else "question", action=action, amount_eur=amount,  # type: ignore[arg-type]
+            portion=portion, suggestions=decision_suggestions(ctx),  # type: ignore[arg-type]
+            text=("It is done, and the hall takes note of it. What do you do next?" if action
+                  else "Tell me plainly what you do with your coins: put some in, take some out, "
+                       "or wait?"),
+        )  # fmt: skip
+        spec = GuardedSpec(
+            llm=self.llm, node="campaign_decide", schema=DecideOut, effort="medium",
+            messages=lambda notes: C.build_messages(ctx, prompts.DECIDE, text, corrective=notes),
+            texts=lambda o: {"text": o.text},
+            rules=make_rules(ctx, text, fields={"text": FieldRule(DECIDE_WORDS, True)}),
+            template=lambda: fallback, ctx=ctx, llm_context={"ctx": ctx, "input": text},
+        )  # fmt: skip
+        res = run_guarded(spec)
+        out: DecideOut = res.out
+        kind = out.kind if out.kind in ("decision", "question") else "question"
+        act = out.action if kind == "decision" else None
+        if kind == "decision" and act is None:  # a decision with no action reads as a question
+            kind = "question"
+        sugg = [s.strip() for s in out.suggestions if s.strip()][:3] or decision_suggestions(ctx)
+        return DecisionReply(
+            kind=kind, action=act, amount_eur=out.amount_eur if kind == "decision" else None,
+            portion=out.portion if kind == "decision" else None, text=out.text.strip(),
+            suggestions=sugg, degraded=res.degraded,
+        )  # fmt: skip
+
     def hint(self, ctx: C.AgentContext, target: dict[str, Any]) -> TurnReply:
         where = target["location_name"]
         extra = f"# Hint target \nThe clue the hero has not found is at: {where}."
@@ -182,7 +273,8 @@ class AgentNarration:
         extra = (
             f"# Debrief facts \nOverlooked clue titles: {', '.join(missed) or 'none'}.\n"
             f"Player's written evidence: {' | '.join(ctx.player_texts)}\n"
-            f"Suggested reflection question: {question}\nResult: {ctx.outcome}"
+            f"Suggested reflection question: {question}\nResult: {ctx.outcome}\n"
+            + decisions_block(ctx)
         )
         fields = {k: FieldRule(PART_WORDS, False) for k in
                   ("sound_reasoning", "overlooked", "luck")}  # fmt: skip

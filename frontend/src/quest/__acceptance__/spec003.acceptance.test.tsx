@@ -1048,97 +1048,69 @@ describe('2.11 Hero status', () => {
 // 2.12 Committing the decision
 // ================================================================================================
 describe('2.12 Committing the decision', () => {
+  // Decisions are written during the campaign (decision scenes); the seal adds forecast and confidence.
   const commitRoutes = [guard('/quest/commit', <Commit />), { path: '/quest/play', element: <p>play screen</p> }, { path: '/quest/outcome', element: <p>outcome screen</p> }];
   const lockBtn = () => screen.getByRole('button', { name: 'Lock my decision' });
-  const evidence20 = '12345678901234567890';
-  it('2.12-AC1 the commit screen starts with nothing chosen, slider at 50%, three confidences and Lock disabled', async () => {
+  const note = 'The debt figures worry me a lot.';
+  it('2.12-AC1 the seal lists the decisions written during the campaign, slider at 50%, three confidences and Lock disabled', async () => {
     seedCampaign({ phase: 'commit', heroClass: 'guardian', offersSpread: true });
     renderRoutes(commitRoutes, ['/quest/commit']);
-    await screen.findByRole('radio', { name: 'Invest' });
+    const list = await screen.findByRole('region', { name: 'Your decisions' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Low', 'Medium', 'High']);
     expect(screen.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(0);
-    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(expect.arrayContaining(['Invest', "Don't invest", 'Wait', 'Spread the money', 'Low', 'Medium', 'High']));
     expect(screen.getByRole('slider')).toHaveValue('50');
     expect(lockBtn()).toBeDisabled();
   });
-  it('2.12-AC2 choosing Invest or Spread shows an amount field', async () => {
-    const user = userEvent.setup();
+  it('2.12-AC2 the seal asks for no action or amount: those come from the decisions', async () => {
     seedCampaign({ phase: 'commit', heroClass: 'guardian', offersSpread: true });
     renderRoutes(commitRoutes, ['/quest/commit']);
+    await screen.findByRole('region', { name: 'Your decisions' });
+    expect(screen.queryByRole('radio', { name: 'Invest' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Amount in euros')).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('radio', { name: 'Invest' }));
-    expect(screen.getByLabelText('Amount in euros')).toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: "Don't invest" }));
-    expect(screen.queryByLabelText('Amount in euros')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: 'Spread the money' }));
-    expect(screen.getByLabelText('Amount in euros')).toBeInTheDocument();
+    expect(screen.getByText(/Now: cash €600.00 · in the company €400.00/)).toBeInTheDocument();
   });
-  it('2.12-AC3 a Guardian amount of €1,201 or €0 shows "Enter an amount from €1 to €1,200." and Lock stays disabled', async () => {
-    const user = userEvent.setup();
-    seedCampaign({ phase: 'commit', heroClass: 'guardian' });
-    renderRoutes(commitRoutes, ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: 'Invest' }));
-    const amount = screen.getByLabelText('Amount in euros');
-    for (const v of ['1201', '0']) {
-      await user.clear(amount);
-      await user.type(amount, v);
-      expect(screen.getByText('Enter an amount from €1 to €1,200.')).toBeInTheDocument();
-      expect(lockBtn()).toBeDisabled();
-    }
-  });
-  it('2.12-AC4 evidence under 20 characters shows the message and Lock stays disabled', async () => {
+  it('2.12-AC5 with a confidence chosen the summary shows the answers and Lock is enabled', async () => {
     const user = userEvent.setup();
     seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     renderRoutes(commitRoutes, ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: "Don't invest" }));
-    await user.click(screen.getByRole('radio', { name: 'High' }));
-    await user.type(screen.getByLabelText(/Evidence/), '1234567890123456789');
-    expect(screen.getByText('Explain your reasoning in at least 20 characters.')).toBeInTheDocument();
-    expect(lockBtn()).toBeDisabled();
-  });
-  it('2.12-AC5 with all four answers valid the summary shows them and Lock is enabled', async () => {
-    const user = userEvent.setup();
-    seedCampaign({ phase: 'commit', heroClass: 'analyst' });
-    renderRoutes(commitRoutes, ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: 'Invest' }));
-    await user.type(screen.getByLabelText('Amount in euros'), '400');
-    await user.type(screen.getByLabelText(/Evidence/), evidence20);
-    await user.click(screen.getByRole('radio', { name: 'Medium' }));
+    await user.click(await screen.findByRole('radio', { name: 'High' }));
+    const summary = screen.getByRole('region', { name: 'Summary' });
+    expect(summary).toHaveTextContent('Decisions: 3');
+    expect(summary).toHaveTextContent('50% likely higher');
+    expect(summary).toHaveTextContent('high');
     expect(lockBtn()).toBeEnabled();
-    expect(screen.getByRole('region', { name: 'Summary' })).toHaveTextContent('€400.00');
   });
-  it('2.12-AC6 Lock my decision asks "Once locked, you can\'t change it. Lock?" with Lock and Go back', async () => {
+  it("2.12-AC6 Lock my decision asks \"Once locked, you can't change it. Lock?\" with Lock and Go back", async () => {
     const user = userEvent.setup();
     seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     renderRoutes(commitRoutes, ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: "Don't invest" }));
-    await user.type(screen.getByLabelText(/Evidence/), evidence20);
-    await user.click(screen.getByRole('radio', { name: 'Low' }));
+    await user.click(await screen.findByRole('radio', { name: 'Low' }));
     await user.click(lockBtn());
     expect(screen.getByText("Once locked, you can't change it. Lock?")).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Lock' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+    expect(screen.queryByText("Once locked, you can't change it. Lock?")).not.toBeInTheDocument();
   });
   it('2.12-AC7 "Back to investigating" keeps the typed answers for the next visit', async () => {
     const user = userEvent.setup();
-    seedCampaign({ phase: 'commit', heroClass: 'guardian' });
+    seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     const router = renderRoutes(commitRoutes, ['/quest/commit']);
-    await user.type(await screen.findByLabelText(/Evidence/), evidence20);
+    await user.type(await screen.findByLabelText(/Anything to add/), note);
     await user.click(screen.getByRole('button', { name: 'Back to investigating' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/quest/play'));
-    expect(readDb().campaign?.commit_draft?.evidence).toBe(evidence20);
+    expect(readDb().campaign?.commit_draft?.evidence).toBe(note);
   });
   it('2.12-AC8 after "Lock" the seal and time skip follow and the answers are saved as locked', async () => {
     const user = userEvent.setup();
     seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     renderRoutes(commitRoutes, ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: "Don't invest" }));
-    await user.type(screen.getByLabelText(/Evidence/), evidence20);
-    await user.click(screen.getByRole('radio', { name: 'High' }));
+    await user.click(await screen.findByRole('radio', { name: 'High' }));
     await user.click(lockBtn());
     await user.click(screen.getByRole('button', { name: 'Lock' }));
     expect(await screen.findByText('75 days later…', {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(readDb().decision?.action).toBe('dont_invest');
-    expect(screen.queryByLabelText(/Evidence/)).not.toBeInTheDocument();
+    expect(readDb().decision).toMatchObject({ confidence: 'high', forecast_pct: 50 });
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 });
 
@@ -1151,9 +1123,7 @@ describe('2.13 Reveal and HP update', () => {
     const user = userEvent.setup();
     seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     renderRoutes([guard('/quest/commit', <Commit />), guard('/quest/outcome', <Outcome />)], ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: "Don't invest" }));
-    await user.type(screen.getByLabelText(/Evidence/), '12345678901234567890');
-    await user.click(screen.getByRole('radio', { name: 'High' }));
+    await user.click(await screen.findByRole('radio', { name: 'High' }));
     await user.click(screen.getByRole('button', { name: 'Lock my decision' }));
     await user.click(screen.getByRole('button', { name: 'Lock' }));
     await user.click(await screen.findByText('75 days later…', {}, { timeout: 3000 }));
@@ -1167,11 +1137,9 @@ describe('2.13 Reveal and HP update', () => {
     expect(screen.getByText('Profit / loss').closest('div')).toHaveTextContent('−€392.49 (−39.2%)');
   });
   it('2.13-AC3 for Don\'t invest the figures shown are the server\'s unchanged budget and HP', async () => {
-    seedCampaign({ phase: 'reveal', decision: { action: 'dont_invest', evidence: 'x'.repeat(30), forecast_pct: 50, confidence: 'low' } });
-    const db = readDb();
+    seedCampaign({ phase: 'reveal', decision: { evidence: 'x'.repeat(30), forecast_pct: 50, confidence: 'low' } });
     renderRoutes(routes, ['/quest/outcome']);
     await screen.findByText('Final value');
-    expect(db.decision?.action).toBe('dont_invest');
     expect(screen.getByText(/HP →/)).toBeInTheDocument();
   });
   it('2.13-AC4 the same percentage is displayed from the server value, whatever the budget (no client maths)', () => {
@@ -1212,8 +1180,10 @@ describe('2.14 Debrief, reflection, company reveal and XP', () => {
     seedCampaign({ phase: 'debrief', decision: investDecision });
     renderRoutes(routes, ['/quest/debrief']);
     await screen.findByRole('heading', { name: 'What if…' });
-    for (const l of ["Don't invest", 'Invest half', 'Invest everything', 'Spread everything']) expect(screen.getByText(l)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem').filter((r) => r.getAttribute('aria-current') === 'true')).toHaveLength(1);
+    for (const l of ['Never invest', 'Everything at your first decision, then hold', 'Everything on decision day, then hold']) expect(screen.getByText(l)).toBeInTheDocument();
+    const mine = screen.getAllByRole('listitem').filter((r) => r.getAttribute('aria-current') === 'true');
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toHaveTextContent('Your decisions');
   });
   it('2.14-AC4 viewing the "What if…" panel does not change the HP or XP stored', async () => {
     seedCampaign({ phase: 'debrief', decision: investDecision });
@@ -1483,9 +1453,7 @@ describe('2.18 Look and feel', () => {
     const user = userEvent.setup();
     seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     renderRoutes([guard('/quest/commit', <Commit />)], ['/quest/commit']);
-    await user.click(await screen.findByRole('radio', { name: "Don't invest" }));
-    await user.type(screen.getByLabelText(/Evidence/), '12345678901234567890');
-    await user.click(screen.getByRole('radio', { name: 'High' }));
+    await user.click(await screen.findByRole('radio', { name: 'High' }));
     await user.click(screen.getByRole('button', { name: 'Lock my decision' }));
     await user.click(screen.getByRole('button', { name: 'Lock' }));
     expect(await screen.findByText('Sealing your decision…')).toBeInTheDocument();

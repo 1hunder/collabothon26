@@ -82,6 +82,8 @@ class CampaignRun(SQLModel, table=True):
     rng_seed: int = Field(sa_column=Column(Integer, nullable=False))  # server-only
     pending: Any = _jsonb()
     commit_draft: Any = _jsonb()
+    # the decision scene the story has put in front of the player: {key, beat, story_day}
+    market_scene: Any = _jsonb()
     version: int = 1
     created_at: datetime = _ts()
     locked_at: datetime | None = Field(
@@ -185,3 +187,29 @@ class XpAward(SQLModel, table=True):
     finished_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
+
+
+class Trade(SQLModel, table=True):
+    """One investment decision the player wrote during the campaign, executed at once.
+
+    ``price`` and the share counts are real-price figures: engine-only, never in a response
+    (a share count times the shown price would undo the price disguise).
+    """
+
+    __tablename__ = "campaign_trade"
+    id: int | None = Field(default=None, primary_key=True)
+    campaign_id: uuid.UUID = Field(
+        sa_column=Column(ForeignKey("campaign_run.id"), index=True, nullable=False)
+    )
+    seq: int  # 1, 2, 3… in the order the decisions were made
+    beat: str  # opening / news / decision / story
+    story_day: int  # the story day of the scene; the trade fills at the next trading day's open
+    fill_day: int | None = None
+    text: str = Field(sa_column=Column(Text, nullable=False))  # the player's own words
+    action: str  # buy / sell / hold
+    amount_cents: int = 0  # money moved: spent on a buy, received on a sell
+    shares: str = "0"  # engine-only: shares bought (+) or sold (-)
+    price: str | None = None  # engine-only: real fill price
+    cash_after_cents: int = 0
+    shares_after: str = "0"  # engine-only
+    created_at: datetime = _ts()

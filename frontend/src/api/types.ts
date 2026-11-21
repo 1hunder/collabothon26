@@ -112,20 +112,72 @@ export type DecisionAction = 'invest' | 'dont_invest' | 'wait' | 'spread';
 export type Confidence = 'low' | 'medium' | 'high';
 
 /** The four commit answers. Amount only for invest/spread; all fields optional in a draft. */
+/** The seal: what the player did with their coins comes from the decisions they wrote during the
+ * campaign; the seal adds the forecast, the confidence and an optional closing note. */
 export interface CommitDraft {
-  action: DecisionAction | null;
-  amount_eur: number | null;
   evidence: string;
   forecast_pct: number;
   confidence: Confidence | null;
 }
 
 export interface CommitRequest {
-  action: DecisionAction;
-  amount_eur?: number;
-  evidence: string;
+  evidence?: string;
   forecast_pct: number;
   confidence: Confidence;
+}
+
+// ---- decisions throughout the campaign ----
+
+/** The hero's coins at today's board price. Euros only (engine computed). */
+export interface Purse {
+  cash_eur: number;
+  position_eur: number;
+  total_eur: number;
+}
+
+export type DecisionBeat = 'opening' | 'news' | 'decision' | 'story';
+export type TradeAction = 'buy' | 'sell' | 'hold';
+
+/** A decision scene the story has put in front of the hero; their next written action answers it. */
+export interface MarketScene {
+  beat: DecisionBeat;
+  story_day: number;
+  text: string | null;
+  suggestions: string[];
+}
+
+export interface MarketCard {
+  kind: 'market';
+  beat: DecisionBeat;
+  text: string;
+  suggestions: string[];
+  day_label: string;
+  purse: Purse;
+}
+
+/** The receipt for an executed decision. */
+export interface TradeCard {
+  kind: 'trade';
+  seq: number;
+  beat: DecisionBeat;
+  action: TradeAction;
+  amount_eur: number;
+  day_label: string;
+  purse: Purse;
+}
+
+export interface DecisionEntry {
+  seq: number;
+  beat: DecisionBeat;
+  story_day: number;
+  day_label: string;
+  /** The player's own words. */
+  text: string;
+  action: TradeAction;
+  amount_eur: number;
+  cash_after_eur: number;
+  /** After the lock only: what this decision did to the final result, in euros. */
+  effect_eur?: number;
 }
 
 /** POST /lock and GET /reveal return the same Outcome (lock is idempotent). */
@@ -138,6 +190,8 @@ export interface LockResponse {
   amount_eur?: number | null;
   investment_return_pct?: number;
   phase?: CampaignPhase;
+  /** Every decision of the campaign with its effect on the result. */
+  decisions?: DecisionEntry[];
 }
 
 export interface PortfolioBreakdown {
@@ -168,10 +222,12 @@ export interface OutcomeReveal {
   amount_eur?: number | null;
   investment_return_pct?: number;
   phase?: CampaignPhase;
+  /** Every decision of the campaign with its effect on the result. */
+  decisions?: DecisionEntry[];
 }
 
 export interface WhatIfRow {
-  key: 'dont_invest' | 'half' | 'all' | 'spread' | 'yours';
+  key: 'dont_invest' | 'first' | 'half' | 'all' | 'spread' | 'yours';
   label: string;
   final_value: number;
   pct: number;
@@ -340,7 +396,10 @@ export interface CampaignState {
   budget_eur: number;
   horizon_days: number;
   offers_spread: boolean;
-  commit_draft?: CommitDraft | null;
+  commit_draft?: Partial<CommitDraft> | null;
+  purse?: Purse;
+  market_scene?: MarketScene | null;
+  decisions?: DecisionEntry[];
   xp?: XpResult;
   debrief?: DebriefData;
 }
@@ -384,7 +443,7 @@ export interface QuestJob {
 export type DmEvent =
   | { event: 'status'; data: { state: string } }
   | { event: 'token'; data: { text: string } }
-  | { event: 'card'; data: { kind: 'dice' | 'news'; [field: string]: unknown } }
+  | { event: 'card'; data: { kind: 'dice' | 'news' | 'market' | 'trade'; [field: string]: unknown } }
   | { event: 'state'; data: { can_decide?: boolean; art_ready?: string[]; [field: string]: unknown } }
   | { event: 'done'; data: { text: string; audio_text_id?: number | string | null; [field: string]: unknown } }
   | { event: 'error'; data: { code: string; message: string } };

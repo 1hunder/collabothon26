@@ -3,14 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
 import { request } from '../../api/client';
-import type { CampaignState, DiceCard, DiceMode, NewsCard, PlayLocation, RollResult, TurnExtras } from '../../api/types';
+import type { CampaignState, DiceCard, DiceMode, MarketCard, NewsCard, PlayLocation, RollResult, TradeCard, TurnExtras } from '../../api/types';
 import { useDmStream, type DmDone } from '../../api/useDmStream';
 import { useVoice } from '../../voice';
 import { inertVoice } from '../../voice/context';
 import Backlog from './Backlog';
 import BreakingNewsCard from './BreakingNewsCard';
 import BuddyScene from './BuddyScene';
-import { normalizeCard } from './cards';
+import { normalizeCard, type QuestCard } from './cards';
+import { MarketMoment, TradeReceipt } from './DecisionCards';
 import ChoiceList from './ChoiceList';
 import DialogueBox, { DM_NAME, type VoiceKind } from './DialogueBox';
 import DiceMoment, { type DiceApi } from './DiceMoment';
@@ -43,7 +44,7 @@ interface Scene {
   text: string;
   suggestions: readonly string[];
   showDecide: boolean;
-  cards: (DiceCard | NewsCard)[];
+  cards: QuestCard[];
   newsText: string | null;
   instant: boolean;
   audioTextId: number | string | null;
@@ -53,7 +54,9 @@ type Overlay =
   | { kind: 'none' }
   | { kind: 'timeskip'; card: NewsCard }
   | { kind: 'news'; card: NewsCard }
-  | { kind: 'dice'; card: DiceCard };
+  | { kind: 'dice'; card: DiceCard }
+  | { kind: 'market'; card: MarketCard }
+  | { kind: 'trade'; card: TradeCard };
 
 type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | 'notice' | null;
 
@@ -204,9 +207,33 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     if (!current) return;
     const news = current.cards.find((k): k is NewsCard => k.kind === 'news');
     const dice = current.cards.find((k): k is DiceCard => k.kind === 'dice');
+    const market = current.cards.find((k): k is MarketCard => k.kind === 'market');
+    const trade = current.cards.find((k): k is TradeCard => k.kind === 'trade');
     if (news) setOverlay({ kind: 'timeskip', card: news });
     else if (dice) setOverlay({ kind: 'dice', card: dice });
+    else if (trade) setOverlay({ kind: 'trade', card: trade });
+    else if (market) setOverlay({ kind: 'market', card: market });
     else setAdvancedKey(current.key);
+  };
+
+  // The decision scene: its suggestions become the choices, and the written action answers it.
+  const answerScene = (card: MarketCard): void => {
+    setOverlay({ kind: 'none' });
+    if (!current) return;
+    const key = `${current.key}-scene`;
+    setScene({ ...current, key, speaker: DM_NAME, text: card.text, suggestions: card.suggestions, cards: [], newsText: null, showDecide: false, instant: true, audioTextId: null });
+    setAdvancedKey(key);
+  };
+
+  // After a receipt: the decision scene of the same reply if the engine opened one, else the choices.
+  const afterTrade = (): void => {
+    if (!current) return;
+    const market = current.cards.find((k): k is MarketCard => k.kind === 'market');
+    if (market) setOverlay({ kind: 'market', card: market });
+    else {
+      setOverlay({ kind: 'none' });
+      setAdvancedKey(current.key);
+    }
   };
 
   // After the news cards: the dice check of the same turn, else the Campaign Master's follow-up.
@@ -314,7 +341,9 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       return (
         <ChoiceList
           suggestions={current.suggestions}
-          canDecide={c.can_decide || current.showDecide}
+          prompt={c.market_scene ? 'What do you do with your coins?' : undefined}
+          purse={c.market_scene ? c.purse : undefined}
+          canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
           focusLeft={c.focus_left}
           bonusLeadAvailable={c.bonus_lead_available}
           onSend={sendAction}
@@ -404,6 +433,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
             <TitleCard title={activeOverlay.card.time_skip_label} onDone={() => setOverlay({ kind: 'news', card: activeOverlay.card })} />
           ) : null}
           {activeOverlay.kind === 'news' ? <BreakingNewsCard card={activeOverlay.card} onContinue={afterNews} /> : null}
+          {activeOverlay.kind === 'market' ? <MarketMoment card={activeOverlay.card} onAnswer={() => answerScene(activeOverlay.card)} /> : null}
+          {activeOverlay.kind === 'trade' ? <TradeReceipt card={activeOverlay.card} onContinue={afterTrade} /> : null}
           {activeOverlay.kind === 'dice' && diceApi ? (
             <DiceMoment
               key={activeOverlay.card.challenge_id}

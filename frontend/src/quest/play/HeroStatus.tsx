@@ -1,4 +1,4 @@
-import { Heart, Sparkles } from 'lucide-react';
+import { Coins, Heart, Sparkles } from 'lucide-react';
 import type { CampaignState } from '../../api/types';
 
 const className = { guardian: 'the Guardian', analyst: 'the Analyst', investigator: 'the Investigator' } as const;
@@ -34,6 +34,13 @@ export default function HeroStatus({ campaign, onOpen }: HeroStatusProps): React
         {hero.class === 'analyst' ? <span>Rerolls: {campaign.rerolls_left}</span> : null}
         {hero.class === 'investigator' ? <span>Keen Eye: {campaign.keen_eye_left}</span> : null}
       </span>
+      {campaign.purse && campaign.purse.position_eur > 0 ? (
+        <span className="inline-flex items-center gap-1 text-quest-vellum-dim">
+          <Coins aria-hidden="true" size={15} />
+          Cash €{campaign.purse.cash_eur.toLocaleString('en-US')} · In the company €
+          {campaign.purse.position_eur.toLocaleString('en-US')}
+        </span>
+      ) : null}
     </button>
   );
 }

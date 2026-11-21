@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { patchCampaignCache, streamDebrief, useOutcome } from '../../api/campaign';
-import { formatEur, formatPct, formatSigned } from '../lib/commit';
+import { decisionLabel, formatEur, formatPct, formatSigned } from '../lib/commit';
 import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
 
@@ -40,6 +40,7 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
     }
   };
 
+  const decisions = o.decisions ?? [];
   const rows: [string, string][] = [
     ['Starting budget', formatEur(b.starting_budget)],
     ['Cash kept', formatEur(b.cash_kept)],
@@ -58,8 +59,41 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
         Locked at {o.locked_at} · horizon {o.horizon_days} days
       </p>
       <Suspense fallback={<div className="h-60" aria-busy="true" />}>
-        <StoryChart mode="story" points={o.series} markers={[{ at: o.decision_day, label: 'Locked' }]} />
+        <StoryChart
+          mode="story"
+          points={o.series}
+          markers={[
+            ...decisions.filter((d) => d.story_day !== o.decision_day).map((d) => ({ at: d.story_day, label: `#${d.seq}` })),
+            { at: o.decision_day, label: 'Locked' },
+          ]}
+        />
       </Suspense>
+      {decisions.length > 0 ? (
+        <section aria-label="Your decisions" className="space-y-2">
+          <h2 className="font-quest-title text-2xl text-quest-gilt">Your decisions</h2>
+          <ol className="space-y-2">
+            {decisions.map((d) => (
+              <li key={d.seq} className="rounded-md border border-quest-lapis bg-quest-lapis-deep p-3 font-quest-sans">
+                <div className="flex justify-between gap-3">
+                  <span>
+                    <span className="text-quest-vellum-dim">#{d.seq} · {d.day_label} · </span>
+                    <span className="font-bold">{decisionLabel(d)}</span>
+                  </span>
+                  {d.effect_eur !== undefined && d.action !== 'hold' ? (
+                    <span className={d.effect_eur < 0 ? 'text-quest-wax-light' : 'text-quest-verdigris-light'}>
+                      {formatSigned(d.effect_eur)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 font-quest italic text-quest-vellum-dim">&ldquo;{d.text}&rdquo;</p>
+              </li>
+            ))}
+          </ol>
+          <p className="font-quest-sans text-sm text-quest-vellum-dim">
+            Each figure is what that decision did to your final result, compared with not making it.
+          </p>
+        </section>
+      ) : null}
       <dl className="divide-y divide-quest-lapis font-quest-sans">
         {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between py-2">

@@ -59,6 +59,10 @@ describe('Outcome', () => {
     expect(
       screen.getByText("Prices in the company's original currency; exchange-rate changes are not included."),
     ).toBeInTheDocument();
+    const decisions = screen.getByRole('region', { name: 'Your decisions' });
+    expect(decisions).toHaveTextContent('#1 · Day 2 · Put in €200.00');
+    expect(decisions).toHaveTextContent('I put 200 coins in, the guild looks strong.');
+    expect(decisions).toHaveTextContent(/−€196\.2\d/);
   });
 
   it('moves on to the debrief', async () => {
@@ -83,11 +87,10 @@ describe('Debrief', () => {
     const rows = screen.getAllByRole('listitem');
     const mine = rows.filter((r) => r.getAttribute('aria-current') === 'true');
     expect(mine).toHaveLength(1);
-    expect(mine[0]).toHaveTextContent("Your choice");
-    expect(screen.getByText("Don't invest")).toBeInTheDocument();
-    expect(screen.getByText('Invest half')).toBeInTheDocument();
-    expect(screen.getByText('Invest everything')).toBeInTheDocument();
-    expect(screen.getByText('Spread everything')).toBeInTheDocument();
+    expect(mine[0]).toHaveTextContent('Your decisions');
+    expect(screen.getByText('Never invest')).toBeInTheDocument();
+    expect(screen.getByText('Everything at your first decision, then hold')).toBeInTheDocument();
+    expect(screen.getByText('Everything on decision day, then hold')).toBeInTheDocument();
     expect(screen.getByText('What would you check first next time?')).toBeInTheDocument();
   });
 });

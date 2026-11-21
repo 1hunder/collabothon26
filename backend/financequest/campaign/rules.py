@@ -102,3 +102,40 @@ _DECISION_RE = re.compile(
 
 def is_decision_intent(text: str) -> bool:
     return bool(_DECISION_RE.search(text))
+
+
+# ---- decisions throughout the campaign --------------------------------------------------------
+_BUY_RE = re.compile(r"\b(buy|buying|bought|invest|investing|put|putting|stake|purchase)\b", re.I)
+_SELL_RE = re.compile(r"\b(sell|selling|sold|take (it |them |my coins |some |half )?out|cash out|exit|dump)\b", re.I)
+_HOLD_RE = re.compile(r"\b(hold|wait|keep|nothing|stay out|pass|watch)\b", re.I)
+_NEG_RE = re.compile(r"\b(don'?t|do not|not|never|won'?t|will not|no)\s+(yet\s+)?(buy|invest|put|sell|stake)", re.I)
+_PORTION_RE = (
+    ("all", re.compile(r"\b(all|everything|every coin|whole|entire)\b", re.I)),
+    ("most", re.compile(r"\b(most|three quarters)\b", re.I)),
+    ("half", re.compile(r"\b(half)\b", re.I)),
+    ("some", re.compile(r"\b(some|a little|a bit|a quarter|small)\b", re.I)),
+)
+_AMOUNT_RE = re.compile(r"(?:€\s*)?(\d[\d,]*)(?:\s*(?:€|eur|euros?|coins?|gold))?", re.I)
+
+
+def parse_decision(text: str) -> tuple[str | None, int | None, str | None]:
+    """A plain reading of a written decision: (action, amount_eur, portion). Used by the scripted
+    Campaign Master and as the fallback when the model's reading fails the guards."""
+    low = text.lower()
+    action = None
+    if _NEG_RE.search(low):
+        action = "hold"
+    elif _SELL_RE.search(low):
+        action = "sell"
+    elif _BUY_RE.search(low):
+        action = "buy"
+    elif _HOLD_RE.search(low):
+        action = "hold"
+    if action is None or action == "hold":
+        return action, None, None
+    portion = next((name for name, rx in _PORTION_RE if rx.search(low)), None)
+    m = _AMOUNT_RE.search(text)
+    amount = int(m.group(1).replace(",", "")) if m else None
+    if portion and (amount is None or re.search(r"\bof\b", low)):  # "half of my 1000 coins"
+        return action, None, portion
+    return action, amount, None if amount is not None else portion

@@ -31,9 +31,25 @@ class TurnReply:
     degraded: bool = False  # a guard failed and the templated text was used
     rejected_clue_ids: list[str] = field(default_factory=list)
     speaker_id: str = "chronicler"
+    calls_for_decision: bool = False  # the scene puts an investment choice to the hero
+
+
+@dataclass
+class DecisionReply:
+    """The player's answer in a decision scene, read by the agent layer; the engine executes it."""
+
+    kind: str  # decision / question
+    action: str | None  # buy / sell / hold
+    amount_eur: int | None
+    portion: str | None  # all / most / half / some
+    text: str
+    suggestions: list[str] = field(default_factory=list)
+    degraded: bool = False
 
 
 class Narration(Protocol):
+    def market_scene(self, ctx: AgentContext, beat: str) -> TurnReply: ...
+    def decide(self, ctx: AgentContext, text: str) -> DecisionReply: ...
     def setup(self, ctx: AgentContext) -> dict[str, Any]: ...
     def turn(self, ctx: AgentContext, text: str, forced_move: str | None = None) -> TurnReply: ...
     def narrate_roll(self, ctx: AgentContext, roll: dict[str, Any]) -> TurnReply: ...

@@ -11,7 +11,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from financequest.api.errors import ApiError
-from financequest.campaign import clock, dice, focus, portfolio, rules, whatif, xp
+from financequest.campaign import clock, dice, focus, ledger, portfolio, rules, xp
 from financequest.campaign.events import append_event, campaign_events, find_by_msg_id
 from financequest.campaign.journal import backlog, journal
 from financequest.campaign.narration import Narration
@@ -28,6 +28,7 @@ from financequest.db.models_campaign import (
     Location,
     Outcome,
     Player,
+    Trade,
     XpAward,
 )
 
@@ -239,11 +240,160 @@ def count_turn(
     return None
 
 
-def decide_ready(db: Session, run: CampaignRun, pack: Pack) -> bool:
+def investigation_done(db: Session, run: CampaignRun, pack: Pack) -> bool:
+    """Enough evidence for the day of decision (the rule before decisions ran all game long)."""
     gv = gated_view(run)
     return rules.can_decide(
         pack, gv.at_checkpoint, found_ids(db, run.id), run.opening_done, run.pending, run.news_shown
     )
+
+
+def decide_ready(db: Session, run: CampaignRun, pack: Pack) -> bool:
+    """Ready to seal the forecast: the investigation is done and the player has answered the
+    decision-day scene in their own words."""
+    if run.market_scene:
+        return False
+    return investigation_done(db, run, pack) and any(t.beat == "decision" for t in trades_of(db, run.id))
+
+
+# ---- decisions throughout the campaign ----------------------------------------------------------
+OPENING_TURNS = 2  # the opening offer comes after the hero has looked around a little
+STORY_SCENES_MAX = 2  # scenes the Campaign Master may open on its own
+
+
+def trades_of(db: Session, cid: uuid.UUID) -> list[Trade]:
+    return list(db.exec(select(Trade).where(Trade.campaign_id == cid).order_by(Trade.seq)))  # type: ignore[arg-type]
+
+
+def position_of(run: CampaignRun, trades: list[Trade]) -> ledger.Position:
+    if not trades:
+        return ledger.Position(Decimal(run.hp_start * 10))
+    last = trades[-1]
+    return ledger.Position(Decimal(last.cash_after_cents) / 100, Decimal(last.shares_after))
+
+
+def _eur(x: Decimal) -> float:
+    return float(portfolio.q_cents(x))
+
+
+def purse(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
+    """Cash and the value of the coins in the company at today's board price (euros only)."""
+    pos = position_of(run, trades_of(db, run.id))
+    price = ledger.fill_row(pack.rows, run.clock_day).close
+    held = pos.value(price)
+    return {"cash_eur": _eur(pos.cash), "position_eur": _eur(held), "total_eur": _eur(pos.cash + held)}
+
+
+def scenes_opened(db: Session, cid: uuid.UUID) -> list[str]:
+    return [
+        str((e.payload or {}).get("beat"))
+        for e in campaign_events(db, cid)
+        if e.type == "market_scene"
+    ]
+
+
+def due_beat(db: Session, run: CampaignRun, pack: Pack, *, news_now: bool, asked: bool,
+             story_call: bool) -> str | None:  # fmt: skip
+    """The decision scene the story calls for now, if any. One scene at a time; each story beat
+    once; never in the same turn as the news (the news gets its own moment first)."""
+    if run.phase != "play" or run.market_scene or run.pending or news_now:
+        return None
+    held = scenes_opened(db, run.id)
+    if "decision" not in held and investigation_done(db, run, pack) and (asked or run.news_shown):
+        return "decision"
+    if "decision" in held:
+        return None
+    if run.news_shown and "news" not in held:
+        return "news"
+    if not run.news_shown and "opening" not in held and run.opening_done \
+            and run.turn_count >= OPENING_TURNS:
+        return "opening"
+    if story_call and held.count("story") < STORY_SCENES_MAX:
+        return "story"
+    return None
+
+
+def open_scene(db: Session, run: CampaignRun, pack: Pack, beat: str) -> dict[str, Any]:
+    scene = {"beat": beat, "story_day": run.clock_day}
+    run.market_scene = scene
+    append_event(db, run, "market_scene", {**scene, "purse": purse(db, run, pack)})
+    return scene
+
+
+DECISION_HOW_MUCH = ["A quarter of my coins", "Half of my coins", "All of my coins"]
+
+
+def decision_problem(
+    db: Session, run: CampaignRun, action: str, amount_eur: int | None, portion: str | None
+) -> str | None:
+    """Why a written decision cannot be executed as it stands (engine text), else None."""
+    if action == "hold":
+        return None
+    pos = position_of(run, trades_of(db, run.id))
+    if action == "sell" and pos.shares <= 0:
+        return "You have no coins in the company to take out. Do you put some in, or wait?"
+    if action == "buy" and pos.cash <= 0:
+        return "Your purse is empty: every coin is already in the company. Do you hold, or take some out?"
+    if amount_eur is None and portion is None:
+        verb = "put in" if action == "buy" else "take out"
+        return f"How much do you {verb}: a sum of coins, or a share such as half?"
+    return None
+
+
+def scene_out(run: CampaignRun) -> dict[str, Any] | None:
+    """The open decision scene for the screen: its beat and, once framed, the narration."""
+    s = run.market_scene if isinstance(run.market_scene, dict) else None
+    if s is None:
+        return None
+    return {"beat": s.get("beat"), "story_day": s.get("story_day"), "text": s.get("text"),
+            "suggestions": s.get("suggestions") or []}  # fmt: skip
+
+
+def record_decision(
+    db: Session, run: CampaignRun, pack: Pack, text: str, action: str,
+    amount_eur: int | None, portion: str | None,
+) -> Trade:  # fmt: skip
+    """Executes the player's written decision at once and closes the scene."""
+    scene = run.market_scene if isinstance(run.market_scene, dict) else {"beat": "story"}
+    trades = trades_of(db, run.id)
+    pos = position_of(run, trades)
+    row = ledger.fill_row(pack.rows, run.clock_day)
+    amount = ledger.resolve_amount(action, pos, row.close, amount_eur, portion)
+    fill = ledger.execute(pos, action, amount, row)
+    trade = Trade(
+        campaign_id=run.id, seq=len(trades) + 1, beat=str(scene.get("beat", "story")),
+        story_day=run.clock_day, fill_day=fill.fill_day, text=text, action=fill.action,
+        amount_cents=int(portfolio.q_cents(fill.amount) * 100), shares=str(fill.shares),
+        price=str(fill.price), cash_after_cents=int(portfolio.q_cents(fill.after.cash) * 100),
+        shares_after=str(fill.after.shares),
+    )  # fmt: skip
+    db.add(trade)
+    run.market_scene = None
+    db.flush()
+    append_event(db, run, "trade", {
+        "seq": trade.seq, "beat": trade.beat, "action": trade.action,
+        "amount_eur": trade.amount_cents / 100, "story_day": trade.story_day,
+        "purse": purse(db, run, pack),
+    })  # fmt: skip
+    return trade
+
+
+def decisions_out(db: Session, run: CampaignRun, pack: Pack) -> list[dict[str, Any]]:
+    """The player's decisions in euros; once the decision is locked, each one's effect too."""
+    locked = phase_at_least(run, "timeskip")
+    out = []
+    for t in trades_of(db, run.id):
+        row: dict[str, Any] = {
+            "seq": t.seq, "beat": t.beat, "story_day": t.story_day,
+            "day_label": clock.day_label(t.story_day), "text": t.text, "action": t.action,
+            "amount_eur": t.amount_cents / 100,
+            "cash_after_eur": t.cash_after_cents / 100,
+        }  # fmt: skip
+        if locked:
+            eff = ledger.effect(t.action, Decimal(t.amount_cents) / 100, Decimal(t.shares), pack.end_close)
+            row["effect_eur"] = _eur(eff)
+        out.append(row)
+    return out
 
 
 def require_phase(run: CampaignRun, *phases: str) -> None:
@@ -471,43 +621,29 @@ def do_accept(db: Session, run: CampaignRun, pack: Pack, ch: Challenge) -> dict[
 def validate_commit(
     body: dict[str, Any], run: CampaignRun, pack: Pack
 ) -> tuple[dict[str, Any], dict[str, str]]:
+    """The seal asks only for the forecast and the confidence: what the player did with their coins
+    comes from the decisions they wrote during the campaign. An optional closing note may add to
+    their reasoning; ``action`` and ``amount_eur`` from older clients are ignored."""
     errs: dict[str, str] = {}
-    action = body.get("action", body.get("decision"))  # ``decision`` is a legacy alias
-    allowed = ["invest", "dont_invest", "wait"] + (["spread"] if pack.has_fund else [])
-    if action not in allowed:
-        errs["action"] = "Choose a decision."
-    amount = 0
-    if action in ("invest", "spread"):
-        a = body.get("amount_eur")
-        budget = run.hp_start * 10
-        if isinstance(a, bool) or not isinstance(a, int) or not 1 <= a <= budget:
-            errs["amount_eur"] = f"Enter an amount from €1 to €{budget:,}."
-        else:
-            amount = a
     text = str(body.get("evidence") or "").strip()
-    if len(text) < 20:
-        errs["evidence"] = "Explain your reasoning in at least 20 characters."
     fp = body.get("forecast_pct")
     if isinstance(fp, bool) or not isinstance(fp, int | float) or fp % 5 or not 0 <= fp <= 100:
         errs["forecast_pct"] = "Pick a forecast from 0% to 100% in steps of 5%."
     conf = body.get("confidence")
     if conf not in CONF:
         errs["confidence"] = "Choose Low, Medium or High."
-    return {
-        "action": action,
-        "amount": amount,
-        "evidence": text,
-        "forecast_pct": fp,
-        "confidence": conf,
-    }, errs
+    return {"evidence": text, "forecast_pct": fp, "confidence": conf}, errs
 
 
-def outcome_numbers(
-    pack: Pack, run: CampaignRun, action: str, amount: int
-) -> tuple[Decimal, portfolio.Breakdown]:
-    r = portfolio.investment_return(pack.buy_open, pack.end_close)
-    b = portfolio.compute(Decimal(run.hp_start * 10), action, Decimal(amount), r, pack.fund_return)
-    return r, b
+def ledger_result(run: CampaignRun, pack: Pack, trades: list[Trade]) -> ledger.LedgerResult:
+    """The final result of every decision together, valued at the horizon close."""
+    return ledger.result(Decimal(run.hp_start * 10), position_of(run, trades), pack.end_close)
+
+
+def evidence_text(trades: list[Trade], note: str) -> str:
+    """The player's own words across the campaign: every decision, then the closing note."""
+    lines = [t.text for t in trades]
+    return "\n".join([*lines, note] if note else lines)
 
 
 def reveal_payload(
@@ -536,6 +672,7 @@ def reveal_payload(
         "investment_return_pct": num(portfolio.q_pct(r * 100)),
         "currency_note": portfolio.CURRENCY_NOTE,
         "phase": run.phase,
+        "decisions": decisions_out(db, run, pack),
     }  # fmt: skip
 
 
@@ -553,17 +690,21 @@ def lock_decision(
     clean, errs = validate_commit(body, run, pack)
     if errs:
         raise ApiError(422, "invalid_commit", "Check your answers", fields=errs)
-    r, b = outcome_numbers(pack, run, clean["action"], clean["amount"])
+    trades = trades_of(db, run.id)
+    b = ledger_result(run, pack, trades)
+    holds = position_of(run, trades).shares > 0
     dec = Decision(
         session_id=run.player_id, scenario_id=run.scenario_id, campaign_id=run.id,
-        action=clean["action"], amount_cents=clean["amount"] * 100, evidence=clean["evidence"],
+        action="invest" if holds else "dont_invest",
+        amount_cents=max(0, int(b.invested * 100)) if holds else 0,
+        evidence=evidence_text(trades, clean["evidence"]),
         forecast_pct=float(clean["forecast_pct"]), confidence=CONF[clean["confidence"]],
     )  # fmt: skip
     db.add(dec)
     oc = Outcome(
         campaign_id=run.id,
-        prices={"buy_open": str(pack.buy_open), "end_close": str(pack.end_close), "r": str(r)},
-        cash=str(b.cash), invested=str(b.invested), value_now=str(b.value_now), fees=str(b.fees),
+        prices={"end_close": str(pack.end_close), "trades": len(trades)},
+        cash=str(b.cash), invested=str(b.invested), value_now=str(b.value_now), fees="0.00",
         final=str(b.final), pnl=str(b.pnl), pnl_pct=str(b.pnl_pct), hp_before=b.hp_before,
         hp_after=b.hp_after,
     )  # fmt: skip
@@ -584,13 +725,17 @@ def debrief_facts(
 ) -> dict[str, Any]:
     """Engine-computed part of the debrief: what-if, forecast line, unfound clues, question."""
     r = portfolio.investment_return(pack.buy_open, pack.end_close)
-    rows = whatif.whatif_rows(
-        Decimal(run.hp_start * 10),
-        dec.action,
-        Decimal((dec.amount_cents or 0) // 100),
-        r,
-        pack.fund_return,
-    )
+    trades = trades_of(db, run.id)
+    final_scene = next((t for t in trades if t.beat == "decision" and t.price), None)
+    decision_price = (
+        Decimal(final_scene.price) if final_scene and final_scene.price
+        else ledger.fill_row(pack.rows, pack.decision_day).close
+    )  # fmt: skip
+    rows = ledger.whatif_rows(
+        Decimal(run.hp_start * 10), ledger_result(run, pack, trades),
+        Decimal(trades[0].price) if trades and trades[0].price else None, decision_price,
+        pack.end_close,
+    )  # fmt: skip
     found = found_ids(db, run.id)
     missed = [e.title for e in pack.evidence if e.id not in found]
     pct = int(dec.forecast_pct or 0)
@@ -815,6 +960,9 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "suggestions": latest_suggestions(events),
         "budget_eur": run.hp_start * 10, "horizon_days": pack.horizon_days,
         "offers_spread": pack.has_fund,
+        "purse": purse(db, run, pack),
+        "market_scene": scene_out(run),
+        "decisions": decisions_out(db, run, pack),
     }  # fmt: skip
     if "rumour_ledger" in items:
         state["rumours"] = [

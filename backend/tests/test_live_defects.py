@@ -141,14 +141,15 @@ def test_d7_xp_prompt_demands_second_person_and_uses_forecast() -> None:
 
 
 def test_d7_shown_horizon_and_time_skip_use_the_same_story_days(client, enron) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
-    from sse_helpers import post_sse
+    from sse_helpers import answer_scene, post_sse
     from test_campaign_api import new_player, start
 
     h = new_player(client)
     cid, state = start(client, h)
     first_day = state["story_day"]
     seen: dict[str, Any] = {}
-    for i in range(12):  # keep acting until the news fires
+    for i in range(12):  # keep acting until the news fires (decision scenes are answered)
+        answer_scene(client, h, cid)
         ev, _ = post_sse(client, f"/campaigns/{cid}/actions", h, {"text": f"look around {i}"})
         news = next((c for n, c in ev if n == "card" and c["kind"] == "news"), None)
         if news:

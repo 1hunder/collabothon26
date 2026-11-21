@@ -31,6 +31,20 @@ class TurnOut(BaseModel):
     suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short actions")
     clue_ids_given: list[str] = Field(default_factory=list)
     nothing_more_to_uncover: bool = False
+    calls_for_decision: bool = Field(
+        default=False, description="True when this scene puts an investment choice to the hero"
+    )
+
+
+class DecideOut(BaseModel):
+    """The player's written answer in a decision scene. The engine clamps every amount."""
+
+    kind: Literal["decision", "question"] = "decision"
+    action: Literal["buy", "sell", "hold"] | None = None
+    amount_eur: int | None = Field(default=None, description="Euro amount named, whole number")
+    portion: Literal["all", "most", "half", "some"] | None = None
+    text: str = Field(default="", description="At most 120 words, ends with a question")
+    suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short actions")
 
 
 class TextOut(BaseModel):
