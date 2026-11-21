@@ -27,7 +27,12 @@ export default function MapSheet({ locations, currentId, disabled, onMove, onClo
                   here ? 'border-quest-lapis shadow-[inset_3px_0_0_#22305B]' : 'border-[#c9bb98]'
                 }`}
               >
-                <span>{l.name}</span>
+                <span>
+                  {l.name}
+                  {l.generated && !l.visited && !here ? (
+                    <span className="ml-2 rounded-full bg-quest-verdigris px-2 py-0.5 align-middle font-quest-sans text-xs font-bold uppercase text-quest-vellum">new</span>
+                  ) : null}
+                </span>
                 <small className="font-quest-sans text-sm text-quest-vellum-dim">
                   {here ? 'you are here' : l.fixed ? '' : 'this tale only'}
                   {here && !l.fixed ? ' · this tale only' : ''}

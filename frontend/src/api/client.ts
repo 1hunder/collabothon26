@@ -161,7 +161,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       if (data === undefined) throw new ApiError('NotFound', 404);
       return data as T;
     } catch (e: unknown) {
-      if (e instanceof FixtureHttpError) throw new ApiError(kindForStatus(e.status), e.status);
+      if (e instanceof FixtureHttpError) throw new ApiError(kindForStatus(e.status), e.status, undefined, { code: e.code });
       throw e;
     }
   }

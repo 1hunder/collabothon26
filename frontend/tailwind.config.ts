@@ -24,6 +24,21 @@ export default {
         },
       },
       keyframes: {
+        'compass-drift': {
+          '0%': { transform: 'rotate(-14deg)' },
+          '50%': { transform: 'rotate(22deg)' },
+          '100%': { transform: 'rotate(-14deg)' },
+        },
+        'map-drift': {
+          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1.05)' },
+          '50%': { transform: 'translate3d(-2%,-1.5%,0) scale(1.1)' },
+        },
+        'hp-hit': {
+          '0%, 100%': { transform: 'none', color: 'inherit' },
+          '15%': { transform: 'translateX(-4px)', color: '#E2807A' },
+          '35%': { transform: 'translateX(4px)', color: '#E2807A' },
+          '60%': { transform: 'translateX(-2px)', color: '#E2807A' },
+        },
         bob: { '50%': { transform: 'translateY(3px)' } },
         // the 3D die spins itself (Die3D); the wrapper only drops it in and bounces it
         tumble: {
@@ -65,6 +80,9 @@ export default {
         },
       },
       animation: {
+        'compass-drift': 'compass-drift 9s ease-in-out infinite',
+        'map-drift': 'map-drift 24s ease-in-out infinite',
+        'hp-hit': 'hp-hit 600ms ease-out',
         'hotspot-pulse': 'hotspot-pulse 1.6s ease-out 3',
         'seal-press': 'seal-press 700ms ease-out forwards',
         bob: 'bob 1.4s ease-in-out infinite',

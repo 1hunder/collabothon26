@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { lockDecision, patchCampaignCache, resumePlay, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
+import { lockDecision, patchCampaignCache, queryKeys, resumePlay, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
+import { ApiError } from '../../api/client';
 import type { CampaignState, CommitDraft, Confidence } from '../../api/types';
 import ScreenBuddy from '../play/ScreenBuddy';
 import { decisionLabel, emptyDraft, formatEur, toRequest } from '../lib/commit';
@@ -66,6 +67,10 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
   const [lockedHorizon, setLockedHorizon] = useState<number | null>(null);
   const [skipLabel, setSkipLabel] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [overBudget, setOverBudget] = useState(false);
+  // Damage in play lowers the budget: the limit is what the hero has now, not the starting coins.
+  const budget = campaign.hp_eur;
+  const exceeds = purse !== undefined && purse.position_eur > budget;
 
   useEffect(() => {
     writeStored(campaignId, draft);
@@ -78,7 +83,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
 
   const set = (patch: Partial<CommitDraft>): void => setDraft((d) => ({ ...d, ...patch }));
   const request = toRequest(draft);
-  const valid = request !== null;
+  const valid = request !== null && !exceeds;
 
   const back = async (): Promise<void> => {
     try {
@@ -98,6 +103,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
   const lock = async (): Promise<void> => {
     if (request === null) return;
     setFailed(false);
+    setOverBudget(false);
     setStage('sealing');
     try {
       const [res] = await Promise.all([
@@ -107,9 +113,12 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
       setLockedHorizon(res.horizon_days);
       setSkipLabel(res.time_skip_label ?? null);
       setStage('skip');
-    } catch {
+    } catch (e: unknown) {
       setStage('form');
-      setFailed(true);
+      if (e instanceof ApiError && e.code === 'amount_over_budget') {
+        setOverBudget(true);
+        void qc.invalidateQueries({ queryKey: queryKeys.campaign(campaignId) });
+      } else setFailed(true);
     }
   };
 
@@ -167,6 +176,14 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
         {purse ? (
           <p className="font-quest-sans text-sm">
             Now: cash {formatEur(purse.cash_eur)} · in the company {formatEur(purse.position_eur)}
+          </p>
+        ) : null}
+        <p data-testid="budget" className="font-quest-sans text-sm">
+          Your budget now: {formatEur(budget)}
+        </p>
+        {exceeds || overBudget ? (
+          <p role="alert" className="font-quest-sans text-sm text-quest-wax-light">
+            Your coins in the company are more than your budget of {formatEur(budget)} after the damage you took. Go back and take some out.
           </p>
         ) : null}
       </section>

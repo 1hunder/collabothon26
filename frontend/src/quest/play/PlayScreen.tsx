@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
 import { request } from '../../api/client';
-import type { CampaignState, DiceCard, DiceMode, MarketCard, NewsCard, PlayLocation, RollResult, TradeCard, TurnExtras } from '../../api/types';
+import type { CampaignState, DiceCard, DiceMode, HpChange, MarketCard, NewsCard, PlayLocation, RollResult, SpeakerKind, TradeCard, TurnExtras } from '../../api/types';
 import { useDmStream, type DmDone } from '../../api/useDmStream';
 import { useVoice } from '../../voice';
 import { inertVoice } from '../../voice/context';
@@ -40,6 +40,9 @@ export interface PlayScreenProps {
 interface Scene {
   key: string;
   speaker: string;
+  speakerKind?: SpeakerKind;
+  /** The Campaign Master took over from the NPC in this reply. */
+  escalated?: boolean;
   text: string;
   suggestions: readonly string[];
   showDecide: boolean;
@@ -62,6 +65,18 @@ type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours'
 interface TitleInfo {
   name: string;
 }
+
+/** How long a new location's art may stay pending before the plain backdrop takes over. */
+export const ART_TIMEOUT_MS = 90_000;
+export const ART_POLL_MS = 4_000;
+const DAMAGE_TOAST_MS = 6_000;
+
+interface DamageToast {
+  key: number;
+  text: string;
+}
+
+const damageText = (h: HpChange): string => `−${Math.abs(h.delta)} HP (−€${(Math.abs(h.delta) * 10).toLocaleString('en-US')}): ${h.reason}`;
 
 const notYou = (speaker: string): boolean => !speaker.startsWith('You') && speaker !== 'CommerzBuddy';
 
@@ -101,6 +116,10 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   useReportSheetOpen(sheet !== null);
   const [buddyOpen, setBuddyOpen] = useState(false);
   const [title, setTitle] = useState<TitleInfo | null>(null);
+  // A location the Master just created: its art is awaited until ready, failed or timed out.
+  const [exploreId, setExploreId] = useState<string | null>(null);
+  const [damage, setDamage] = useState<DamageToast | null>(null);
+  const [hitKey, setHitKey] = useState(0);
 
   const latest = useRef(c);
   useEffect(() => {
@@ -110,6 +129,12 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     void qc.invalidateQueries({ queryKey: queryKeys.campaign(id) });
   }, [qc, id]);
 
+  useEffect(() => {
+    if (damage === null) return;
+    const t = window.setTimeout(() => setDamage(null), DAMAGE_TOAST_MS);
+    return () => window.clearTimeout(t);
+  }, [damage]);
+
   const opening = useRef(false);
   // Every finished reply becomes the scene; its extras say who spoke, what to offer, what happened.
   const onTurnDone = (done: DmDone): void => {
@@ -117,6 +142,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     setScene({
       key: done.clientMsgId,
       speaker: x.speaker ?? DM_NAME,
+      speakerKind: x.speaker_kind,
+      escalated: x.escalated === true,
       text: done.text,
       suggestions: x.suggestions ?? [],
       showDecide: x.show_decide === true,
@@ -125,7 +152,28 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       instant: false,
       audioTextId: done.extras.audio_text_id as number | string | null | undefined ?? null,
     });
-    if (x.location) {
+    if (x.hp_change) {
+      const h = x.hp_change;
+      patchCampaignCache(qc, id, { hp: h.hp, hp_eur: h.hp_eur });
+      setHitKey((k) => k + 1);
+      setDamage({ key: Date.now(), text: damageText(h) });
+    }
+    const made = x.new_location;
+    if (made) {
+      const { npc, ...rest } = made;
+      qc.setQueryData<CampaignState>(queryKeys.campaign(id), (cur) =>
+        cur
+          ? {
+              ...cur,
+              current_location_id: made.id,
+              locations: cur.locations.some((l) => l.id === made.id)
+                ? cur.locations
+                : [...cur.locations, { ...rest, fixed: false, visited: true, npc, generated: true }],
+            }
+          : cur,
+      );
+      if (made.art_status === 'pending') setExploreId(made.id);
+    } else if (x.location) {
       patchCampaignCache(qc, id, { current_location_id: x.location.id });
       if (x.first_visit === true) setTitle({ name: x.location.name });
     } else if (opening.current) {
@@ -167,6 +215,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   })();
   const activeOverlay: Overlay = overlay.kind === 'none' && pendingCard ? { kind: 'dice', card: pendingCard } : overlay;
 
+  const location = c.locations.find((l) => l.id === c.current_location_id);
   const resumed = useMemo<Scene | null>(() => {
     const last = [...c.backlog].reverse().find((e) => notYou(e.speaker));
     if (!last) return null;
@@ -174,6 +223,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       key: `resume-${last.seq}`,
       speaker: last.speaker,
       text: last.text,
+      speakerKind: location?.npc && last.speaker === location.npc.name ? 'npc' : undefined,
       suggestions: c.suggestions ?? [],
       showDecide: false,
       cards: [],
@@ -181,10 +231,20 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       instant: true,
       audioTextId: null,
     };
-  }, [c.backlog, c.suggestions]);
+  }, [c.backlog, c.suggestions, location?.npc]);
 
   const current = scene ?? (dm.state.phase === 'idle' ? resumed : null);
-  const location = c.locations.find((l) => l.id === c.current_location_id);
+  const exploring = exploreId !== null && location?.id === exploreId && location.art_status === 'pending';
+  useEffect(() => {
+    if (exploreId === null) return;
+    const poll = window.setInterval(refresh, ART_POLL_MS);
+    const giveUp = window.setTimeout(() => setExploreId(null), ART_TIMEOUT_MS);
+    return () => {
+      window.clearInterval(poll);
+      window.clearTimeout(giveUp);
+    };
+  }, [exploreId, refresh]);
+  const npc = location?.npc ?? null;
   const diceOpen = activeOverlay.kind === 'dice' || c.pending !== null;
   const voice = voiceOn ?? (hasProvider ? voiceApi.enabled : localVoice);
   const state = dm.state;
@@ -356,16 +416,26 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       );
     }
     return (
-      <DialogueBox
-        key={current.key}
-        speaker={current.speaker}
-        text={current.text}
-        instant={current.instant}
-        audioTextId={current.audioTextId}
-        onAdvance={activeOverlay.kind === 'none' ? advance : () => undefined}
-        onPageShown={onPageShown}
-        onSwipeDown={() => setSheet('backlog')}
-      />
+      <>
+        {current.escalated ? (
+          <p data-testid="escalation" className="mx-3 mb-3 flex items-center gap-3 font-quest text-sm italic text-quest-vellum-dim">
+            <span aria-hidden="true" className="h-px flex-1 bg-quest-gilt/40" />
+            The Campaign Master steps in
+            <span aria-hidden="true" className="h-px flex-1 bg-quest-gilt/40" />
+          </p>
+        ) : null}
+        <DialogueBox
+          key={current.key}
+          speaker={current.speaker}
+          speakerKind={current.speakerKind}
+          text={current.text}
+          instant={current.instant}
+          audioTextId={current.audioTextId}
+          onAdvance={activeOverlay.kind === 'none' ? advance : () => undefined}
+          onPageShown={onPageShown}
+          onSwipeDown={() => setSheet('backlog')}
+        />
+      </>
     );
   })();
 
@@ -374,8 +444,16 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     setSheet(t === 'library' ? 'library' : 'board');
   };
 
+  const npcChip =
+    npc !== null ? (
+      <span data-testid="npc-chip" className="inline-flex min-h-8 items-center rounded-full border border-quest-verdigris-light/60 bg-quest-soot/60 px-3 font-quest-sans text-sm text-quest-vellum">
+        {npc.name} · {npc.role}
+      </span>
+    ) : null;
   const chips =
-    locKey === 'market_square' ? (
+    npcChip !== null ? (
+      npcChip
+    ) : locKey === 'market_square' ? (
       <>
         <Chip label="Price board" onClick={() => setSheet('board')} />
         {hasRumourLedger(c.hero.items, c.rumours) ? <Chip label="Rumour ledger" onClick={() => setSheet('rumours')} /> : null}
@@ -387,7 +465,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   return (
     <VnStage
       location={location}
-      status={<HeroStatus campaign={c} onOpen={() => void navigate('/quest/hero')} />}
+      exploring={exploring}
+      status={<HeroStatus campaign={c} hitKey={hitKey} onOpen={() => void navigate('/quest/hero')} />}
       chips={chips}
       hotspots={
         <HotspotLayer
@@ -443,6 +522,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
         </>
       }
     >
+      {damage !== null ? (
+        <p role="status" data-testid="damage-toast" className="pointer-events-none mx-3 mb-1 self-center rounded-full border border-quest-wax-light/70 bg-quest-wax/90 px-4 py-2 text-center font-quest-sans text-sm font-bold text-quest-vellum">
+          {damage.text}
+        </p>
+      ) : null}
       {buddyOpen ? (
         <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
