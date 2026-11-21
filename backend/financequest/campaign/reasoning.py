@@ -9,19 +9,50 @@ Nothing here judges whether the decision was right: only whether a reason was gi
 from __future__ import annotations
 
 import re
+import uuid
+from typing import Any
 
 SOURCES = ("inline", "asked", "commit", "skipped")
 AWAITING = "awaiting"  # transient reasoning_source: the question was asked, the answer is pending
 
-ASK_MISSING = "What made you choose that?"
-ASK_THIN = "Can you say a bit more about why?"
+TRADER_ROLE = "curious trader"
+TRADERS = ("Pell Ashby", "Odran Vey", "Mirel Tansk", "Corwin Hale", "Tessaly Brandt", "Hobb Marrick")
+ASK_MISSING = (
+    "Interesting move. What made you choose that?",
+    "Hm, curious. What made you choose that?",
+    "I could not help noticing. What made you choose that?",
+)
+ASK_THIN = (
+    "Hm. Can you tell me a bit more about why?",
+    "Interesting. Can you tell me a bit more about why?",
+    "Go on, can you tell me a bit more about why?",
+)
 SKIP_CHIP = "I'd rather skip that"
 ACKS = (
-    "Noted. I have written down your reasoning. What do you do next?",
-    "Understood, I have put your reasons in the ledger. What do you do next?",
-    "Thank you. Your reasoning is recorded. What do you do next?",
+    "Thank you for telling me. That is a clear way to see it. Safe travels, friend.",
+    "I appreciate the honest answer. Good luck out there.",
+    "Thanks for sharing that with me. Safe travels.",
+    "Much obliged for the answer. Good luck out there, friend.",
 )
-SKIP_ACK = "As you wish, I will leave it blank. What do you do next?"
+SKIP_ACK = "As you like, friend. Safe travels."
+
+
+def trader_name(campaign_id: uuid.UUID) -> str:
+    """The campaign's curious trader: fixed per campaign, picked from the id."""
+    return TRADERS[campaign_id.int % len(TRADERS)]
+
+
+def reasoning_prompt(campaign_id: uuid.UUID, thin: str | None, seq: int = 0) -> dict[str, Any]:
+    lines = ASK_THIN if thin else ASK_MISSING
+    return {
+        "speaker": trader_name(campaign_id), "role": TRADER_ROLE,
+        "text": lines[(campaign_id.int + seq) % len(lines)],
+    }
+
+
+def ack_text(text: str, skip: bool) -> str:
+    return SKIP_ACK if skip else ACKS[len(text) % len(ACKS)]
+
 
 _STRONG = re.compile(r"\b(?:because|since|given that|due to|considering)\b[\s,:]+(.+)$", re.I | re.S)
 _WEAK = re.compile(r"\b(?:as|so that|so)\b[\s,:]+(.+)$", re.I | re.S)
@@ -74,10 +105,9 @@ def is_skip(text: str) -> bool:
     return len(t.split()) <= 8 and bool(_SKIP.search(t))
 
 
-def ask_text(said: str, thin: str | None) -> str:
-    """The reaction with its own closing question replaced by the one neutral follow-up."""
+def strip_question(said: str) -> str:
+    """The Master's reaction without its own closing question (the trader asks it instead)."""
     sentences = re.split(r"(?<=[.!?])\s+", said.strip())
-    if sentences and sentences[-1].endswith("?"):
+    if sentences and sentences[-1].endswith("?") and len(sentences) > 1:
         sentences = sentences[:-1]
-    body = " ".join(sentences).strip()
-    return f"{body} {ASK_THIN if thin else ASK_MISSING}".strip()
+    return " ".join(sentences).strip()

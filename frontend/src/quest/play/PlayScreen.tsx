@@ -49,6 +49,8 @@ interface Scene {
   /** The Campaign Master took over from the NPC in this reply. */
   escalated?: boolean;
   text: string;
+  /** The curious trader's question: one more page after the Master's reply. */
+  trader?: { speaker: string; text: string } | null;
   suggestions: readonly string[];
   showDecide: boolean;
   cards: QuestCard[];
@@ -154,6 +156,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       speakerKind: x.speaker_kind,
       escalated: x.escalated === true,
       text: done.text,
+      trader: x.reasoning_prompt ? { speaker: x.reasoning_prompt.speaker, text: x.reasoning_prompt.text } : null,
       suggestions: x.suggestions ?? [],
       showDecide: x.show_decide === true,
       cards: done.cards.flatMap((raw) => normalizeCard(raw) ?? []),
@@ -235,7 +238,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       key: `resume-${last.seq}`,
       speaker: last.speaker,
       text: last.text,
-      speakerKind: location?.npc && last.speaker === location.npc.name ? 'npc' : undefined,
+      speakerKind: last.speaker_kind ?? (location?.npc && last.speaker === location.npc.name ? 'npc' : undefined),
       suggestions: c.suggestions ?? [],
       showDecide: false,
       cards: [],
@@ -284,7 +287,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     else if (dice) setOverlay({ kind: 'dice', card: dice });
     else if (trade) setOverlay({ kind: 'trade', card: trade });
     else if (market) setOverlay({ kind: 'market', card: market });
-    else setAdvancedKey(current.key);
+    else finishScene(current);
   };
 
   // The decision scene: its suggestions become the choices, and the written action answers it.
@@ -297,13 +300,22 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   };
 
   // After a receipt: the decision scene of the same reply if the engine opened one, else the choices.
+  // The end of a reply's pages: the curious trader's question (if any) is one more page, then the choices.
+  const finishScene = (cur: Scene): void => {
+    if (cur.trader) {
+      setScene({ ...cur, key: `${cur.key}-trader`, speaker: cur.trader.speaker, speakerKind: 'npc', escalated: false, text: cur.trader.text, trader: null, cards: [], newsText: null, showDecide: false, instant: false, audioTextId: null });
+    } else {
+      setAdvancedKey(cur.key);
+    }
+  };
+
   const afterTrade = (): void => {
     if (!current) return;
     const market = current.cards.find((k): k is MarketCard => k.kind === 'market');
     if (market) setOverlay({ kind: 'market', card: market });
     else {
       setOverlay({ kind: 'none' });
-      setAdvancedKey(current.key);
+      finishScene(current);
     }
   };
 
@@ -324,7 +336,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       setScene({ ...current, key: `${current.key}-news`, text: followUp, cards: [], newsText: null, showDecide: false, instant: false, audioTextId: null });
     } else {
       setScene({ ...current, cards: [] });
-      setAdvancedKey(current.key);
+      finishScene(current);
     }
   };
 
