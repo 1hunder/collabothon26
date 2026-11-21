@@ -173,7 +173,8 @@ export interface DecisionEntry {
   day_label: string;
   /** The player's own words. */
   text: string;
-  action: TradeAction;
+  /** 'loss' is damage taken out of the invested coins (text is its reason, not the player's words). */
+  action: TradeAction | 'loss';
   amount_eur: number;
   cash_after_eur: number;
   /** After the lock only: what this decision did to the final result, in euros. */

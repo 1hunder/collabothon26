@@ -50,6 +50,8 @@ class DecisionReply:
     text: str
     suggestions: list[str] = field(default_factory=list)
     degraded: bool = False
+    hp_loss: int = 0  # a decision's costly consequence in the scene; the engine clamps it
+    hp_reason: str = ""
 
 
 class Narration(Protocol):

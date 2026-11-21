@@ -27,7 +27,6 @@ from financequest.engine.gate import GatedView
 CHRONICLER = "chronicler"
 DM_NAME = "Campaign Master"
 BUDDY_NAME = "CommerzBuddy"
-MAX_GENERATED = 3  # places the Campaign Master may add to one campaign
 DM_TURNS = 8
 BUDDY_TURNS = 6
 
@@ -458,7 +457,7 @@ def facts_block(ctx: AgentContext) -> str:
         f"Player may decide now: {ctx.can_decide}.",
         f"HP (the budget bar, 1 HP is 10 euros): {ctx.hp_start - ctx.hp_lost} of {ctx.hp_start}; "
         f"lost so far: {ctx.hp_lost}.",
-        f"Places the Master created so far: {ctx.generated_count} of {MAX_GENERATED}.",
+        f"Places the Master created so far: {ctx.generated_count} (no limit; only when the story needs one).",
         *purse_lines(ctx),
     ])  # fmt: skip
 

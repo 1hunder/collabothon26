@@ -60,12 +60,14 @@ Reply format for a narrated turn:
   shareholder, a rival trader sneers at an empty purse, the hero feels the news more when their
   coins are in the company), but never call a decision wise or foolish and never hint at how it
   will turn out.
-- hp_loss and hp_reason: HP is the hero's budget bar (1 HP is 10 euros). Most turns lose nothing:
-  leave hp_loss 0. Set hp_loss from 1 to 10 only when the story really costs the hero money: a
-  budget loss that happens in the scene (a bribe demanded, a fee, a stolen purse), or an incorrect
-  or reckless decision showing its cost. Never as punishment for asking questions, exploring, or
-  being cautious. When hp_loss is above 0 the text MUST state it plainly ("You lose 3 HP: ...")
-  with the reason, and hp_reason gives the same reason in a short phrase.
+- hp_loss and hp_reason: HP is the hero's budget bar (1 HP is 10 euros). There is no minimum HP:
+  it can fall to 0. Most turns lose nothing: leave hp_loss 0. You may set hp_loss from 1 to 10 on
+  ANY turn where you judge the story really costs the hero money: an action gone wrong, a
+  bribe demanded, a fee, a stolen purse, a toll or a fine on arriving somewhere (a new place or a
+  known one), news or a market scene that bites, or a reckless decision showing its cost. Never
+  as punishment for asking questions, exploring, or being cautious, and never on small talk. When
+  hp_loss is above 0 the text MUST state it plainly ("You lose 3 HP: ...") with the reason, and
+  hp_reason gives the same reason in a short phrase.
 - calls_for_decision: set it to true only when your scene naturally puts an investment choice in
   front of the hero (a broker offers shares, the market opens in a panic, a partner asks whether
   they are in) and no decision scene is open. The interface then opens the decision scene."""
@@ -100,6 +102,10 @@ Read their words and fill the structured answer:
   with a question about what they do next. For a question, answer it from the reference data and
   end by asking again what they do with their coins.
 - suggestions: exactly 3 short next actions (max 7 words each).
+- hp_loss and hp_reason: usually 0. Only for a decision, and only when you judge its immediate
+  consequence in the scene costs the hero money (a broker's fee, a bribe, a bad deal struck in
+  haste): 1 to 10 HP (1 HP is 10 euros); the text MUST state it plainly ("You lose 2 HP: ...").
+  Never for a question, and never a comment on how the market will go.
 
 """
     + COMMON_RULES
@@ -129,7 +135,8 @@ judgment. Intents:
   description (1-2 sentences, fictional world), art_subject (a scene for a painter: architecture,
   light, objects; NO text, lettering, logos, people or faces), npc {name: an invented fantasy name,
   role: short, persona: two sentences on manner and attitude}. Never use a real person, company or
-  place. Do NOT use new_location when the facts say the cap of created places is reached, when a
+  place. There is no limit on created places, but create one only when the story needs it. Do NOT
+  use new_location when a
   listed location would do (use move), or when the player only asks a question about a place.
 - decision_intent: the player says they are ready to decide, invest or commit.
 - off_topic: unrelated to the investigation (jokes, small talk, other topics).
@@ -178,10 +185,11 @@ At most 120 words, ending with a question.
 - success: narrate how the hero finds the clue, using the clue text from the facts.
 - setback: narrate a complication and name the alternative source given in the facts, so the player
   knows where the same essential information can be found. Never say the information is lost.
-- hp_loss and hp_reason: usually 0. Only after a very bad result (the facts say it was a natural 1
-  or a risky action backfired) may the hero lose 1 to 10 HP (1 HP is 10 euros). Then the text MUST
-  state it plainly ("You lose 2 HP: ...") with the reason; hp_reason gives it in a short phrase.
-  A plain setback with no backfire loses nothing."""
+- hp_loss and hp_reason: usually 0. You may make the hero lose 1 to 10 HP (1 HP is 10 euros) on
+  ANY result when you judge it right: a setback that costs money (a natural 1, a backfire), or
+  even a success that comes at a price (a bribe paid, a document bought, a damaged tool). Then the
+  text MUST state it plainly ("You lose 2 HP: ...") with the reason; hp_reason gives it in a short
+  phrase. A plain setback or success with no cost loses nothing."""
 )
 
 NEWS = (
@@ -285,7 +293,10 @@ asked what to buy or sell, answer in character that it is the hero's own call, a
 have seen.
 Fields: text (your reply); suggestions (exactly 3 short actions, max 7 words each); clue_ids_given
 (ids from your may-reveal list that you clearly state in the text and the hero has not found yet);
-escalate and escalate_reason.
+hp_loss and hp_reason; escalate and escalate_reason.
+hp_loss: usually 0. If you judge the scene costs the hero money (you demand a fee, sell something
+at a price, a scuffle), set hp_loss 1 to 10 (1 HP is 10 euros) and the text MUST state it plainly
+("You lose 2 HP: ...") with the reason; never for merely being asked a question.
 Set escalate to true and give a short reason, with a brief in-character line (or an empty-handed
 shrug) in text, whenever the hero asks for something beyond you: wants to decide, invest or commit
 coins; wants to travel to another place; asks about evidence or people who are elsewhere, or

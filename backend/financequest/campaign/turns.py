@@ -333,7 +333,7 @@ def commit_turn(
         created: Location | None = None
         if reply.intent == "new_location" and reply.new_location:
             created = service.create_generated_location(db, run, reply.new_location)
-            loc = created  # None when the cap was reached meanwhile: the reply stays a plain turn
+            loc = created
         if reply.intent == "challenge" and reply.challenge_id:
             ch = db.get(Challenge, uuid.UUID(reply.challenge_id))
             if ch and ch.campaign_id == run.id and ch.state == "open" and gv.at_checkpoint(ch.checkpoint):
@@ -478,6 +478,7 @@ def commit_decision(
         service.require_phase(run, "play")
         receipt = None
         say, sugg = reply.text, reply.suggestions
+        hp_change = None
         if reply.kind == "decision" and reply.action in ("buy", "sell", "hold") and run.market_scene:
             problem = service.decision_problem(db, run, reply.action, reply.amount_eur, reply.portion)
             if problem:  # nothing to execute yet: ask, and keep the scene open
@@ -486,11 +487,17 @@ def commit_decision(
                 trade = service.record_decision(
                     db, run, pack, text, reply.action, reply.amount_eur, reply.portion
                 )
+                if reply.hp_loss > 0 and run.phase == "play":  # the scene's cost, before the receipt
+                    hp_change = service.apply_hp_loss(
+                        db, run, pack, reply.hp_loss, (reply.hp_reason or "A costly deal")[:200]
+                    )
+                    say = reconcile_hp_text(say, -hp_change["delta"] if hp_change else 0)
                 receipt = trade_card(trade, service.purse(db, run, pack))
         ready = service.decide_ready(db, run, pack)
         payload = {
             "text": say, "speaker": C.DM_NAME, "speaker_id": C.CHRONICLER,
             "intent": "decision" if receipt else "scene_question", "suggestions": sugg,
+            "hp_change": hp_change,
             "clue_ids_given": [], "card": receipt, "news": None, "degraded": reply.degraded,
             "nothing_more_to_uncover": False,
             "show_decide": bool(receipt and receipt["beat"] == "decision" and ready),

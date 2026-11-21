@@ -184,7 +184,7 @@ class CampaignFakeLLM:
         for key, syns in _SYNONYMS.items():
             if key in have and any(re.search(rf"\b{re.escape(w)}\b", low) for w in syns):
                 return S.RouteOut(intent="move", location_key=key)
-        spec = _place_spec(low) if ctx.generated_count < C.MAX_GENERATED else None
+        spec = _place_spec(low)
         if spec is not None:
             return S.RouteOut(intent="new_location", new_location=S.NewLocationSpec(**spec))
         return None
@@ -216,7 +216,7 @@ class CampaignFakeLLM:
             )
         else:
             body = self._free(ctx, text)
-        if r.intent not in ("move", "new_location", "off_topic", "decision_intent"):
+        if r.intent not in ("off_topic", "decision_intent"):
             loss, why = _take_damage()
             body = _with_damage(body, loss, why)
         remaining = _remaining_need(ctx, set(given))
@@ -346,8 +346,10 @@ class CampaignFakeLLM:
                 given = fresh
         else:
             line += "“Speak plainly, and I will answer as plainly as I can.”"
+        loss, why = _take_damage()
         return S.NpcOut(
-            text=line + " What do you ask next?",
+            text=_with_damage(line, loss, why) + " What do you ask next?",
+            hp_loss=loss, hp_reason=why if loss else "",
             suggestions=["Ask what else they have seen", "Ask about the cargo", "Thank them and think"],
             clue_ids_given=given,
         )
@@ -365,7 +367,7 @@ class CampaignFakeLLM:
                 "The lines swim and a page sticks to the next. A setback, but no dead end. "
                 f"{roll.get('alt_source') or 'Ask around and read the documents.'}"
             )
-        loss, why = _take_damage() if roll["result"] != "success" else (0, "")
+        loss, why = _take_damage()
         return S.DiceOut(text=_with_damage(body, loss, why) + " What would you do next?",
                          hp_loss=loss, hp_reason=why if loss else "")
 
@@ -417,9 +419,13 @@ class CampaignFakeLLM:
             "hold": "You keep your purse closed. The broker shrugs and turns to the next customer. "
                     "What will you look into next?",
         }[action]
+        loss, why = _take_damage() if action != "hold" else (0, "")  # a hold costs nothing
+        if loss > 0:
+            reaction = f"You lose {loss} HP: {why}. {reaction}"
         return S.DecideOut(
             kind="decision", action=action, amount_eur=amount, portion=portion,  # type: ignore[arg-type]
             text=reaction, suggestions=decision_suggestions(ctx),
+            hp_loss=loss, hp_reason=why if loss else "",
         )  # fmt: skip
 
     def hint(self, c: dict[str, Any]) -> S.TextOut:

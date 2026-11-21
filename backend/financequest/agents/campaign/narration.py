@@ -168,13 +168,14 @@ class AgentNarration:
         )  # fmt: skip
         nat1 = roll.get("used") == 1
         extra += (f"Natural 1 (a disastrous attempt): {'yes' if nat1 else 'no'}. "
-                  "Lose HP only if it was a natural 1 or the attempt clearly backfired.\n")
+                  "You may take HP on any result (a setback, or a success that costs something) "
+                  "when you judge it right, and always say why.\n")
         text, degraded, out = self._text_node(
             ctx, node="campaign_dice", prompt=prompts.DICE, user="Narrate the result.", extra=extra,
             effort="low", max_words=DM_WORDS, question=True, template=template,
             llm_context={"roll": roll}, schema=DiceOut,
         )  # fmt: skip
-        loss = 0 if degraded or roll["result"] != "setback" else max(0, min(int(getattr(out, "hp_loss", 0)), 10))
+        loss = 0 if degraded else max(0, min(int(getattr(out, "hp_loss", 0)), 10))  # any result may cost
         return TurnReply(text=text, intent="narrate_roll", degraded=degraded,
                          suggestions=default_suggestions(ctx), hp_loss=loss,
                          hp_reason=getattr(out, "hp_reason", "").strip() if loss else "")  # fmt: skip
@@ -220,7 +221,9 @@ class AgentNarration:
         spec = GuardedSpec(
             llm=self.llm, node="campaign_decide", schema=DecideOut, effort="medium",
             messages=lambda notes: C.build_messages(ctx, prompts.DECIDE, text, corrective=notes),
-            texts=lambda o: {"text": o.text},
+            texts=lambda o: {"text": o.text, **({"hp_reason": o.hp_reason}
+                                                 if o.hp_loss > 0 and o.hp_reason.strip() else {})},
+            checks=hp_checks,
             rules=make_rules(ctx, text, fields={"text": FieldRule(DECIDE_WORDS, True)}),
             template=lambda: fallback, ctx=ctx, llm_context={"ctx": ctx, "input": text},
         )  # fmt: skip
@@ -231,7 +234,9 @@ class AgentNarration:
         if kind == "decision" and act is None:  # a decision with no action reads as a question
             kind = "question"
         sugg = [s.strip() for s in out.suggestions if s.strip()][:3] or decision_suggestions(ctx)
-        return DecisionReply(
+        loss = max(0, min(int(out.hp_loss or 0), 10)) if kind == "decision" and not res.degraded else 0
+        return DecisionReply(hp_loss=loss, hp_reason=out.hp_reason.strip() if loss else "",
+            
             kind=kind, action=act, amount_eur=out.amount_eur if kind == "decision" else None,
             portion=out.portion if kind == "decision" else None, text=out.text.strip(),
             suggestions=sugg, degraded=res.degraded,
