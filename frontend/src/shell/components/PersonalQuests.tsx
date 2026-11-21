@@ -9,6 +9,7 @@ import {
 } from '../../api/personal';
 import type { QuestJob } from '../../api/types';
 import { setQuestPick } from '../../quest/selectedQuest';
+import { endActiveQuest } from '../../quest/endActiveQuest';
 
 interface PersonalQuestsProps {
   /** A quest is in progress: new quests can be prepared but not started. */
@@ -44,6 +45,8 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
   const generate = useGenerateQuest();
   const regenerate = useRegenerateDaily();
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [switchFailed, setSwitchFailed] = useState(false);
   const today = daily.data;
 
   // The card's Start button plays today's quest once it is ready; until then, the default quest.
@@ -84,12 +87,20 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
                 <span className="flex items-center gap-1">
                   <button
                     type="button"
+                    disabled={switching}
                     onClick={() => {
-                      setConfirmId(null);
-                      setQuestPick(pickOf(job));
-                      onPlay();
+                      setSwitching(true);
+                      setSwitchFailed(false);
+                      endActiveQuest()
+                        .then(() => {
+                          setConfirmId(null);
+                          setQuestPick(pickOf(job));
+                          onPlay();
+                        })
+                        .catch(() => setSwitchFailed(true))
+                        .finally(() => setSwitching(false));
                     }}
-                    className="rounded-pill bg-petrol px-3 py-1 text-xs font-semibold text-white"
+                    className="rounded-pill bg-petrol px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     End current and play
                   </button>
@@ -140,6 +151,7 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
       >
         Generate another quest
       </button>
+      {switchFailed ? <p className="text-xs">Could not end your current quest. Try again.</p> : null}
       {regenerate.isError ? <p className="text-xs">Could not regenerate. Try again.</p> : null}
       {generate.isError ? <p className="text-xs">Could not start a new quest. Try again.</p> : null}
     </div>
