@@ -1,16 +1,21 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountCard from '../components/AccountCard';
+import PersonalQuests from '../components/PersonalQuests';
 import QuestCard from '../components/QuestCard';
 import QuickActions from '../components/QuickActions';
+import RecentTransactions from '../components/RecentTransactions';
 import { persona, totalBalance } from '../data/persona';
 import { formatEur } from '../lib/money';
 import { useToast } from '../useToast';
+import { startQuest, useQuestMeta } from '../../quest/questStore';
 
 export default function Overview(): React.JSX.Element {
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const { inProgress } = useQuestMeta();
   const showToast = (): void => toast.show();
+  const openQuest = (): void => void navigate('/quest', { state: { origin: location.pathname } });
   return (
     <div className="flex flex-col gap-4 p-4">
       <h1 className="text-2xl font-semibold text-petrol">Hello, {persona.firstName}</h1>
@@ -30,9 +35,18 @@ export default function Overview(): React.JSX.Element {
       <QuickActions />
       <QuestCard
         variant="overview"
-        onStart={() => void navigate('/quest', { state: { origin: location.pathname } })}
+        onStart={openQuest}
         onContinue={(path) => void navigate(path, { state: { origin: location.pathname } })}
-      />
+      >
+        <PersonalQuests
+          busy={inProgress}
+          onPlay={() => {
+            startQuest();
+            openQuest();
+          }}
+        />
+      </QuestCard>
+      <RecentTransactions />
     </div>
   );
 }

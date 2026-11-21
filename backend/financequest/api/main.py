@@ -5,15 +5,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from financequest.api import errors
-from financequest.api.routers import campaigns, health, hero, media, scenarios, session
+from financequest.api.routers import (
+    campaigns,
+    health,
+    hero,
+    media,
+    personal,
+    scenarios,
+    session,
+)
 from financequest.config import get_settings
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from financequest.media.art import start_rescan
+    from financequest.personal.jobs import recover_interrupted
 
     start_rescan()  # pending art jobs left by a restart; never blocks or fails startup
+    recover_interrupted()  # quest jobs cut off by a restart can never finish
     yield
 
 
@@ -33,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(hero.router)
     app.include_router(campaigns.router)
     app.include_router(scenarios.router)
+    app.include_router(personal.router)
     errors.install(app)
     return app
 

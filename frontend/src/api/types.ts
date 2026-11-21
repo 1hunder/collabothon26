@@ -347,6 +347,36 @@ export interface CampaignState {
 
 export interface CreateCampaignRequest {
   interests: Interest[];
+  /** A personal quest chosen on the Finance Quest card; omitted -> the server's default pick. */
+  scenario_id?: string;
+}
+
+// ---- personal quests (mock transactions -> per-company generated quests) ----
+
+export interface Transaction {
+  date: string;
+  merchant: string;
+  /** Decimal string, negative for spending. */
+  amount_eur: string;
+  category: string;
+  category_label: string;
+}
+
+export type QuestJobStatus = 'queued' | 'running' | 'ready' | 'rejected' | 'failed';
+
+/** A generated quest. Names only the spending category, never the company behind it. */
+export interface QuestJob {
+  id: string;
+  kind: 'daily' | 'extra';
+  quest_date: string;
+  category: string;
+  category_label: string;
+  status: QuestJobStatus;
+  /** Player-safe progress label, e.g. "Researching the story". */
+  step: string;
+  /** Set only when the quest is ready. */
+  scenario_id: string | null;
+  created_at: string;
 }
 
 // ---- SSE events (tech §2.5) ----

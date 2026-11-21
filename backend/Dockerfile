@@ -16,7 +16,7 @@ COPY alembic.ini ./
 COPY financequest ./financequest
 RUN if [ -f uv.lock ]; then uv sync --frozen --no-dev; else uv sync --no-dev; fi
 
-RUN useradd --system --uid 10001 --no-create-home app && chown -R app /app
+RUN mkdir -p /app/data && useradd --system --uid 10001 --no-create-home app && chown -R app /app
 USER app
 
 EXPOSE 8000

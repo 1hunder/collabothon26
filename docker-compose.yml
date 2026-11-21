@@ -30,6 +30,10 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      # generated quest packs (prices.csv is read again at the reveal), art and TTS caches
+      - apidata:/app/data
 
 volumes:
   pgdata:
+  apidata:
