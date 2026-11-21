@@ -1,4 +1,4 @@
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import {
   isActive,
@@ -43,6 +43,7 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
   const extras = useExtraQuests();
   const generate = useGenerateQuest();
   const regenerate = useRegenerateDaily();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const today = daily.data;
 
   // The card's Start button plays today's quest once it is ready; until then, the default quest.
@@ -79,10 +80,35 @@ function Panel({ busy, onPlay }: PersonalQuestsProps): React.JSX.Element {
                   {isActive(job) ? <Spinner /> : null} {statusLine(job)}
                 </span>
               </span>
-              {job.status === 'ready' && !busy ? (
+              {job.status === 'ready' && confirmId === job.id ? (
+                <span className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmId(null);
+                      setQuestPick(pickOf(job));
+                      onPlay();
+                    }}
+                    className="rounded-pill bg-petrol px-3 py-1 text-xs font-semibold text-white"
+                  >
+                    End current and play
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmId(null)}
+                    className="px-1 text-xs font-semibold underline"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : job.status === 'ready' ? (
                 <button
                   type="button"
                   onClick={() => {
+                    if (busy) {
+                      setConfirmId(job.id); // a quest is in progress: confirm before replacing it
+                      return;
+                    }
                     setQuestPick(pickOf(job));
                     onPlay();
                   }}

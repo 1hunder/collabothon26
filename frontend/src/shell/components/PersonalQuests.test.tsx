@@ -44,13 +44,29 @@ describe('PersonalQuests', () => {
     expect(await screen.findByText(/Music & streaming/)).toBeInTheDocument();
   });
 
-  it('while a quest is in progress, ready quests cannot be started and the pick is left alone', async () => {
+  it('while a quest is in progress, Play asks to end it first; Cancel keeps the current pick', async () => {
     setQuestPick({ scenarioId: 'keep', category: 'x', categoryLabel: 'X' });
-    withQueries(<PersonalQuests busy onPlay={vi.fn()} />);
+    const onPlay = vi.fn();
+    withQueries(<PersonalQuests busy onPlay={onPlay} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Generate another quest' }));
     expect(await screen.findByText('Games & consoles')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Play' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(onPlay).not.toHaveBeenCalled();
     expect(getQuestPick()?.scenarioId).toBe('keep');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(getQuestPick()?.scenarioId).toBe('keep');
+  });
+
+  it('while a quest is in progress, confirming ends it and plays the picked quest', async () => {
+    const onPlay = vi.fn();
+    withQueries(<PersonalQuests busy onPlay={onPlay} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Generate another quest' }));
+    expect(await screen.findByText('Games & consoles')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Play' }));
+    await userEvent.click(screen.getByRole('button', { name: 'End current and play' }));
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    expect(getQuestPick()?.category).toBe('gaming');
   });
 
   it('renders nothing without a query client (bank shell unit tests)', () => {
