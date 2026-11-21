@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readDb, writeDb } from '../../api/fixtures/db';
 import * as sse from '../../api/sse';
 import { FIRST_EVENT_TIMEOUT_MS } from '../../api/useDmStream';
-import { readParchment, readToChoices, setupPlay, skipTitle } from './playTestUtils';
+import { openBuddy, readParchment, readToChoices, setupPlay, skipTitle } from './playTestUtils';
 
 vi.mock('../components/StoryChart', () => ({
   default: ({ points }: { points: { story_day: number }[] }) => <div role="img" aria-label="Price chart" data-last-day={points.at(-1)?.story_day} />,
@@ -213,7 +213,7 @@ describe('PlayScreen: scene hotspots', () => {
     await user.click(choiceButton('Map'));
     expect(screen.queryByRole('button', { name: "Read the guild's records" })).not.toBeInTheDocument();
     await user.click(within(screen.getByRole('dialog', { name: 'The map' })).getByRole('button', { name: /Close/ }));
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     expect(screen.queryByRole('button', { name: "Read the guild's records" })).not.toBeInTheDocument();
   });
 });
@@ -328,14 +328,14 @@ describe('PlayScreen: Buddy and the dock', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     expect(screen.getByRole('region', { name: 'CommerzBuddy' })).toBeInTheDocument();
     expect(screen.getByTestId('name-tab')).toHaveTextContent('CommerzBuddy');
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawdown');
     await user.click(screen.getByRole('button', { name: 'Close Buddy' }));
     expect(screen.queryByRole('region', { name: 'CommerzBuddy' })).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toHaveValue('What is a drawdown');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
     await waitFor(() => expect(screen.getByTestId('dialogue-live')).toHaveTextContent(/drawdown/i), { timeout: 2000 }).catch(async () => {

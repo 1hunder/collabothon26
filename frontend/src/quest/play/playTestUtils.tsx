@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { fixtureResponse, resetFixtureDb } from '../../api/fixtures';
@@ -24,6 +24,14 @@ export function setupPlay(heroClass: HeroClass = 'analyst', props: React.Compone
     ],
     ['/quest/play'],
   );
+}
+
+export async function openBuddy(user: UserEvent): Promise<void> {
+  const mascot = screen.getByRole('button', { name: 'Chat with CommerzBuddy' });
+  await user.click(mascot);
+  // React falls back to the WebKit event when jsdom lacks AnimationEvent.
+  const end = 'AnimationEvent' in window ? 'animationend' : 'webkitAnimationEnd';
+  fireEvent(mascot.querySelector('.buddy-frames')!, new Event(end, { bubbles: true }));
 }
 
 const choices = (): HTMLElement | null => screen.queryByRole('region', { name: 'Choices' });

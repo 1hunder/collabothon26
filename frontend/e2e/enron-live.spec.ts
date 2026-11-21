@@ -111,7 +111,7 @@ test('Enron campaign: hero to reveal to finish, all figures from the server', as
   await page.getByRole('dialog', { name: 'Library' }).getByRole('button', { name: /^Close/ }).click();
 
   // Buddy
-  await page.getByRole('button', { name: 'Buddy' }).click();
+  await page.getByRole('button', { name: 'Chat with CommerzBuddy' }).click();
   await page.getByLabel('Your question for CommerzBuddy').fill('What is a share price?');
   await page.getByRole('button', { name: 'Ask', exact: true }).click();
   await expect(page.getByTestId('name-tab').filter({ hasText: 'CommerzBuddy' })).toBeVisible();

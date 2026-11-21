@@ -31,7 +31,7 @@ import DialogueBox from '../play/DialogueBox';
 import DiceMoment, { TUMBLE_MS, type DiceApi } from '../play/DiceMoment';
 import ChoiceList from '../play/ChoiceList';
 import { artSrc } from '../play/artSrc';
-import { readParchment, readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
+import { openBuddy, readParchment, readToChoices, setupPlay, skipTitle } from '../play/playTestUtils';
 import SceneArt from '../play/SceneArt';
 import Commit from '../screens/Commit';
 import Debrief from '../screens/Debrief';
@@ -670,7 +670,8 @@ describe('2.7 CommerzBuddy', () => {
   it('2.7-AC1 the Buddy button is visible on a scene', async () => {
     setupPlay('analyst');
     await screen.findByTestId('name-tab');
-    expect(choiceButton('Buddy')).toBeVisible();
+    expect(choiceButton('Chat with CommerzBuddy')).toBeVisible();
+    expect(within(screen.getByRole('navigation', { name: 'Quest dock' })).getAllByRole('button').map(b => b.textContent)).toEqual(['Map', 'Journal', 'Voice']);
   });
   it('2.7-AC1b the Buddy button is also visible on the commit screen, the reveal, the debrief and the XP screen', async () => {
     const screens: [CampaignState['phase'], string, ReactNode][] = [
@@ -690,7 +691,7 @@ describe('2.7 CommerzBuddy', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     expect(screen.getByTestId('name-tab')).toHaveTextContent('CommerzBuddy');
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toBeInTheDocument();
   });
@@ -698,7 +699,7 @@ describe('2.7 CommerzBuddy', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawdown?');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
     const answer = readDb().play?.events.find((e) => e.type === 'buddy_a');
@@ -710,7 +711,7 @@ describe('2.7 CommerzBuddy', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'Should I buy this?');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
     await waitFor(() => expect(readDb().play?.events.some((e) => e.type === 'buddy_a')).toBe(true));
@@ -728,11 +729,11 @@ describe('2.7 CommerzBuddy', () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawd');
     await user.click(screen.getByRole('button', { name: 'Close Buddy' }));
     expect(screen.getByRole('region', { name: 'Choices' })).toBeInTheDocument();
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     expect(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' })).toHaveValue('What is a drawd');
   });
 });
@@ -748,7 +749,7 @@ describe('2.8 Journal and memory', () => {
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawdown?');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
     await waitFor(() => expect(readDb().play?.events.some((e) => e.type === 'buddy_a')).toBe(true));
@@ -959,7 +960,7 @@ describe('2.10 Voice narration', () => {
     const impl = fakeImpl();
     withVoice(impl);
     await enterTavern(user);
-    await user.click(choiceButton('Buddy'));
+    await openBuddy(user);
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawdown?');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
     await user.click(await screen.findByTestId('dialogue-box'));
