@@ -65,6 +65,11 @@ export default function VeteranTimeline({ campaignId, onClose }: VeteranTimeline
                     {ACTION[d.action]}
                     {d.action !== 'hold' && d.amount_eur > 0 ? ` ${d.amount_eur} coins` : ''}.{' '}
                     <q className="italic text-[#3E2D1A]">{d.text}</q>
+                    {d.reasoning ? (
+                      <span className="mt-0.5 block text-[13px] text-[#6E5C43]">
+                        You said: <q className="italic">{d.reasoning}</q>
+                      </span>
+                    ) : null}
                   </td>
                   <td className="py-2 text-center"><Pill {...JUDGEMENT[d.judgement]} /></td>
                   <td className="py-2 text-center"><Pill {...LUCK[d.luck]} /></td>

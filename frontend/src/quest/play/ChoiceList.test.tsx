@@ -24,6 +24,12 @@ describe('ChoiceList', () => {
     expect(screen.queryByRole('button', { name: 'Write your own action…' })).not.toBeInTheDocument();
   });
 
+  it('asks for the reasoning while the Campaign Master waits for it', () => {
+    setup({ awaitingReasoning: true });
+    expect(screen.getByText('Why did you choose that?')).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'Your reasoning, in your own words…');
+  });
+
   it('the text box is always there and Send stays disabled for empty or only spaces', async () => {
     const p = setup();
     const box = screen.getByRole('textbox');

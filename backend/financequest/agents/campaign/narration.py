@@ -31,6 +31,7 @@ from financequest.agents.campaign.schemas import (
     TextOut,
     XpOut,
 )
+from financequest.campaign import reasoning as reasoning_mod
 from financequest.campaign import rules
 from financequest.campaign.narration import DecisionReply, TurnReply
 from financequest.campaign.xp import RawScore, excerpt
@@ -68,7 +69,12 @@ def decisions_block(ctx: C.AgentContext) -> str:
             f"{d['day_label']} ({d['beat']}): {d['action']} {d['amount_eur']}"
             + (f"; effect on the result {eff}" if eff is not None else "")
             + f". Their words: \"{d['text']}\""
+            + ("" if d["beat"] == "damage" else
+               f". Reasoning given ({d.get('reasoning_source')}): \"{d['reasoning']}\""
+               if d.get("reasoning") else ". Reasoning given: none")
         )
+    if ctx.final_reasoning:
+        lines.append(f"Reasoning given at the seal: \"{ctx.final_reasoning}\"")
     return "\n".join(lines)
 
 
@@ -233,13 +239,20 @@ class AgentNarration:
         if kind == "other":
             return DecisionReply(kind="other", action=None, amount_eur=None, portion=None,
                                  text="", degraded=res.degraded)  # fmt: skip
+        reasoning = (out.reasoning or "").strip() or None
+        if kind == "decision" and reasoning is None:  # the model missed it: read it from the words
+            reasoning = reasoning_mod.extract_inline(text)
+        sufficient = bool(reasoning) and bool(out.reasoning_sufficient) and not res.degraded
+        if res.degraded and reasoning:
+            sufficient = reasoning_mod.is_sufficient(reasoning)
         act = out.action if kind == "decision" else None
         if kind == "decision" and act is None:  # a decision with no action reads as a question
             kind = "question"
         sugg = [s.strip() for s in out.suggestions if s.strip()][:3] or decision_suggestions(ctx)
         loss = max(0, min(int(out.hp_loss or 0), 10)) if kind == "decision" and not res.degraded else 0
         return DecisionReply(hp_loss=loss, hp_reason=out.hp_reason.strip() if loss else "",
-            
+            reasoning=reasoning if kind == "decision" else None,
+            reasoning_sufficient=sufficient if kind == "decision" else False,
             kind=kind, action=act, amount_eur=out.amount_eur if kind == "decision" else None,
             portion=out.portion if kind == "decision" else None, text=out.text.strip(),
             suggestions=sugg, degraded=res.degraded,
@@ -294,6 +307,11 @@ class AgentNarration:
         question = ctx.question or "What would you check first next time?"
         template = DebriefOut(
             sound_reasoning="You gave reasons in your own words.",
+            how_you_reasoned=(
+                "You gave reasons for some of your decisions, and left others without one."
+                if any(d.get("reasoning") for d in ctx.decisions)
+                else "You gave no reasoning for your decisions along the way."
+            ),
             overlooked=", ".join(missed) if missed else "Nothing important",
             luck="Part of the result depended on events no one could know at the time.",
             reflection_question=question,
@@ -305,7 +323,7 @@ class AgentNarration:
             + decisions_block(ctx)
         )
         fields = {k: FieldRule(PART_WORDS, False) for k in
-                  ("sound_reasoning", "overlooked", "luck")}  # fmt: skip
+                  ("sound_reasoning", "how_you_reasoned", "overlooked", "luck")}  # fmt: skip
         fields["reflection_question"] = FieldRule(PART_WORDS, True)
         spec = GuardedSpec(
             llm=self.llm, node="campaign_debrief", schema=DebriefOut, effort="high",
@@ -314,7 +332,7 @@ class AgentNarration:
             template=lambda: template, ctx=ctx, llm_context={"ctx": ctx, "question": question},
         )  # fmt: skip
         out: DebriefOut = run_guarded(spec).out
-        return {"sound": out.sound_reasoning, "overlooked": out.overlooked, "luck": out.luck,
+        return {"sound": out.sound_reasoning, "reasoning": out.how_you_reasoned, "overlooked": out.overlooked, "luck": out.luck,
                 "question": out.reflection_question}  # fmt: skip
 
     # ---- xp ----------------------------------------------------------------------------------------
@@ -329,6 +347,7 @@ class AgentNarration:
         user = (
             "Rubric (category: max): " + "; ".join(f"{n}: {m}" for n, m in rubric)
             + f"\n\nPlayer's written evidence:\n{texts.get('evidence', '')}"
+            + f"\n\nReasoning given:\n{texts.get('reasoning') or 'none'}"
             + f"\n\nPlayer's reflection:\n{texts.get('reflection', '')}"
             + _decision_facts(decision)
         )  # fmt: skip
@@ -374,7 +393,9 @@ def heuristic_xp(
                 + (f" with {conf} confidence." if conf else "."), "",
             ))  # fmt: skip
             continue
-        src = texts["reflection"] if "eflection" in name else texts["evidence"]
+        src = texts["reflection"] if "eflection" in name else (
+            texts["evidence"] + "\n" + texts.get("reasoning", "")
+        ).strip()
         quote = excerpt(src, 60)
         score = min(mx, round(mx * min(len(src.strip()), 120) / 120))
         out.append(RawScore(name, score, _heuristic_rationale(name, bool(quote)), quote))

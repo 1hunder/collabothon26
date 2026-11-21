@@ -44,7 +44,7 @@ def streamed_text(events: list[tuple[str, dict[str, Any]]]) -> str:
 
 
 # ---- decisions throughout the campaign ----
-HOLD_TEXT = "I keep my coins for now and watch how this unfolds."
+HOLD_TEXT = "I keep my coins for now because the cash flow evidence is still thin."
 DECISION_TEXT = "I invest 400 coins: the cash flow worries me, so I take a measured stake."
 _ROUTE = ("library", "tavern", "market_square", "library", "market_square", "tavern")
 

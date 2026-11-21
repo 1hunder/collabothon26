@@ -169,6 +169,11 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
                   {d.day_label} · <span className="font-bold text-quest-vellum">{decisionLabel(d)}</span>
                 </p>
                 <p className="mt-1 font-quest italic">&ldquo;{d.text}&rdquo;</p>
+                {d.action !== 'loss' ? (
+                  <p className="mt-1 font-quest-sans text-sm text-quest-vellum-dim" data-testid="decision-reasoning">
+                    {d.reasoning ? <>Why: &ldquo;{d.reasoning}&rdquo;</> : 'No reason given'}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -230,7 +235,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
 
       <div>
         <label htmlFor="evidence" className="mb-1 block font-quest-sans text-sm text-quest-vellum-dim">
-          Anything to add to your reasoning? (optional)
+          Anything to add to your reasoning? Why this final choice, in your own words (optional)
         </label>
         <textarea
           id="evidence"
@@ -239,6 +244,11 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
           onChange={(e) => set({ evidence: e.target.value })}
           className="w-full rounded-md border border-quest-gilt bg-quest-lapis-deep p-3 text-base"
         />
+        {draft.evidence.trim().split(/\s+/).filter(Boolean).length < 6 ? (
+          <p data-testid="reasoning-hint" className="mt-1 font-quest-sans text-sm text-quest-vellum-dim">
+            A sentence on what made you choose this (a clue, a figure, a risk) helps you review your thinking later.
+          </p>
+        ) : null}
       </div>
 
       <section aria-label="Summary" className="rounded-lg border border-quest-lapis bg-quest-lapis-deep p-3 font-quest-sans text-sm">

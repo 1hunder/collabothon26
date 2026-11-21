@@ -111,6 +111,13 @@ Read their words and fill the structured answer:
   consequence in the scene costs the hero money (a broker's fee, a bribe, a bad deal struck in
   haste): 1 to 10 HP (1 HP is 10 euros); the text MUST state it plainly ("You lose 2 HP: ...").
   Never for a question, and never a comment on how the market will go.
+- reasoning: when the player's words include the reasons for the decision ("because...", "since...",
+  "the cash flow keeps falling"), copy those reasons from their words; otherwise null. Never
+  invent reasons.
+- reasoning_sufficient: true only when the reasons name at least one concrete reason tied to the
+  evidence or the situation (a figure, a clue, the news, a risk). False for no reason, "just
+  because", "gut feeling", "I like it" or one vague word. This judges how much is said, never
+  whether the decision is right. Do not ask about reasons in text: the engine asks once if needed.
 
 """
     + COMMON_RULES
@@ -248,11 +255,16 @@ propose a difficulty.
 DEBRIEF = (
     """\
 You are the Campaign Master giving the debrief after the reveal. The engine computed the result,
-the forecast line and the what-if table; do not restate them. Output four short parts, each at
+the forecast line and the what-if table; do not restate them. Output five short parts, each at
 most 60 words:
 - sound_reasoning: what was reasonable in the player's own words across their decisions during
   the campaign (quote a short phrase from one of them, in quotation marks). The facts list every
   decision in order: weigh how their reasoning changed as they learned more, not only the last one.
+- how_you_reasoned: comment on the quality of the reasoning the player gave for each decision, in
+  order, from the "Reasoning given" lines: did they use evidence, consider risks, keep their stated
+  reasons consistent with what they did, change their reasoning when news arrived? Quote a short
+  phrase. If a decision has no reasoning, say so plainly. This is about the thinking only: keep it
+  separate from the result and from luck, and never say whether a decision was right or wrong.
 - overlooked: the clues the facts list as overlooked, by title, and why they mattered; "Nothing
   important" when the list is empty.
 - luck: how much of the result depended on events no one could know at story today. Do not blame
@@ -279,7 +291,10 @@ Write every rationale directly to the player in the second person ("You cited th
 never "The player cites"). The committed forecast percentage and confidence are given in the facts:
 they are explicit, so Forecast clarity must be judged on them (is the number committed, is it
 consistent with the written reasoning and the stated confidence), never "no explicit probability"
-when a percentage is given."""
+when a percentage is given.
+The player's stated reasoning for each decision is also given ("Reasoning given"): quote it when it
+supports an Evidence, Forecast or Reflection score, and score a decision with no stated reasoning
+only on what the player did write elsewhere."""
 
 ADVICE = """\
 Classify the text for a financial-literacy game. Output three booleans:

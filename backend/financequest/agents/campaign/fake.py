@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from financequest.agents.campaign import context as C
 from financequest.agents.campaign import schemas as S
 from financequest.agents.campaign.graphs import prepared_setup, the
+from financequest.campaign import reasoning as reasoning_mod
 from financequest.campaign import rules
 from financequest.llm import LLMResult
 
@@ -444,6 +445,8 @@ class CampaignFakeLLM:
             kind="decision", action=action, amount_eur=amount, portion=portion,  # type: ignore[arg-type]
             text=reaction, suggestions=decision_suggestions(ctx),
             hp_loss=loss, hp_reason=why if loss else "",
+            reasoning=(why_ := reasoning_mod.extract_inline(text)),
+            reasoning_sufficient=reasoning_mod.is_sufficient(why_),
         )  # fmt: skip
 
     def hint(self, c: dict[str, Any]) -> S.TextOut:
@@ -527,8 +530,18 @@ class CampaignFakeLLM:
             f"You wrote “{mine}”, which shows you looked for reasons rather than rumours."
             if mine else "You gave reasons in your own words."
         )
+        given = [d for d in ctx.decisions if d.get("reasoning")]
+        if given:
+            first = excerpt(str(given[0]["reasoning"]), 60)
+            how = (
+                "You gave reasons for "
+                + ("every decision" if len(given) == len(ctx.decisions) else "some of your decisions")
+                + f", such as “{first}”. Your stated reasons matched what you did."
+            )
+        else:
+            how = "You gave no reasoning for your decisions along the way, so your thinking is hard to follow."
         return S.DebriefOut(
-            sound_reasoning=sound,
+            sound_reasoning=sound, how_you_reasoned=how,
             overlooked=", ".join(ctx.overlooked) if ctx.overlooked else "Nothing important",
             luck=f"Much of this result turned on events no one could know at story day "
             f"{ctx.gv.clock_day}. Judge your process, not the outcome alone.",

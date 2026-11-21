@@ -86,6 +86,11 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
                   ) : null}
                 </div>
                 <p className="mt-1 font-quest italic text-quest-vellum-dim">&ldquo;{d.text}&rdquo;</p>
+                {d.action !== 'loss' ? (
+                  <p className="mt-1 font-quest-sans text-sm text-quest-vellum-dim" data-testid="decision-reasoning">
+                    {d.reasoning ? <>Why: &ldquo;{d.reasoning}&rdquo;</> : 'No reason given'}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ol>

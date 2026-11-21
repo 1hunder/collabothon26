@@ -111,6 +111,7 @@ def facts_block(ctx: VeteranContext) -> str:
             lines.append(
                 f"{d['seq']}. {d['when']} ({d['day']}) | {d['action']} | {d['amount_eur']} | "
                 f'"{d["text"]}" | {d["judgement"]} | {d["luck"]}'
+                + (f' | their reasons, in their words: "{d["reasoning"]}"' if d.get("reasoning") else " | no reasons given")
             )
         if f.get("closing_note"):
             lines.append(f'Closing note at the seal: "{f["closing_note"]}"')

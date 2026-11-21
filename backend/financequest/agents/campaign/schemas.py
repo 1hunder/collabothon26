@@ -71,6 +71,14 @@ class DecideOut(BaseModel):
     suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short actions")
     hp_loss: int = Field(default=0, description="HP lost to this decision's scene, 0 to 10; usually 0")
     hp_reason: str = Field(default="", description="Why, in one short phrase, when hp_loss > 0")
+    reasoning: str | None = Field(
+        default=None, description="The player's own reasons for the decision, copied from their words; null if none"
+    )
+    reasoning_sufficient: bool = Field(
+        default=False,
+        description="True only when the reasons name at least one concrete reason tied to the "
+        "evidence or situation (a figure, a clue, the news, a risk)",
+    )
 
 
 class TextOut(BaseModel):
@@ -136,6 +144,7 @@ class SetupOut(BaseModel):
 
 class DebriefOut(BaseModel):
     sound_reasoning: str
+    how_you_reasoned: str = ""
     overlooked: str
     luck: str
     reflection_question: str

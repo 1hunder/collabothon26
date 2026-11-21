@@ -70,6 +70,7 @@ class AgentContext:
     # decisions throughout the campaign (euro figures only; engine computed)
     purse: dict[str, Any] | None = None  # cash_eur, position_eur, total_eur
     decisions: list[dict[str, Any]] = field(default_factory=list)
+    final_reasoning: str | None = None  # the note written at the seal (after the lock)
     scene: dict[str, Any] | None = None  # the open decision scene
 
     @property
@@ -275,6 +276,7 @@ def build_agent_context(
         company_revealed=any(e.type == "debrief_complete" for e in events),
         campaign_id=str(run.id),
         purse=service.purse(db, run, pack), decisions=service.decisions_out(db, run, pack),
+        final_reasoning=getattr(service.decision_of(db, run.id), "reasoning", None),
         scene=run.market_scene if isinstance(run.market_scene, dict) else None,
     )  # fmt: skip
 
@@ -364,7 +366,8 @@ def free_numbers(ctx: AgentContext, typed: str = "") -> list[Any]:
         nums.append(int(p.news.get("time_skip_days", 0)))
         nums.append(max(1, ctx.gv.clock_day - p.intro.story_day))  # the shown skip, from the clock
     nums += [cp.story_day for cp in p.checkpoints if ctx.gv.at_checkpoint(cp.id)]
-    for text in [typed, *ctx.player_texts, *(d["text"] for d in ctx.decisions)]:
+    for text in [typed, *ctx.player_texts, ctx.final_reasoning or "",
+                 *(d["text"] for d in ctx.decisions), *(d.get("reasoning") or "" for d in ctx.decisions)]:
         nums += re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))
     if ctx.purse:  # the purse card shows these figures to the player
         nums += [ctx.purse["cash_eur"], ctx.purse["position_eur"], ctx.purse["total_eur"]]
@@ -475,6 +478,7 @@ def purse_lines(ctx: AgentContext) -> list[str]:
         lines.append(
             f"Decision on {d['day_label']} ({d['beat']}): {d['action']} {d['amount_eur']} euros. "
             f"In their words: \"{d['text']}\""
+            + (f". Their reasons: \"{d['reasoning']}\"" if d.get("reasoning") else "")
         )
     if not ctx.decisions:
         lines.append("Investment decisions so far: none.")

@@ -9,6 +9,8 @@ export interface ChoiceListProps {
   purse?: Purse;
   /** Show "I'm ready to decide". */
   canDecide: boolean;
+  /** The Campaign Master asked why: the next message is the player's reasoning. */
+  awaitingReasoning?: boolean;
   /** Freeze every button while a request is in flight. */
   busy?: boolean;
   onSend: (text: string) => void;
@@ -23,6 +25,7 @@ export default function ChoiceList({
   prompt = 'What would you do?',
   purse,
   canDecide,
+  awaitingReasoning = false,
   busy = false,
   onSend,
   onDecide,
@@ -30,7 +33,12 @@ export default function ChoiceList({
   return (
     <section aria-label="Your turn" className="mx-3 flex flex-col gap-2">
       {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
-      <ActionInput prompt={prompt} busy={busy} onSend={onSend} />
+      <ActionInput
+        prompt={awaitingReasoning ? 'Why did you choose that?' : prompt}
+        placeholder={awaitingReasoning ? 'Your reasoning, in your own words…' : undefined}
+        busy={busy}
+        onSend={onSend}
+      />
       {canDecide ? (
         <button
           type="button"
@@ -49,9 +57,10 @@ interface ActionInputProps {
   busy: boolean;
   onSend: (text: string) => void;
   prompt: string;
+  placeholder?: string;
 }
 
-export function ActionInput({ busy, onSend, prompt }: ActionInputProps): React.JSX.Element {
+export function ActionInput({ busy, onSend, prompt, placeholder = 'What do you do?' }: ActionInputProps): React.JSX.Element {
   const [text, setText] = useSessionDraft(ACTION_DRAFT_KEY);
   const empty = text.trim() === '';
   const submit = (): void => {
@@ -83,7 +92,7 @@ export function ActionInput({ busy, onSend, prompt }: ActionInputProps): React.J
           }
         }}
         rows={2}
-        placeholder="What do you do?"
+        placeholder={placeholder}
         maxLength={400}
         // 16px or more keeps iOS from zooming the page on focus
         className="w-full resize-none rounded-md border border-quest-verdigris-light/50 bg-quest-soot/60 p-3 font-quest text-base text-quest-vellum"

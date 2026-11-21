@@ -52,6 +52,8 @@ class DecisionReply:
     degraded: bool = False
     hp_loss: int = 0  # a decision's costly consequence in the scene; the engine clamps it
     hp_reason: str = ""
+    reasoning: str | None = None  # the reasons the player wrote inside the decision message
+    reasoning_sufficient: bool = False  # concrete enough to proceed without asking
 
 
 class Narration(Protocol):
