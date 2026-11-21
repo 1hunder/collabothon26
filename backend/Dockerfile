@@ -15,6 +15,8 @@ RUN if [ -f uv.lock ]; then uv sync --frozen --no-dev --no-install-project; \
 COPY alembic.ini ./
 COPY financequest ./financequest
 COPY start.sh ./start.sh
+# a Windows checkout gives the script CRLF line endings, which make "exec /app/start.sh" fail
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 RUN if [ -f uv.lock ]; then uv sync --frozen --no-dev; else uv sync --no-dev; fi
 
 RUN mkdir -p /app/data && useradd --system --uid 10001 --no-create-home app && chown -R app /app

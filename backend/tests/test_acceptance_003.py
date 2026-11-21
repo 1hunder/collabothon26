@@ -24,7 +24,15 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
-from sse_helpers import names, parse_sse, post_sse, streamed_text
+from sse_helpers import (
+    DECISION_TEXT,
+    HOLD_TEXT,
+    answer_scene,
+    names,
+    parse_sse,
+    post_sse,
+    streamed_text,
+)
 from test_campaign_agents import (  # noqa: F401 - fixtures are imported by name
     SAFEGUARD_PROMPTS,
     StalledLLM,
@@ -85,6 +93,8 @@ def get(client: TestClient, h: dict[str, str], cid: str) -> dict[str, Any]:
 
 
 def act(client: TestClient, h: dict[str, str], cid: str, text: str, **extra: Any) -> dict[str, Any]:
+    """A free action. An open decision scene is answered first (a hold), as a player would."""
+    answer_scene(client, h, cid)
     return post_sse(client, f"/campaigns/{cid}/actions", h, {"text": text, **extra})[1]
 
 
@@ -925,6 +935,7 @@ def test_2_9_ac1_news_card_after_the_sixth_turn(client: TestClient, enron: str) 
     cid, _ = start(client, h)
     seen = []
     for i in range(6):
+        answer_scene(client, h, cid)
         ev, d = post_sse(client, f"/campaigns/{cid}/actions", h, {"text": f"look around {i}"})
         seen.append([c for n, c in ev if n == "card" and c["kind"] == "news"])
     assert [bool(x) for x in seen] == [False] * 5 + [True]
@@ -946,6 +957,7 @@ def test_2_9_ac2_campaign_master_asks_how_it_changes_the_view_and_the_news_is_a_
     h = new_player(client)
     cid, _ = start(client, h)
     for i in range(6):
+        answer_scene(client, h, cid)
         ev, d = post_sse(client, f"/campaigns/{cid}/actions", h, {"text": f"look around {i}"})
     card = next(c for n, c in ev if n == "card")
     assert card["framing"].endswith("?") and re.search(r"news|view|think|change", card["framing"], re.I)
@@ -1043,43 +1055,47 @@ def test_2_12_ac1_commit_starts_empty_and_lock_is_refused_until_valid(client: Te
     st = get(client, h, cid)
     assert st["commit_draft"] in (None, {}) and st["offers_spread"] is False  # no Spread: no fund series
     assert client.post(f"/campaigns/{cid}/lock", json={}, headers=h).status_code == 422
-    assert client.post(f"/campaigns/{cid}/lock", json={**COMMIT, "action": "spread"}, headers=h).status_code == 422
 
 
-def test_2_12_ac2_invest_needs_an_amount_dont_invest_and_wait_do_not(client: TestClient, enron: str) -> None:
+def test_2_12_ac2_the_coins_come_from_the_decisions_written_during_the_campaign(client: TestClient, enron: str) -> None:
+    """Decisions throughout the campaign: the seal takes no action or amount; any sent are ignored."""
     h = new_player(client)
     cid, _ = start(client, h)
-    play_to_decide(client, h, cid)
-    no_amount = {**COMMIT, "amount_eur": None}
-    r = client.post(f"/campaigns/{cid}/lock", json=no_amount, headers=h)
-    assert r.status_code == 422 and "amount_eur" in r.json()["error"]["fields"]
-    assert client.post(f"/campaigns/{cid}/lock", json={**no_amount, "action": "wait"}, headers=h).status_code == 200
+    st = play_to_decide(client, h, cid)
+    assert st["decisions"][-1]["beat"] == "decision" and st["decisions"][-1]["amount_eur"] == 400
+    o = lock(client, h, cid, {**COMMIT, "action": "wait", "amount_eur": 1201})
+    assert o["breakdown"]["invested"] == 400.0 and o["decisions"][-1]["text"] == DECISION_TEXT
 
 
-@pytest.mark.parametrize("amount", [1201, 0, -5])
-def test_2_12_ac3_amount_outside_one_to_budget_is_refused(client: TestClient, enron: str, amount: int) -> None:
+def test_2_12_ac3_the_seal_is_refused_before_the_decision_day_scene_is_answered(client: TestClient, enron: str) -> None:
     h = new_player(client, "guardian")
     cid, _ = start(client, h)
-    play_to_decide(client, h, cid)
-    r = client.post(f"/campaigns/{cid}/lock", json={**COMMIT, "amount_eur": amount}, headers=h)
-    assert r.status_code == 422 and r.json()["error"]["fields"]["amount_eur"] == "Enter an amount from €1 to €1,200."
-    assert get(client, h, cid)["phase"] != "timeskip"
+    for _ in range(20):  # investigate, but never answer the day-of-decision scene
+        st = get(client, h, cid)
+        scene = st.get("market_scene")
+        if scene and scene["beat"] == "decision":
+            break
+        if scene:
+            answer_scene(client, h, cid)
+            continue
+        move(client, h, cid, ("library", "tavern", "market_square")[st["turn_count"] % 3])
+    assert get(client, h, cid)["market_scene"]["beat"] == "decision"
+    assert get(client, h, cid)["can_decide"] is False
+    assert client.post(f"/campaigns/{cid}/lock", json=COMMIT, headers=h).status_code == 409
 
 
-def test_2_12_ac4_evidence_under_20_characters_is_refused(client: TestClient, enron: str) -> None:
+def test_2_12_ac4_the_closing_note_is_optional(client: TestClient, enron: str) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
     play_to_decide(client, h, cid)
-    for short in ("", "too short", "   " + "x" * 10 + "   "):
-        r = client.post(f"/campaigns/{cid}/lock", json={**COMMIT, "evidence": short}, headers=h)
-        assert r.status_code == 422 and r.json()["error"]["fields"]["evidence"] == "Explain your reasoning in at least 20 characters."
+    assert client.post(f"/campaigns/{cid}/lock", json={**COMMIT, "evidence": ""}, headers=h).status_code == 200
 
 
 def test_2_12_ac4b_forecast_step_and_confidence_are_validated(client: TestClient, enron: str) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
     play_to_decide(client, h, cid)
-    for bad in ({"forecast_pct": 33}, {"forecast_pct": 105}, {"confidence": "sure"}, {"confidence": None}, {"action": None}):
+    for bad in ({"forecast_pct": 33}, {"forecast_pct": 105}, {"confidence": "sure"}, {"confidence": None}):
         assert client.post(f"/campaigns/{cid}/lock", json={**COMMIT, **bad}, headers=h).status_code == 422
 
 
@@ -1144,14 +1160,15 @@ def test_2_13_ac2_worked_example_900_loss_100_hp_90(client: TestClient, enron: s
 
 
 def test_2_13_ac2b_enron_numbers_through_the_api(client: TestClient, enron: str) -> None:
-    """The reference case: 2001-10-18 open 31.95, end close 0.60; EUR 400 of 1000 ends at 607.51."""
+    """The reference case: EUR 400 of 1000 put in on decision day at that day's board close (the
+    price the player sees), valued at the end close 0.60, ends at 607.45."""
     h = new_player(client)
     cid, _ = start(client, h)
     play_to_decide(client, h, cid)
     o = lock(client, h, cid)
     b = o["breakdown"]
-    assert (b["starting_budget"], b["cash_kept"], b["invested"], b["fees"], b["final_value"], b["pl_eur"]) == (1000.0, 600.0, 400.0, 0.0, 607.51, -392.49)
-    assert b["pl_pct"] == -39.2 and (o["hp_before"], o["hp_after"]) == (100, 61)
+    assert (b["starting_budget"], b["cash_kept"], b["invested"], b["fees"], b["final_value"], b["pl_eur"]) == (1000.0, 600.0, 400.0, 0.0, 607.45, -392.55)
+    assert b["pl_pct"] == -39.3 and (o["hp_before"], o["hp_after"]) == (100, 61)
     assert o["currency_note"] == "Prices in the company's original currency; exchange-rate changes are not included."
 
 
@@ -1159,18 +1176,18 @@ def test_2_13_ac2b_enron_numbers_through_the_api(client: TestClient, enron: str)
 def test_2_13_ac3_dont_invest_and_wait_keep_the_budget_and_hp(client: TestClient, enron: str, action: str) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
-    play_to_decide(client, h, cid)
-    o = lock(client, h, cid, {**COMMIT, "action": action, "amount_eur": None})
+    play_to_decide(client, h, cid, HOLD_TEXT if action == "wait" else "I don't invest, the debt worries me.")
+    o = lock(client, h, cid)
     assert o["breakdown"]["final_value"] == 1000.0 and o["breakdown"]["pl_eur"] == 0 and (o["hp_before"], o["hp_after"]) == (100, 100)
 
 
 def test_2_13_ac4_guardian_and_analyst_get_the_same_percentage(client: TestClient, enron: str) -> None:
     out = {}
-    for cls, amount in (("analyst", 500), ("guardian", 600)):  # half of each budget
+    for cls in ("analyst", "guardian"):  # half of each budget
         h = new_player(client, cls)
         cid, _ = start(client, h)
-        play_to_decide(client, h, cid)
-        out[cls] = lock(client, h, cid, {**COMMIT, "amount_eur": amount})
+        play_to_decide(client, h, cid, "I invest half of my coins.")
+        out[cls] = lock(client, h, cid)
     assert out["analyst"]["breakdown"]["pl_pct"] == out["guardian"]["breakdown"]["pl_pct"]
     assert out["analyst"]["investment_return_pct"] == out["guardian"]["investment_return_pct"]
     assert out["guardian"]["breakdown"]["starting_budget"] == 1200.0
@@ -1234,10 +1251,12 @@ def test_2_14_ac2_overlooked_names_a_clue_the_player_did_not_find(client: TestCl
 def test_2_14_ac3_whatif_panel_rows_and_highlight(client: TestClient, enron: str) -> None:
     _, d = to_debrief(client, new_player(client))
     rows = d["whatif"]
-    assert [r["key"] for r in rows][:3] == ["dont_invest", "half", "all"]  # Spread only when offered
+    assert [r["key"] for r in rows] == ["dont_invest", "first", "all", "yours"]
     assert "spread" not in [r["key"] for r in rows]
-    assert [r["final_value"] for r in rows][:3] == [1000.0, 509.39, 18.78]  # same prices: 0, 500 and 1000 invested
-    assert next(r for r in rows if r["is_yours"])["final_value"] == 607.51
+    # same real prices: never invested; all 1000 at the first decision (the opening offer); all 1000
+    # on decision day; then the player's own path (400 in on decision day)
+    assert [r["final_value"] for r in rows][:3] == [1000.0, 13.98, 18.63]
+    assert next(r for r in rows if r["is_yours"])["final_value"] == 607.45
     assert sum(r["is_yours"] for r in rows) == 1 and next(r for r in rows if r["is_yours"])["key"] == "yours"
     assert rows[0]["pct"] == 0.0 and all("hp_after" in r for r in rows)
 
@@ -1295,7 +1314,8 @@ def test_2_14_ac8_xp_lists_the_rubric_with_maxima_total_and_quotes(client: TestC
     assert x["total"] == sum(c["score"] for c in x["categories"]) <= 100
     assert all(c["rationale"] and 0 <= c["score"] <= c["max"] for c in x["categories"])
     quoted = [c for c in x["categories"] if c["quote"]]
-    assert quoted and all(c["quote"].removesuffix("…").removesuffix("...").rstrip() in (COMMIT["evidence"] + " Next time I would read the cash flow statement first before anything else.") for c in quoted)
+    words = " ".join([HOLD_TEXT, DECISION_TEXT, COMMIT["evidence"], "Next time I would read the cash flow statement first before anything else."])
+    assert quoted and all(c["quote"].removesuffix("…").removesuffix("...").rstrip() in words for c in quoted)
 
 
 def test_2_14_ac9_xp_after_a_loss_never_blames_the_loss(client: TestClient, enron: str) -> None:

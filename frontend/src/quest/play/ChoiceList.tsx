@@ -1,8 +1,14 @@
 import { useState } from 'react';
+import type { Purse } from '../../api/types';
+import { PurseLine } from './DecisionCards';
 import { ACTION_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
 
 export interface ChoiceListProps {
   suggestions: readonly string[];
+  /** The question above the choices; a decision scene asks about the coins. */
+  prompt?: string;
+  /** Shown under the question while a decision scene is open. */
+  purse?: Purse;
   /** Show "I'm ready to decide". */
   canDecide: boolean;
   focusLeft: number;
@@ -20,6 +26,8 @@ const choiceBase =
 
 export default function ChoiceList({
   suggestions,
+  prompt = 'What would you do?',
+  purse,
   canDecide,
   focusLeft,
   bonusLeadAvailable,
@@ -38,8 +46,9 @@ export default function ChoiceList({
   return (
     <section aria-label="Choices" className="mx-3 flex flex-col gap-2">
       <p className="mx-1.5 mb-1 font-quest text-lg italic text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]">
-        What would you do?
+        {prompt}
       </p>
+      {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
       {suggestions.map((s) => (
         <button key={s} type="button" disabled={busy} onClick={() => onSend(s)} className={choiceBase}>
           {s}

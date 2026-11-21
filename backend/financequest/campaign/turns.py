@@ -16,15 +16,15 @@ from sqlmodel import Session, select
 from financequest.agents.campaign import context as C
 from financequest.agents.campaign import graphs
 from financequest.api.errors import ApiError
-from financequest.campaign import focus, rules, service
+from financequest.campaign import clock, focus, rules, service
 from financequest.campaign.events import append_event, find_by_msg_id
-from financequest.campaign.narration import Narration, TurnReply, get_narration
+from financequest.campaign.narration import DecisionReply, Narration, TurnReply, get_narration
 from financequest.campaign.pack import Pack
 from financequest.campaign.stream import Streamed, StreamPlan
 from financequest.campaign.view import gated_view, visible_evidence
 from financequest.config import get_settings
 from financequest.db.models import Event
-from financequest.db.models_campaign import CampaignRun, Challenge, Location
+from financequest.db.models_campaign import CampaignRun, Challenge, Location, Trade
 from financequest.db.session import get_engine
 
 log = logging.getLogger("financequest.turns")
@@ -48,6 +48,7 @@ def state_delta(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "checkpoint": run.checkpoint, "news_shown": run.news_shown, "phase": run.phase,
         "current_location_id": str(run.current_location_id) if run.current_location_id else None,
         "art_ready": [str(x.id) for x in locs if x.art_status == "ready"],
+        "purse": service.purse(db, run, pack), "market_scene": service.scene_out(run),
     }  # fmt: skip
 
 
@@ -61,7 +62,7 @@ def replay_streamed(db: Session, run: CampaignRun, pack: Pack, ev: Event) -> Str
     """An idempotent repeat streams the stored, already guarded reply."""
     p = dict(ev.payload or {})
     delta = state_delta(db, run, pack)
-    cards = [c for c in (p.get("card"), p.get("news")) if c]
+    cards = [c for c in (p.get("card"), p.get("news"), p.get("scene")) if c]
     done = {**p, "audio_text_id": ev.id, **delta, "replayed": True}
     if (p.get("news") or {}).get("framing"):
         done["news_text"] = p["news"]["framing"]
@@ -190,9 +191,17 @@ def plan_action(
         service.require_phase(run, "play")
         if run.pending:
             raise ApiError(409, "roll_open", "Finish the dice check first")
-        append_event(db, run, "action", {"text": text}, f"{msg}:action" if msg else None)
+        in_scene = bool(run.market_scene)
+        append_event(db, run, "action", {"text": text, **({"scene": True} if in_scene else {})},
+                     f"{msg}:action" if msg else None)  # fmt: skip
         db.commit()
         ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
+    if in_scene:  # the player answers the decision scene: read it, execute it, react
+        return StreamPlan(
+            cid, work=lambda: nar.decide(ctx, text),
+            commit=lambda reply: commit_decision(sid, cid, text, reply, msg=msg),
+            deadline_s=TURN_BUDGET_S,
+        )
     return StreamPlan(
         cid, work=lambda: nar.turn(ctx, text),
         commit=lambda reply: commit_turn(sid, cid, reply, msg=msg, nar=nar),
@@ -262,9 +271,18 @@ def commit_turn(
         news = service.count_turn(db, run, pack, kind, arrived_at=arrived_at)
         if news and loc is not None:  # free clues of the new checkpoint at this place
             granted += service.grant_free_at(db, run, pack, loc.key)
+        beat = None if card else service.due_beat(
+            db, run, pack, news_now=bool(news), asked=reply.intent == "decision_intent",
+            story_call=reply.calls_for_decision,
+        )  # fmt: skip
+        if beat:
+            service.open_scene(db, run, pack, beat)
         ready = service.decide_ready(db, run, pack)
+        text_out = reply.text
+        if beat and reply.intent == "decision_intent":
+            text_out = "Then the moment has come."
         payload = {
-            "text": reply.text, "speaker": reply.speaker, "speaker_id": reply.speaker_id,
+            "text": text_out, "speaker": reply.speaker, "speaker_id": reply.speaker_id,
             "intent": reply.intent, "suggestions": reply.suggestions,
             "clue_ids_given": granted if loc is not None else list(reply.clue_ids_given),
             "card": card, "news": news, "degraded": reply.degraded,
@@ -281,6 +299,8 @@ def commit_turn(
     if news_card:
         news_card = frame_news(sid, cid, reply_id, news_card, nar)
         cards.append(news_card)
+    if beat:
+        cards.append(frame_scene(sid, cid, reply_id, beat, nar))
     with _session() as db:
         run, pack, _ = service.load(db, cid, sid, write=False)
         stored_ev = db.get(Event, reply_id)
@@ -311,6 +331,81 @@ def frame_news(
             db.add(ev)
         _finish(db, run)
     return card
+
+
+def frame_scene(
+    sid: uuid.UUID, cid: uuid.UUID, reply_id: int, beat: str, nar: Narration
+) -> dict[str, Any]:
+    """The Campaign Master sets the decision scene the engine opened. Guarded, with a fixed
+    fallback, so it never fails the turn. The card carries the engine's purse figures."""
+    with _session() as db:
+        run, pack, hero = service.load(db, cid, sid, write=False)
+        ctx = C.build_agent_context(db, run, pack, hero).with_deadline(10.0)
+    framed = nar.market_scene(ctx, beat)
+    with _session() as db:
+        run, pack, _ = service.load(db, cid, sid)
+        fev = append_event(db, run, "dm_reply", {"text": framed.text, "speaker": C.DM_NAME,
+                                                 "market_scene": beat,
+                                                 "suggestions": framed.suggestions})  # fmt: skip
+        if isinstance(run.market_scene, dict):
+            run.market_scene = {**run.market_scene, "text": framed.text,
+                                "suggestions": framed.suggestions}  # fmt: skip
+        card = {
+            "kind": "market", "beat": beat, "text": framed.text, "suggestions": framed.suggestions,
+            "story_day": run.clock_day, "day_label": clock.day_label(run.clock_day),
+            "purse": service.purse(db, run, pack), "audio_text_id": fev.id,
+        }  # fmt: skip
+        ev = db.get(Event, reply_id)
+        if ev is not None:
+            ev.payload = {**(ev.payload or {}), "scene": card}
+            db.add(ev)
+        _finish(db, run)
+    return card
+
+
+def trade_card(trade: Trade, purse: dict[str, Any]) -> dict[str, Any]:
+    """The receipt for an executed decision: engine figures, euros only."""
+    return {
+        "kind": "trade", "seq": trade.seq, "beat": trade.beat, "action": trade.action,
+        "amount_eur": trade.amount_cents / 100, "day_label": clock.day_label(trade.story_day),
+        "purse": purse,
+    }  # fmt: skip
+
+
+def commit_decision(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, reply: DecisionReply, *, msg: str | None
+) -> Streamed:
+    """Phase C of an answer in a decision scene: execute it now, then store the reaction."""
+    with _session() as db:
+        run, pack, _ = service.load(db, cid, sid)
+        stored = find_by_msg_id(db, cid, f"{msg}:reply" if msg else None)
+        if stored is not None:
+            return replay_streamed(db, run, pack, stored)
+        service.require_phase(run, "play")
+        receipt = None
+        say, sugg = reply.text, reply.suggestions
+        if reply.kind == "decision" and reply.action in ("buy", "sell", "hold") and run.market_scene:
+            problem = service.decision_problem(db, run, reply.action, reply.amount_eur, reply.portion)
+            if problem:  # nothing to execute yet: ask, and keep the scene open
+                say, sugg = problem, service.DECISION_HOW_MUCH
+            else:
+                trade = service.record_decision(
+                    db, run, pack, text, reply.action, reply.amount_eur, reply.portion
+                )
+                receipt = trade_card(trade, service.purse(db, run, pack))
+        ready = service.decide_ready(db, run, pack)
+        payload = {
+            "text": say, "speaker": C.DM_NAME, "speaker_id": C.CHRONICLER,
+            "intent": "decision" if receipt else "scene_question", "suggestions": sugg,
+            "clue_ids_given": [], "card": receipt, "news": None, "degraded": reply.degraded,
+            "nothing_more_to_uncover": False,
+            "show_decide": bool(receipt and receipt["beat"] == "decision" and ready),
+            "first_visit": None, "location": None,
+        }  # fmt: skip
+        ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
+        _finish(db, run)
+        out = _streamed(db, run, pack, ev, [receipt] if receipt else [])
+    return out
 
 
 def maybe_summarize(sid: uuid.UUID, cid: uuid.UUID, nar: Narration) -> None:

@@ -496,6 +496,8 @@ def _validate(state: TurnState) -> dict[str, Any]:
         nothing_more_to_uncover=bool(out.nothing_more_to_uncover) and not state.get("degraded"),
         degraded=bool(state.get("degraded")), rejected_clue_ids=rejected,
         speaker_id=speaker,
+        calls_for_decision=bool(getattr(out, "calls_for_decision", False))
+        and not state.get("degraded") and intent not in ("challenge", "move"),
     )  # fmt: skip
     return {"reply": reply}
 

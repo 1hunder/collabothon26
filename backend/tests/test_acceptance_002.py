@@ -28,7 +28,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
-from sse_helpers import post_sse, streamed_text
+from sse_helpers import DECISION_TEXT, post_sse, streamed_text
+from sse_helpers import play_to_decide as shared_play_to_decide
 
 from financequest.agents.campaign import schemas as S
 from financequest.agents.campaign.narration import AgentNarration
@@ -128,17 +129,10 @@ def start_campaign(client: TestClient, h: dict[str, str]) -> str:
     return str(cid)
 
 
-def play_to_decide(client: TestClient, h: dict[str, str], cid: str) -> dict[str, Any]:
-    state = client.get(f"/campaigns/{cid}", headers=h).json()
-    for key in ("library", "tavern", "market_square", "library", "market_square"):
-        if state["can_decide"]:
-            break
-        loc = next(x["id"] for x in state["locations"] if x["key"] == key)
-        r = client.post(f"/campaigns/{cid}/move", json={"location_id": loc}, headers=h)
-        assert r.status_code == 200, r.text
-        state = client.get(f"/campaigns/{cid}", headers=h).json()
-    assert state["can_decide"]
-    return state
+def play_to_decide(
+    client: TestClient, h: dict[str, str], cid: str, decision_text: str = DECISION_TEXT
+) -> dict[str, Any]:
+    return shared_play_to_decide(client, h, cid, decision_text)
 
 
 def lock_decision(client: TestClient, h: dict[str, str], cid: str) -> dict[str, Any]:

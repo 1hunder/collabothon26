@@ -1,10 +1,22 @@
-import type { DiceCard, NewsCard } from '../../api/types';
+import type { DecisionBeat, DiceCard, MarketCard, NewsCard, Purse, TradeAction, TradeCard } from '../../api/types';
 
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
 const int = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback);
+const beats: readonly DecisionBeat[] = ['opening', 'news', 'decision', 'story'];
+const actions: readonly TradeAction[] = ['buy', 'sell', 'hold'];
+
+export type QuestCard = DiceCard | NewsCard | MarketCard | TradeCard;
+
+function purse(v: unknown): Purse {
+  const p = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  return { cash_eur: int(p.cash_eur), position_eur: int(p.position_eur), total_eur: int(p.total_eur) };
+}
+
+const beat = (v: unknown): DecisionBeat => (beats.includes(v as DecisionBeat) ? (v as DecisionBeat) : 'story');
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
 /** Accepts both `kind` (SSE card event) and `type` (JSON responses) as the discriminator. */
-export function normalizeCard(raw: Record<string, unknown>): DiceCard | NewsCard | null {
+export function normalizeCard(raw: Record<string, unknown>): QuestCard | null {
   const kind = raw.kind ?? raw.type;
   if (kind === 'dice') {
     const challengeId = str(raw.challenge_id, str(raw.roll_id));
@@ -26,6 +38,27 @@ export function normalizeCard(raw: Record<string, unknown>): DiceCard | NewsCard
       summary: str(raw.summary),
       time_skip_label: str(raw.time_skip_label),
       story_day: int(raw.story_day),
+    };
+  }
+  if (kind === 'market') {
+    return {
+      kind: 'market',
+      beat: beat(raw.beat),
+      text: str(raw.text),
+      suggestions: strings(raw.suggestions),
+      day_label: str(raw.day_label),
+      purse: purse(raw.purse),
+    };
+  }
+  if (kind === 'trade') {
+    return {
+      kind: 'trade',
+      seq: int(raw.seq),
+      beat: beat(raw.beat),
+      action: actions.includes(raw.action as TradeAction) ? (raw.action as TradeAction) : 'hold',
+      amount_eur: int(raw.amount_eur),
+      day_label: str(raw.day_label),
+      purse: purse(raw.purse),
     };
   }
   return null;

@@ -2,17 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { lockDecision, patchCampaignCache, resumePlay, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
-import type { CampaignState, CommitDraft, Confidence, DecisionAction } from '../../api/types';
+import type { CampaignState, CommitDraft, Confidence } from '../../api/types';
 import ScreenBuddy from '../play/ScreenBuddy';
-import {
-  actionLabels,
-  emptyDraft,
-  formatEur,
-  isValidAmount,
-  needsAmount,
-  toRequest,
-  validateCommit,
-} from '../lib/commit';
+import { decisionLabel, emptyDraft, formatEur, toRequest } from '../lib/commit';
 
 const DRAFT_KEY = 'fq.commit.v1';
 const SEAL_MS = 800;
@@ -57,23 +49,19 @@ export default function Commit(): React.JSX.Element {
 }
 
 function initialDraft(c: CampaignState): CommitDraft {
-  return { ...emptyDraft, ...(readStored(c.id) ?? c.commit_draft ?? {}) };
+  const d = { ...emptyDraft, ...(readStored(c.id) ?? c.commit_draft ?? {}) };
+  return { evidence: d.evidence ?? '', forecast_pct: d.forecast_pct ?? 50, confidence: d.confidence ?? null };
 }
 
 function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Element {
   const campaignId = campaign.id;
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const budget = campaign.budget_eur ?? campaign.scenario?.budget_eur ?? campaign.hp_eur;
   const horizon = campaign.horizon_days ?? 0;
-  const offersSpread = campaign.offers_spread === true;
+  const decisions = campaign.decisions ?? [];
+  const purse = campaign.purse;
 
   const [draft, setDraft] = useState<CommitDraft>(() => initialDraft(campaign));
-  const [amountText, setAmountText] = useState(() => {
-    const a = initialDraft(campaign).amount_eur;
-    return typeof a === 'number' && !Number.isNaN(a) ? String(a) : '';
-  });
-  const [touched, setTouched] = useState({ amount: false, evidence: false });
   const [stage, setStage] = useState<Stage>('form');
   const [lockedHorizon, setLockedHorizon] = useState<number | null>(null);
   const [skipLabel, setSkipLabel] = useState<string | null>(null);
@@ -89,12 +77,8 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
   }, [qc, campaignId, navigate]);
 
   const set = (patch: Partial<CommitDraft>): void => setDraft((d) => ({ ...d, ...patch }));
-  const errors = validateCommit(draft, budget, touched);
-  const request = toRequest(draft, budget);
+  const request = toRequest(draft);
   const valid = request !== null;
-  const choices: DecisionAction[] = offersSpread
-    ? ['invest', 'spread', 'dont_invest', 'wait']
-    : ['invest', 'dont_invest', 'wait'];
 
   const back = async (): Promise<void> => {
     try {
@@ -160,76 +144,32 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
         Back to investigating
       </button>
       <h1 className="font-quest-title text-4xl text-quest-gilt">Seal your decision</h1>
+      <p className="font-quest-sans text-quest-vellum-dim">
+        Your coins stay where your decisions put them until the horizon. Before the wait, say how you see it.
+      </p>
 
-      <fieldset className="space-y-2">
-        <legend className="mb-1 font-quest-sans text-sm text-quest-vellum-dim">Decision</legend>
-        <div role="radiogroup" aria-label="Decision" className="grid grid-cols-2 gap-2">
-          {choices.map((a) => (
-            <button
-              key={a}
-              type="button"
-              role="radio"
-              aria-checked={draft.action === a}
-              onClick={() => set({ action: a, amount_eur: needsAmount(a) ? draft.amount_eur : null })}
-              className={`min-h-11 rounded-md border-2 px-3 font-quest-sans ${
-                draft.action === a ? 'border-quest-gilt bg-quest-lapis' : 'border-quest-lapis bg-quest-lapis-deep'
-              }`}
-            >
-              {actionLabels[a]}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
-      {needsAmount(draft.action) ? (
-        <div>
-          <label htmlFor="amount" className="mb-1 block font-quest-sans text-sm text-quest-vellum-dim">
-            Amount in euros
-          </label>
-          <input
-            id="amount"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            value={amountText}
-            onChange={(e) => {
-              const raw = e.target.value.trim();
-              setAmountText(e.target.value);
-              set({ amount_eur: raw === '' ? null : /^\d+$/.test(raw) ? Number(raw) : Number.NaN });
-              setTouched((t) => ({ ...t, amount: true }));
-            }}
-            aria-invalid={errors.amount !== undefined}
-            className="min-h-11 w-full rounded-md border border-quest-gilt bg-quest-lapis-deep px-3 text-base"
-          />
-          {errors.amount ? (
-            <p role="alert" className="mt-1 font-quest-sans text-sm text-quest-wax-light">
-              {errors.amount}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div>
-        <label htmlFor="evidence" className="mb-1 block font-quest-sans text-sm text-quest-vellum-dim">
-          Evidence: which facts, risks and alternatives drove your choice?
-        </label>
-        <textarea
-          id="evidence"
-          rows={4}
-          value={draft.evidence}
-          onChange={(e) => {
-            set({ evidence: e.target.value });
-            setTouched((t) => ({ ...t, evidence: true }));
-          }}
-          aria-invalid={errors.evidence !== undefined}
-          className="w-full rounded-md border border-quest-gilt bg-quest-lapis-deep p-3 text-base"
-        />
-        {errors.evidence ? (
-          <p role="alert" className="mt-1 font-quest-sans text-sm text-quest-wax-light">
-            {errors.evidence}
+      <section aria-label="Your decisions" className="space-y-2">
+        <h2 className="font-quest-sans text-sm text-quest-vellum-dim">What you did with your coins</h2>
+        {decisions.length === 0 ? (
+          <p className="font-quest-sans">You made no investment decisions.</p>
+        ) : (
+          <ol className="space-y-2">
+            {decisions.map((d) => (
+              <li key={d.seq} className="rounded-md border border-quest-lapis bg-quest-lapis-deep p-3">
+                <p className="font-quest-sans text-sm text-quest-vellum-dim">
+                  {d.day_label} · <span className="font-bold text-quest-vellum">{decisionLabel(d)}</span>
+                </p>
+                <p className="mt-1 font-quest italic">&ldquo;{d.text}&rdquo;</p>
+              </li>
+            ))}
+          </ol>
+        )}
+        {purse ? (
+          <p className="font-quest-sans text-sm">
+            Now: cash {formatEur(purse.cash_eur)} · in the company {formatEur(purse.position_eur)}
           </p>
         ) : null}
-      </div>
+      </section>
 
       <div>
         <label htmlFor="forecast" className="mb-1 block">
@@ -271,13 +211,23 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
         </div>
       </fieldset>
 
+      <div>
+        <label htmlFor="evidence" className="mb-1 block font-quest-sans text-sm text-quest-vellum-dim">
+          Anything to add to your reasoning? (optional)
+        </label>
+        <textarea
+          id="evidence"
+          rows={3}
+          value={draft.evidence}
+          onChange={(e) => set({ evidence: e.target.value })}
+          className="w-full rounded-md border border-quest-gilt bg-quest-lapis-deep p-3 text-base"
+        />
+      </div>
+
       <section aria-label="Summary" className="rounded-lg border border-quest-lapis bg-quest-lapis-deep p-3 font-quest-sans text-sm">
         <h2 className="font-quest-title text-xl text-quest-gilt">Summary</h2>
         <dl className="space-y-1">
-          <div><dt className="inline text-quest-vellum-dim">Decision: </dt><dd className="inline">{draft.action ? actionLabels[draft.action] : '—'}</dd></div>
-          {needsAmount(draft.action) ? (
-            <div><dt className="inline text-quest-vellum-dim">Amount: </dt><dd className="inline">{isValidAmount(draft.amount_eur, budget) ? formatEur(draft.amount_eur) : '—'}</dd></div>
-          ) : null}
+          <div><dt className="inline text-quest-vellum-dim">Decisions: </dt><dd className="inline">{decisions.length}</dd></div>
           <div><dt className="inline text-quest-vellum-dim">Forecast: </dt><dd className="inline">{draft.forecast_pct}% likely higher</dd></div>
           <div><dt className="inline text-quest-vellum-dim">Confidence: </dt><dd className="inline capitalize">{draft.confidence ?? '—'}</dd></div>
         </dl>

@@ -13,7 +13,12 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from sqlalchemy import text
 from sqlmodel import Session
-from sse_helpers import post_sse  # noqa: E402
+from sse_helpers import (
+    DECISION_TEXT,
+    HOLD_TEXT,
+    post_sse,  # noqa: E402
+)
+from sse_helpers import play_to_decide as shared_play_to_decide
 
 from financequest.agents.campaign.narration import AgentNarration
 from financequest.api import sse
@@ -80,18 +85,10 @@ def loc_id(state: dict[str, Any], key: str) -> str:
     return next(x["id"] for x in state["locations"] if x["key"] == key)
 
 
-def play_to_decide(client: TestClient, h: dict[str, str], cid: str) -> dict[str, Any]:
-    state = client.get(f"/campaigns/{cid}", headers=h).json()
-    for key in ("library", "tavern", "market_square", "library", "market_square"):
-        if state["can_decide"]:
-            break
-        r = client.post(
-            f"/campaigns/{cid}/move", json={"location_id": loc_id(state, key)}, headers=h
-        )
-        assert r.status_code == 200, r.text
-        state = client.get(f"/campaigns/{cid}", headers=h).json()
-    assert state["can_decide"]
-    return state
+def play_to_decide(
+    client: TestClient, h: dict[str, str], cid: str, decision_text: str = DECISION_TEXT
+) -> dict[str, Any]:
+    return shared_play_to_decide(client, h, cid, decision_text)
 
 
 COMMIT = {
@@ -227,8 +224,9 @@ def test_full_flow_enron_numbers_and_finish(client: TestClient, enron: str) -> N
     h = new_player(client)
     cid, parts = finish_campaign(client, h)
     lk = parts["lock"]
-    assert lk["breakdown"]["final_value"] == 607.51 and lk["breakdown"]["cash_kept"] == 600.0
-    assert lk["breakdown"]["pl_eur"] == -392.49 and lk["breakdown"]["starting_budget"] == 1000.0
+    # EUR 400 put in on decision day at that day's board close, valued at the horizon close
+    assert lk["breakdown"]["final_value"] == 607.45 and lk["breakdown"]["cash_kept"] == 600.0
+    assert lk["breakdown"]["pl_eur"] == -392.55 and lk["breakdown"]["starting_budget"] == 1000.0
     assert lk["locked_at"].startswith("Day ") and lk["series"][0].keys() == {"story_day", "price"}
     assert (lk["hp_before"], lk["hp_after"]) == (100, 61)
     assert lk["currency_note"].startswith("Prices in the company's original currency")
@@ -240,7 +238,8 @@ def test_full_flow_enron_numbers_and_finish(client: TestClient, enron: str) -> N
         ),
     )
     assert parts["ref"]["scenario_id"] == enron
-    assert [r["key"] for r in parts["debrief"]["whatif"]][:3] == ["dont_invest", "half", "all"]
+    keys = [r["key"] for r in parts["debrief"]["whatif"]]
+    assert keys == ["dont_invest", "first", "all", "yours"]
     assert parts["debrief"]["whatif"][0].keys() == {
         "key", "label", "final_value", "pct", "hp_after", "is_yours",
     }
@@ -267,7 +266,7 @@ def test_full_flow_enron_numbers_and_finish(client: TestClient, enron: str) -> N
     assert f1["new_item"]["name"] == "Ratio Lens" and f1["new_item"]["id"] == "ratio_lens"
     hero = client.get("/hero", headers=h).json()
     assert hero["total_xp"] == 100 and hero["active_campaign_id"] is None
-    assert hero["history"][0]["total_xp"] == 100 and hero["history"][0]["result_pct"] == -39.2
+    assert hero["history"][0]["total_xp"] == 100 and hero["history"][0]["result_pct"] == -39.3
     assert hero["items"][0]["id"] == "ratio_lens" and hero["items"][0]["name"] == "Ratio Lens"
     # second and third campaigns earn the next items in order, HP starts fresh
     cid2, _ = finish_campaign(client, h)
@@ -295,16 +294,11 @@ def test_lock_rules_and_idempotency(client: TestClient, enron: str) -> None:
         == 409
     )
     play_to_decide(client, h, cid)
-    bad = {**COMMIT, "amount_eur": 1201, "evidence": "short"}
+    # the seal validates only the forecast and the confidence; the coins come from the decisions
+    bad = {**COMMIT, "forecast_pct": 33, "confidence": "huge"}
     r = client.post(f"/campaigns/{cid}/lock", json=bad, headers=h)
-    assert r.status_code == 422 and set(r.json()["error"]["fields"]) == {"amount_eur", "evidence"}
-    assert "€1,200" in r.json()["error"]["fields"]["amount_eur"]
-    assert (
-        client.post(
-            f"/campaigns/{cid}/lock", json={**COMMIT, "action": "spread"}, headers=h
-        ).status_code
-        == 422
-    )
+    assert r.status_code == 422
+    assert set(r.json()["error"]["fields"]) == {"forecast_pct", "confidence"}
     assert (
         client.put(
             f"/campaigns/{cid}/commit-draft", json={"evidence": "draft text"}, headers=h
@@ -338,10 +332,8 @@ def test_lock_rules_and_idempotency(client: TestClient, enron: str) -> None:
 def test_dont_invest_keeps_budget(client: TestClient, enron: str) -> None:
     h = new_player(client)
     cid, _ = start(client, h)
-    play_to_decide(client, h, cid)
-    r = client.post(
-        f"/campaigns/{cid}/lock", json={**COMMIT, "action": "wait", "amount_eur": None}, headers=h
-    )
+    play_to_decide(client, h, cid, HOLD_TEXT)
+    r = client.post(f"/campaigns/{cid}/lock", json=COMMIT, headers=h)
     assert r.json()["breakdown"]["final_value"] == 1000.0 and r.json()["hp_after"] == 100
     assert r.json()["breakdown"]["invested"] == 0.0
 

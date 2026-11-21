@@ -232,6 +232,52 @@ class CampaignFakeLLM:
             "How does this news change your view of the company?"
         )
 
+    # ---- decisions throughout the campaign ------------------------------------------------------
+    _SCENES = {
+        "opening": "A guild broker in a gilded coat stops you at the {market}: shares of "
+                   "{company} are on offer today, for anyone who trusts what little they know. "
+                   "Do you put coins in now, or keep them while you look around?",
+        "news": "The {market} is loud with the proclamation, and traders crowd the brokers' "
+                "stalls to change their bets. Your purse waits on your word. What do you do "
+                "with your coins now?",
+        "decision": "The bell for the last trading of the season rings over the {market}. "
+                    "Whatever you choose now, you will live with until the horizon. What do you "
+                    "do with your coins?",
+        "story": "A broker from {company} catches your eye across the {market}, waiting for an "
+                 "answer about your coins. What do you do with them now?",
+    }  # fmt: skip
+
+    def scene(self, c: dict[str, Any]) -> S.TextOut:
+        ctx: C.AgentContext = c["ctx"]
+        beat = str(c.get("beat") or "story")
+        text = self._SCENES.get(beat, self._SCENES["story"])
+        return S.TextOut(text=text.format(market=ctx.pack.market_name, company=ctx.pack.company_name))
+
+    def decide(self, c: dict[str, Any]) -> S.DecideOut:
+        ctx: C.AgentContext = c["ctx"]
+        text = str(c.get("input") or "")
+        action, amount, portion = rules.parse_decision(text)
+        from financequest.agents.campaign.narration import decision_suggestions
+
+        if action is None:
+            return S.DecideOut(
+                kind="question", suggestions=decision_suggestions(ctx),
+                text="The broker taps the ledger, patient. Tell me plainly: do you put coins in, "
+                     "take coins out, or wait?",
+            )  # fmt: skip
+        reaction = {
+            "buy": "The broker's quill scratches your name into the shareholders' book, and a "
+                   "clerk nods at you with new respect. How does it feel to have coins in the game?",
+            "sell": "Coins slide back across the counter into your purse. A trader nearby raises "
+                    "an eyebrow at your choice. Where do you go from here?",
+            "hold": "You keep your purse closed. The broker shrugs and turns to the next customer. "
+                    "What will you look into next?",
+        }[action]
+        return S.DecideOut(
+            kind="decision", action=action, amount_eur=amount, portion=portion,  # type: ignore[arg-type]
+            text=reaction, suggestions=decision_suggestions(ctx),
+        )  # fmt: skip
+
     def hint(self, c: dict[str, Any]) -> S.TextOut:
         where = c["target"]["location_name"]
         return S.TextOut(

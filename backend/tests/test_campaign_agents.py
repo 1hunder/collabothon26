@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
-from sse_helpers import names, parse_sse, post_sse, streamed_text
+from sse_helpers import answer_scene, names, parse_sse, post_sse, streamed_text
 from test_campaign_api import enron, loc_id, new_player, start  # noqa: F401
 
 from financequest.agents.campaign import context as C
@@ -410,6 +410,7 @@ def test_summary_every_six_turns_is_a_derived_event(world: SimpleNamespace) -> N
     for i in range(6):
         post_sse(world.client, f"/campaigns/{world.cid}/actions", world.h,
                  {"text": "look around", "client_msg_id": f"s{i}"})  # fmt: skip
+        answer_scene(world.client, world.h, world.cid)  # a decision scene is answered, not a turn
     for _ in range(40):  # the summary runs after the reply, off the request path
         if "summary" in event_types(world.cid):
             break
@@ -675,7 +676,7 @@ def test_debrief_sse_streams_parts_and_replays(client: TestClient, enron: str) -
     assert names(ev)[0] == "status" and names(ev)[-1] == "done"
     assert done["sound_reasoning"] and done["overlooked"] and done["luck"]
     assert done["reflection_question"].endswith("?") and done["forecast_line"].startswith("You said 30%")
-    assert [r["key"] for r in done["whatif"]][:3] == ["dont_invest", "half", "all"]
+    assert [r["key"] for r in done["whatif"]] == ["dont_invest", "first", "all", "yours"]
     assert done["text"] and done["audio_text_id"] and "Enron" not in done["text"]
     again = post_sse(client, f"/campaigns/{cid}/debrief", h)[1]
     assert again["text"] == done["text"]

@@ -66,6 +66,14 @@ class AgentContext:
     company_revealed: bool = False
     deadline: float | None = None
     campaign_id: str = ""
+    # decisions throughout the campaign (euro figures only; engine computed)
+    purse: dict[str, Any] | None = None  # cash_eur, position_eur, total_eur
+    decisions: list[dict[str, Any]] = field(default_factory=list)
+    scene: dict[str, Any] | None = None  # the open decision scene
+
+    @property
+    def holds_shares(self) -> bool:
+        return bool(self.purse and self.purse.get("position_eur", 0) > 0)
 
     @property
     def budget(self) -> int:
@@ -253,6 +261,8 @@ def build_agent_context(
         question=question,
         company_revealed=any(e.type == "debrief_complete" for e in events),
         campaign_id=str(run.id),
+        purse=service.purse(db, run, pack), decisions=service.decisions_out(db, run, pack),
+        scene=run.market_scene if isinstance(run.market_scene, dict) else None,
     )  # fmt: skip
 
 
@@ -322,8 +332,14 @@ def free_numbers(ctx: AgentContext, typed: str = "") -> list[Any]:
         nums.append(int(p.news.get("time_skip_days", 0)))
         nums.append(max(1, ctx.gv.clock_day - p.intro.story_day))  # the shown skip, from the clock
     nums += [cp.story_day for cp in p.checkpoints if ctx.gv.at_checkpoint(cp.id)]
-    for text in [typed, *ctx.player_texts]:
+    for text in [typed, *ctx.player_texts, *(d["text"] for d in ctx.decisions)]:
         nums += re.findall(r"\d+(?:\.\d+)?", text.replace(",", ""))
+    if ctx.purse:  # the purse card shows these figures to the player
+        nums += [ctx.purse["cash_eur"], ctx.purse["position_eur"], ctx.purse["total_eur"]]
+    for d in ctx.decisions:
+        nums += [d["amount_eur"], d["cash_after_eur"]]
+        if d.get("effect_eur") is not None:  # only after the lock
+            nums.append(d["effect_eur"])
     if ctx.outcome:  # after the lock the outcome and what-if figures are public
         o = ctx.outcome
         nums += [v for v in o.values() if isinstance(v, int | float | Decimal | str)]
@@ -407,7 +423,29 @@ def facts_block(ctx: AgentContext) -> str:
         f"Clues not found yet (never quote their text): {'; '.join(unfound) or 'none'}.",
         f"Challenges: {'; '.join(chs) or 'none'}.",
         f"Player may decide now: {ctx.can_decide}.",
+        *purse_lines(ctx),
     ])  # fmt: skip
+
+
+def purse_lines(ctx: AgentContext) -> list[str]:
+    """The hero's coins and the decisions so far, so the world can react to their position."""
+    if ctx.purse is None:
+        return []
+    p = ctx.purse
+    lines = [
+        f"Purse (engine computed, euros): cash {p['cash_eur']}, coins in the company worth "
+        f"{p['position_eur']}, total {p['total_eur']}."
+    ]
+    for d in ctx.decisions:
+        lines.append(
+            f"Decision on {d['day_label']} ({d['beat']}): {d['action']} {d['amount_eur']} euros. "
+            f"In their words: \"{d['text']}\""
+        )
+    if not ctx.decisions:
+        lines.append("Investment decisions so far: none.")
+    if ctx.scene:
+        lines.append(f"A decision scene is open ({ctx.scene.get('beat')}): the hero owes an answer.")
+    return lines
 
 
 def history_block(ctx: AgentContext, buddy: bool = False) -> str:
