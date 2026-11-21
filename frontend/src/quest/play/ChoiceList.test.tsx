@@ -87,7 +87,7 @@ describe('ChoiceList', () => {
 describe('own action keyboard', () => {
   it('Enter submits, Shift+Enter does not, empty never submits', async () => {
     const onSend = vi.fn();
-    render(<ActionInput busy={false} onSend={onSend} onCancel={() => undefined} />);
+    render(<ActionInput busy={false} onSend={onSend} />);
     const box = screen.getByRole('textbox');
     await userEvent.type(box, '{Enter}');
     expect(onSend).not.toHaveBeenCalled();

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Purse } from '../../api/types';
 import { PurseLine } from './DecisionCards';
 import { ACTION_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
@@ -25,52 +24,26 @@ export interface ChoiceListProps {
 const choiceBase =
   'min-h-11 w-full rounded-[4px_12px_12px_4px] border border-l-[3px] border-quest-verdigris-light/50 border-l-quest-verdigris bg-quest-lapis/90 px-3.5 py-3 text-left font-quest text-[17px] leading-snug text-quest-vellum disabled:opacity-50';
 
+/**
+ * The player's turn: typing is the only way to answer (no suggestion buttons). `suggestions`,
+ * `onHint` and `onBonusLead` stay in the props for compatibility but are not rendered.
+ * The CommerzBuddy mascot sits beside the input.
+ */
 export default function ChoiceList({
   mascot,
-  suggestions,
   prompt = 'What would you do?',
   purse,
   canDecide,
-  focusLeft,
-  bonusLeadAvailable,
   busy = false,
   onSend,
   onDecide,
-  onHint,
-  onBonusLead,
 }: ChoiceListProps): React.JSX.Element {
-  const [writing, setWriting] = useState(false);
-
-  if (writing) {
-    return (
+  return (
+    <section aria-label="Your turn" className="mx-3 flex flex-col gap-2">
+      {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
       <div className="relative">
         {mascot}
-        <ActionInput busy={busy} onSend={onSend} onCancel={() => setWriting(false)} />
-      </div>
-    );
-  }
-
-  return (
-    <section aria-label="Choices" className="mx-3 flex flex-col gap-2">
-      <p className={`mx-1.5 mb-1 ${mascot ? 'pr-[clamp(114px,36vw,150px)]' : ''} font-quest text-lg italic text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]`}>
-        {prompt}
-      </p>
-      {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
-      <div className="relative flex flex-col gap-2">
-        {mascot}
-        {suggestions.map((s) => (
-          <button key={s} type="button" disabled={busy} onClick={() => onSend(s)} className={choiceBase}>
-            {s}
-          </button>
-        ))}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setWriting(true)}
-          className={`${choiceBase} border-dashed italic text-quest-vellum-dim`}
-        >
-          Write your own action…
-        </button>
+        <ActionInput prompt={prompt} busy={busy} onSend={onSend} withMascot={Boolean(mascot)} />
       </div>
       {canDecide ? (
         <button
@@ -82,24 +55,6 @@ export default function ChoiceList({
           I&apos;m ready to decide
         </button>
       ) : null}
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          disabled={busy || focusLeft <= 0}
-          onClick={onHint}
-          className="min-h-11 flex-1 rounded-full border border-quest-gilt/50 px-3 font-quest-sans text-sm text-quest-gilt disabled:opacity-40"
-        >
-          Ask for a hint
-        </button>
-        <button
-          type="button"
-          disabled={busy || focusLeft <= 0 || !bonusLeadAvailable}
-          onClick={onBonusLead}
-          className="min-h-11 flex-1 rounded-full border border-quest-gilt/50 px-3 font-quest-sans text-sm text-quest-gilt disabled:opacity-40"
-        >
-          Chase a bonus lead
-        </button>
-      </div>
     </section>
   );
 }
@@ -107,10 +62,17 @@ export default function ChoiceList({
 interface ActionInputProps {
   busy: boolean;
   onSend: (text: string) => void;
-  onCancel: () => void;
+  prompt?: string;
+  /** Leave room on the right for the CommerzBuddy mascot beside the question. */
+  withMascot?: boolean;
 }
 
-export function ActionInput({ busy, onSend, onCancel }: ActionInputProps): React.JSX.Element {
+export function ActionInput({
+  busy,
+  onSend,
+  prompt = 'What would you do?',
+  withMascot = false,
+}: ActionInputProps): React.JSX.Element {
   const [text, setText] = useSessionDraft(ACTION_DRAFT_KEY);
   const empty = text.trim() === '';
   const submit = (): void => {
@@ -121,15 +83,18 @@ export function ActionInput({ busy, onSend, onCancel }: ActionInputProps): React
   };
   return (
     <form
-      aria-label="Your own action"
-      className="mx-3 flex flex-col gap-2 rounded-lg bg-quest-lapis/95 p-3"
+      aria-label="Your action"
+      className="flex flex-col gap-2 rounded-lg bg-quest-lapis/95 p-3"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
-      <label htmlFor="own-action" className="font-quest text-lg italic text-quest-vellum">
-        What would you do?
+      <label
+        htmlFor="own-action"
+        className={`font-quest text-lg italic text-quest-vellum ${withMascot ? 'pr-[clamp(114px,36vw,150px)]' : ''}`}
+      >
+        {prompt}
       </label>
       <textarea
         id="own-action"
@@ -142,14 +107,12 @@ export function ActionInput({ busy, onSend, onCancel }: ActionInputProps): React
           }
         }}
         rows={3}
+        placeholder="What do you do?"
         maxLength={400}
         // 16px or more keeps iOS from zooming the page on focus
         className="w-full resize-none rounded-md border border-quest-verdigris-light/50 bg-quest-soot/60 p-3 font-quest text-base text-quest-vellum"
       />
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="min-h-11 rounded-full border border-quest-vellum-dim/50 px-4 font-quest-sans text-quest-vellum-dim">
-          Back
-        </button>
         <button
           type="submit"
           disabled={empty || busy}
