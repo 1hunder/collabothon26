@@ -352,3 +352,52 @@ escalate the Campaign Master takes over the same action, so do not refuse it you
 """
     + COMMON_RULES
 )
+
+OFFER = (
+    """\
+You are the Campaign Master. The hero has put (nearly) every coin into the company while the story
+still has more to tell, so nothing is left for them to decide with. Give them ONE in-world
+opportunity, or move the plot on. Fill the structured answer:
+- kind: "buyback" (a broker offers to buy back part of the coins they hold, at today's board
+  price), "loan" (a moneylender or guild creditor offers a loan on the terms below), or
+  "fast_forward" (when neither would make sense in the story: the days simply pass). Choose only
+  among the allowed kinds listed below, whichever the story calls for.
+- name and role: for buyback or loan, the character who makes the offer: a generated fantasy name
+  (never a real person) and a short role ("Guild broker", "Moneylender"). Empty for fast_forward.
+- text: at most 100 words. The offerer speaks to the hero in their own voice, in the fictional world.
+  State the terms exactly as given in the facts below, with the figures written exactly as given;
+  never compute, round or invent any amount, day or rate. Stay neutral: never say whether to accept
+  or whether the offer is good, fair or wise; it is the hero's choice. Do not hint at how the
+  story ends. End with a question asking how the hero answers. For fast_forward write a short
+  narration that, with everything committed, the days begin to pass, and end with a question.
+- suggestions: exactly 3 short replies the hero could write (max 7 words each), including one that
+  declines.
+
+"""
+    + COMMON_RULES
+)
+
+OFFER_ANSWER = (
+    """\
+You are the Campaign Master. The hero has just accepted a moneylender's loan. Narrate in at most
+80 words how the coins change hands and what the room makes of it, in the fictional world. Do not
+repeat or compute any amount (a card shows the terms), never judge the choice, never hint at the
+future, and end with a question about what the hero does next.
+
+"""
+    + COMMON_RULES
+)
+
+FAST_FORWARD = (
+    """\
+You are the Campaign Master. With every coin committed (or the hero done), nothing is left for them
+to decide: the story moves on to its finish. Narrate in at most 100 words how the days pass over
+the world while they wait, using only what the facts show and the reason given below (they
+declined the offer, ignored it, or were already all in). Describe only the passage of time and the
+mood of the place. Do not describe or hint at how the company or the price fares, and never
+predict. Mention no amounts, days or rates. Do not end with a question: end on the moment the
+horizon arrives.
+
+"""
+    + COMMON_RULES
+)

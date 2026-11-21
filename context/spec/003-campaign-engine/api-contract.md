@@ -378,3 +378,77 @@ Veteran memory is version 2: per-decision `reasoning` snippets (160 chars).
 
 FAKE_LLM: reasoning is read from "because/since/..." or the text after ":" in the decision;
 sufficient when it has at least 6 words, a number or a clue word, and is not vague.
+
+## 11. The all-in plot: nothing left at stake
+
+A hero with every coin in the company (or out of it and done) has no reason left to follow the story.
+After any decision-scene trade the engine checks, and the Campaign Master responds with one of three
+things. The Master chooses the kind (guided by the story; scripted in FAKE_LLM, default `buyback`, queue
+`fake.script_offer("loan" | "fast_forward")`); the engine supplies every figure, validates the kind
+and executes; the model never produces a number.
+
+**Detection (engine, `service.nothing_at_stake`).** Right after a trade, with the phase `play`:
+- *all in*: free cash <= 2% of the starting budget (`hp_start * 10`) and coins held > 0;
+- *out for good*: a `sell` that leaves no coins, after an earlier buy, with "done" wording ("I'm done",
+  "that's it", "finished", ...).
+
+| Situation | Plot |
+|---|---|
+| all in, the news has not broken yet (unrevealed checkpoints ahead), no offer made yet | the Master chooses `buyback`, `loan` or `fast_forward` |
+| all in at the last checkpoint (news already shown), or an earlier offer was declined or ignored | straight `fast_forward`, no offer |
+| out for good | straight `fast_forward` (a buyback or loan makes no sense) |
+| all in again after an offer the player took | nothing: the plot goes on |
+
+An offer is made at most once per campaign (event `all_in_offer`). The follow-up "why?" question of the
+triggering trade is not asked (it is closed as skipped; an inline reason is kept).
+
+**Offer.** `done.offer` / state `offer` / the open scene `market_scene.beat == "offer"`:
+`{kind: "buyback" | "loan", by: {name, role}, terms}`. `by` is a generated in-world character
+(a "Guild broker" or a "Moneylender"); the reply uses `speaker_kind: "npc"`. `terms`:
+- `buyback`: `{max_eur, price: "today's board price", default_portion: "half"}`. Accepting is a `sell`
+  at the board price (`beat: "offer"`); "sell half" / "sell 100" work, a bare "accept" sells half; the
+  amount is clamped to what is held.
+- `loan`: `{principal_eur, interest_pct: 10, repay_eur, due: "at the end of the horizon"}`; principal =
+  50% of the starting budget, flat 10%.
+
+The offer also arrives as a card `{kind: "offer", offer_kind, by, terms, text, suggestions, day_label,
+purse, audio_text_id}` after the trade receipt. The player answers by typing to `POST /actions`
+(accept / decline / something else). Neutral wording only: the Master never says whether to accept.
+
+**Answers (`POST /actions` while `market_scene.beat == "offer"`).**
+- accept a buyback: executes like a decision (receipt card, `Trade.beat = "offer"`), scene closed;
+- accept a loan: a `loan` trade (see Persistence): cash +principal now, receipt card with `loan`;
+- decline ("no", "decline", "keep", "hold" ...): the Master narrates, then **fast-forward**;
+- something else: the normal turn runs and the offer stays open once; the second time the player
+  ignores it, **fast-forward**. `offer_ignored` events count them.
+
+**Fast-forward.** The Master narrates the days passing (no result, no figure). The engine seals the
+position as it stands (`lock_decision(auto=True)`: `decision` row with the player's latest reasoning,
+`reasoning_source: "auto"`, neutral forecast 50% / low confidence, `lock` event with `auto: true`,
+`time_skip`) and the phase becomes `timeskip`. The `done` carries `fast_forward: true`,
+`all_in: true` and `phase: "timeskip"`; the client opens `/quest/outcome` after the reply is read
+(GET `/reveal` then moves the phase to `reveal`, as after a normal lock).
+
+**Fields.** Every `done`: `all_in: bool` (this reply left nothing at stake), `fast_forward: bool`,
+`offer` (the open offer or null). Campaign state: `all_in` (derived: free cash <= 2% and coins held),
+`offer`. `purse` gains `loan: {lender, principal_eur, repay_eur, interest_eur, label} | null` and, with
+a loan, `net_eur` (cash + coins - repayment). `label` reads "Loan from <lender>: +€500 now, repay €550
+at the end". Trade receipts with `action: "loan"` carry `loan`. `decisions[]` rows may have
+`action: "loan"` (`amount_eur` = principal, `beat: "offer"`).
+
+**Result maths (exact).** `breakdown` gains `loan_repay_eur` and `loan` (or `0` / `null`).
+`final_value = cash_kept + value_now - loan_repay_eur` (the principal is part of `cash_kept`;
+`invested = budget + principal - cash`); `pl_eur = final_value - starting_budget`. `fees` stays 0.
+What-if rows keep their alternatives on the plain budget; "Your decisions" includes the loan.
+The debrief context shows `loan_repay`.
+
+**Persistence.** No migration. The loan is a `campaign_trade` row (`action: "loan"`, `beat: "offer"`,
+`amount_cents` = principal, `price` = repayment in euros as text, `text` = "Loan from <lender>",
+`cash_after_cents` includes the principal, `shares_after` unchanged). The open offer lives in
+`campaign_run.market_scene` (`{beat: "offer", offer, ignored, text, suggestions}`); events
+`all_in_offer {kind, by, terms}` and `offer_ignored {text, count}` are the log.
+
+**Agent nodes.** `campaign_offer` (structured `OfferOut`: kind, name, role, text, suggestions; the
+kind must be in the allowed list, else the first allowed is used), `campaign_offer_answer` (the loan
+accepted) and `campaign_forward` (the days pass). All run through the guards (number allowlist
+includes the offer's own terms and the 10% / 50% rates; no advice; no leak) with prepared templates.

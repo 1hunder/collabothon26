@@ -12,8 +12,8 @@ import Backlog from './Backlog';
 import BreakingNewsCard from './BreakingNewsCard';
 import BuddyMascot from './BuddyMascot';
 import BuddyScene from './BuddyScene';
-import { normalizeCard, type QuestCard } from './cards';
-import { MarketMoment, TradeReceipt } from './DecisionCards';
+import { normalizeCard, type OfferMomentCard, type QuestCard } from './cards';
+import { MarketMoment, OfferMoment, TradeReceipt, offerTerms } from './DecisionCards';
 import ChoiceList from './ChoiceList';
 import DialogueBox, { DM_NAME, type VoiceKind } from './DialogueBox';
 import DiceMoment, { type DiceApi } from './DiceMoment';
@@ -57,6 +57,8 @@ interface Scene {
   newsText: string | null;
   instant: boolean;
   audioTextId: number | string | null;
+  /** The all-in plot moved to its finish: once this reply is read, the outcome opens. */
+  fastForward?: boolean;
 }
 
 type Overlay =
@@ -65,6 +67,7 @@ type Overlay =
   | { kind: 'news'; card: NewsCard }
   | { kind: 'dice'; card: DiceCard }
   | { kind: 'market'; card: MarketCard }
+  | { kind: 'offer'; card: OfferMomentCard }
   | { kind: 'trade'; card: TradeCard };
 
 type SheetName = 'map' | 'journal' | 'backlog' | 'board' | 'library' | 'rumours' | 'timeline' | null;
@@ -159,6 +162,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       trader: x.reasoning_prompt ? { speaker: x.reasoning_prompt.speaker, text: x.reasoning_prompt.text } : null,
       suggestions: x.suggestions ?? [],
       showDecide: x.show_decide === true,
+      fastForward: x.fast_forward === true,
       cards: done.cards.flatMap((raw) => normalizeCard(raw) ?? []),
       newsText: x.news_text ?? null,
       instant: false,
@@ -284,25 +288,34 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     const dice = current.cards.find((k): k is DiceCard => k.kind === 'dice');
     const market = current.cards.find((k): k is MarketCard => k.kind === 'market');
     const trade = current.cards.find((k): k is TradeCard => k.kind === 'trade');
+    const offer = current.cards.find((k): k is OfferMomentCard => k.kind === 'offer');
     if (news) setOverlay({ kind: 'timeskip', card: news });
     else if (dice) setOverlay({ kind: 'dice', card: dice });
     else if (trade) setOverlay({ kind: 'trade', card: trade });
+    else if (offer) setOverlay({ kind: 'offer', card: offer });
     else if (market) setOverlay({ kind: 'market', card: market });
     else finishScene(current);
   };
 
   // The decision scene: its suggestions become the choices, and the written action answers it.
-  const answerScene = (card: MarketCard): void => {
+  const answerScene = (card: MarketCard | OfferMomentCard): void => {
     setOverlay({ kind: 'none' });
     if (!current) return;
     const key = `${current.key}-scene`;
-    setScene({ ...current, key, speaker: DM_NAME, text: card.text, suggestions: card.suggestions, cards: [], newsText: null, showDecide: false, instant: true, audioTextId: null });
+    const who = card.kind === 'offer' ? { speaker: card.by.name, speakerKind: 'npc' as const } : { speaker: DM_NAME, speakerKind: undefined };
+    setScene({ ...current, key, ...who, text: card.text, suggestions: card.suggestions, cards: [], newsText: null, showDecide: false, instant: true, audioTextId: null });
     setAdvancedKey(key);
   };
 
   // After a receipt: the decision scene of the same reply if the engine opened one, else the choices.
   // The end of a reply's pages: the curious trader's question (if any) is one more page, then the choices.
   const finishScene = (cur: Scene): void => {
+    if (cur.fastForward) {
+      // Nothing was left at stake: the story went on to its finish, the outcome opens as after a lock.
+      patchCampaignCache(qc, id, { phase: 'timeskip' });
+      void navigate('/quest/outcome', { replace: true });
+      return;
+    }
     if (cur.trader) {
       setScene({ ...cur, key: `${cur.key}-trader`, speaker: cur.trader.speaker, speakerKind: 'npc', escalated: false, text: cur.trader.text, trader: null, cards: [], newsText: null, showDecide: false, instant: false, audioTextId: null });
     } else {
@@ -313,7 +326,9 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const afterTrade = (): void => {
     if (!current) return;
     const market = current.cards.find((k): k is MarketCard => k.kind === 'market');
-    if (market) setOverlay({ kind: 'market', card: market });
+    const offer = current.cards.find((k): k is OfferMomentCard => k.kind === 'offer');
+    if (offer) setOverlay({ kind: 'offer', card: offer });
+    else if (market) setOverlay({ kind: 'market', card: market });
     else {
       setOverlay({ kind: 'none' });
       finishScene(current);
@@ -423,7 +438,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     if (inChoices) {
       return (
         <ChoiceList
-          prompt={c.market_scene ? 'What do you do with your coins?' : undefined}
+          prompt={c.offer ? `${c.offer.by.name}, ${c.offer.by.role}: ${offerTerms(c.offer)} How do you answer?` : c.market_scene ? 'What do you do with your coins?' : undefined}
           purse={c.market_scene ? c.purse : undefined}
           canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
           awaitingReasoning={c.awaiting_reasoning === true}
@@ -540,6 +555,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           ) : null}
           {activeOverlay.kind === 'news' ? <BreakingNewsCard card={activeOverlay.card} onContinue={afterNews} /> : null}
           {activeOverlay.kind === 'market' ? <MarketMoment card={activeOverlay.card} onAnswer={() => answerScene(activeOverlay.card)} /> : null}
+          {activeOverlay.kind === 'offer' ? <OfferMoment card={activeOverlay.card} onAnswer={() => answerScene(activeOverlay.card)} /> : null}
           {activeOverlay.kind === 'trade' ? <TradeReceipt card={activeOverlay.card} onContinue={afterTrade} /> : null}
           {activeOverlay.kind === 'dice' && diceApi ? (
             <DiceMoment

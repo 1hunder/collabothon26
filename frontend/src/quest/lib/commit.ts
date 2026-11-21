@@ -20,6 +20,7 @@ export function toRequest(d: CommitDraft): CommitRequest | null {
 export function decisionLabel(d: Pick<DecisionEntry, 'action' | 'amount_eur'>): string {
   if (d.action === 'buy') return `Put in ${formatEur(d.amount_eur)}`;
   if (d.action === 'sell') return `Took out ${formatEur(d.amount_eur)}`;
+  if (d.action === 'loan') return `Borrowed ${formatEur(d.amount_eur)}`;
   if (d.action === 'loss') return `Lost ${formatEur(d.amount_eur)} to damage`;
   return 'Held';
 }
