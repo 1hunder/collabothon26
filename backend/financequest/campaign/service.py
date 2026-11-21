@@ -499,8 +499,8 @@ def nothing_at_stake(db: Session, run: CampaignRun, pack: Pack, trade: Trade, te
     )  # fmt: skip
     if out_for_good:
         return "fast_forward"
-    if not is_all_in(db, run, pack):
-        return None
+    if trade.action == "hold" or not is_all_in(db, run, pack):
+        return None  # a hold moves nothing: the plot was decided by the trade that went all in
     if offers_made(db, run.id) == 0:
         return "offer" if story_ahead(run) else "fast_forward"
     if any(t.beat == "offer" for t in trades):
@@ -941,8 +941,7 @@ def reveal_payload(
             "cash_kept": num(oc.cash), "invested": num(oc.invested), "value_now": num(oc.value_now),
             "fees": num(oc.fees), "final_value": num(oc.final), "pl_eur": num(oc.pnl),
             "pl_pct": num(oc.pnl_pct),
-            "loan_repay_eur": float(loan.repay) if loan else 0.0,
-            "loan": loan_out(loan) if loan else None,
+            **({"loan_repay_eur": float(loan.repay), "loan": loan_out(loan)} if loan else {}),
         },
         "hp_before": oc.hp_before,
         "hp_after": oc.hp_after,
@@ -1035,7 +1034,7 @@ def debrief_facts(
     )  # fmt: skip
     rows = ledger.whatif_rows(
         budget_now(run), ledger_result(run, pack, trades),
-        Decimal(first.price) if (first := next((t for t in trades if t.action in ("buy", "sell")), None))
+        Decimal(first.price) if (first := next((t for t in trades if t.action != "loan"), None))
         and first.price else None, decision_price,
         pack.end_close,
     )  # fmt: skip

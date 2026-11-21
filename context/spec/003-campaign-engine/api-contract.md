@@ -419,7 +419,7 @@ a loan, `net_eur` (cash + coins - repayment). `label` reads "Loan from <lender>:
 at the end". Trade receipts with `action: "loan"` carry `loan`. `decisions[]` rows may have
 `action: "loan"` (`amount_eur` = principal, `beat: "offer"`).
 
-**Result maths (exact).** `breakdown` gains `loan_repay_eur` and `loan` (or `0` / `null`).
+**Result maths (exact).** `breakdown` gains `loan_repay_eur` and `loan` only when a loan was taken.
 `final_value = cash_kept + value_now - loan_repay_eur` (the principal is part of `cash_kept`;
 `invested = budget + principal - cash`); `pl_eur = final_value - starting_budget`. `fees` stays 0.
 What-if rows keep their alternatives on the plain budget; "Your decisions" includes the loan.
