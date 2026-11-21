@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from financequest.config import get_settings
@@ -64,6 +65,7 @@ from pydantic import BaseModel  # noqa: E402
 
 WEB_SEARCH_TOOL_TYPE = "web_search_20260209"  # current version for claude-opus-5-5
 MAX_PAUSE_TURNS = 4
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -201,13 +203,33 @@ class AnthropicNodeLLM:
         stop: str | None = None
         for _ in range(MAX_PAUSE_TURNS):
             msg = bound.invoke(convo)
-            blocks += _blocks(msg.content)
+            new_blocks = _blocks(msg.content)
+            blocks += new_blocks
             for k, v in _usage_of(msg).items():
                 usage[k] = usage.get(k, 0) + v
             stop = (msg.response_metadata or {}).get("stop_reason")
-            if stop != "pause_turn":
+            if stop == "pause_turn":
+                convo = [*convo, msg]  # the server resumes its own tool loop
+                continue
+            if stop != "tool_use":
                 break
-            convo = [*convo, msg]
+            # Only the web search server tool is offered, but the model sometimes ends a turn on
+            # a client-side tool call (seen live). Answer each call with an error result so the
+            # model finishes its answer with what it has, instead of failing the whole node.
+            calls = [b for b in new_blocks if b.get("type") == "tool_use"]
+            log.info("%s: stray tool_use %s; asking the model to finish", node,
+                     [c.get("name") for c in calls])  # fmt: skip
+            if not calls:
+                convo = [*convo, msg]
+                continue
+            from langchain_core.messages import HumanMessage
+
+            convo = [*convo, msg, HumanMessage(content=[
+                {"type": "tool_result", "tool_use_id": c["id"], "is_error": True,
+                 "content": "This tool is not available. Use web_search only, or finish your "
+                            "answer now with what you already know."}
+                for c in calls
+            ])]  # fmt: skip
         return LLMResult(
             content=blocks, stop_reason=stop, usage=usage, latency_s=time.monotonic() - t0
         )
