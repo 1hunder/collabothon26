@@ -28,11 +28,19 @@ STYLE_GUIDE = (
     "Painterly fantasy merchant-city illustration. Palette: lapis blue #22305B, "
     "verdigris green #3E8A7E, gilt gold #C9A227, vellum cream #E8DCC2. Warm lantern light "
     "against deep blue shadows. Wide establishing shot, rich architectural detail, soft "
-    "brushwork, 16:9 landscape composition."
+    "brushwork, 16:9 landscape composition. "
+    # Anti "AI-shiny" direction: the art should read as hand-painted, not generated.
+    "Make it look hand-painted by a human illustrator: visible, slightly uneven brush strokes, "
+    "matte gouache and oil texture, subtle paper or canvas grain, muted and slightly desaturated "
+    "colours, soft natural light with gentle falloff, imperfect hand-drawn edges and "
+    "lived-in, worn surfaces (scuffed wood, chipped stone, faded cloth)."
 )
 NEGATIVE_BLOCK = (
     "Do not include any logos, text, lettering, signage, banners with writing, people, "
-    "faces or figures."
+    "faces or figures. Avoid the typical AI-generated look: no glossy or plastic surfaces, "
+    "no airbrushed smoothness, no hyper-detailed 8K sharpness, no HDR or over-saturated "
+    "colours, no neon glow or lens flare, no excessive bloom or god rays, no 3D-render or "
+    "CGI look, no symmetrical stock-fantasy composition."
 )
 STYLE_ANCHOR = Path(__file__).resolve().parent.parent / "fixtures" / "style-anchor.webp"
 PLACEHOLDER, PENDING, READY, FAILED = "placeholder", "pending", "ready", "failed"

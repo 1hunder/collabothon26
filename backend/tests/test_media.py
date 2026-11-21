@@ -162,3 +162,8 @@ def test_tts_voice_validation(client: TestClient) -> None:
     _, _, ev, _ = seed()
     assert client.get(f"/tts/{ev}", params={"voice": "robot"}).status_code == 422
     assert client.get(f"/tts/{ev}").status_code == 422
+
+
+def test_art_prompt_asks_for_hand_painted_not_ai_shiny_look() -> None:
+    p = art.build_art_prompt("A quiet harbour office")
+    assert "hand-painted" in p and "no glossy" in p.lower() and "no hdr" in p.lower()
