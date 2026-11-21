@@ -19,7 +19,7 @@ export default function LeaveDialog({ onLeave, onStay }: LeaveDialogProps): Reac
           <button type="button" onClick={onLeave} className="min-h-11 flex-1 rounded-full border border-quest-vellum-dim px-4 font-quest-sans font-semibold">
             Leave
           </button>
-          <button type="button" onClick={onStay} className="min-h-11 flex-1 rounded-full bg-quest-verdigris px-4 font-quest-sans font-semibold text-quest-vellum">
+          <button type="button" onClick={onStay} className="min-h-11 flex-1 rounded-full border border-quest-gilt/70 bg-quest-lapis-deep px-4 font-quest-sans font-semibold text-quest-vellum">
             Stay
           </button>
         </div>

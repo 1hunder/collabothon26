@@ -289,7 +289,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       return (
         <div role="alert" className="mx-3 rounded-lg bg-quest-lapis/95 p-4 font-quest text-quest-vellum">
           <p>The Campaign Master lost the thread.</p>
-          <button type="button" onClick={dm.retry} className="mt-2 min-h-11 rounded-full bg-quest-gilt px-5 font-quest-sans font-bold text-quest-soot">
+          <button type="button" onClick={dm.retry} className="mt-2 min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-5 font-quest-sans font-bold text-quest-soot">
             Try again
           </button>
         </div>

@@ -76,7 +76,7 @@ export default function DiceMoment({ card, api, onResolved, resumeSetback }: Dic
             </p>
           ) : null}
           <div className="mt-6 flex flex-col items-center gap-3">
-            <button type="button" onClick={() => roll('normal')} className="min-h-11 rounded-full border border-quest-gilt bg-quest-gilt px-8 font-quest-sans text-base font-bold text-quest-soot">
+            <button type="button" onClick={() => roll('normal')} className="min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-8 font-quest-sans text-base font-bold text-quest-soot">
               Roll
             </button>
             {keenEye ? (
@@ -99,7 +99,7 @@ export default function DiceMoment({ card, api, onResolved, resumeSetback }: Dic
               <button
                 type="button"
                 onClick={() => void run(() => api.reroll(card.roll_id))}
-                className="min-h-11 rounded-full border border-quest-gilt bg-quest-gilt px-6 font-quest-sans font-bold text-quest-soot"
+                className="min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-6 font-quest-sans font-bold text-quest-soot"
               >
                 Second Look — reroll ({resumeSetback.rerollsLeft} left)
               </button>
@@ -163,7 +163,7 @@ function Result({ roll, offerReroll, onResolved, run, api }: ResultProps): React
             <button
               type="button"
               onClick={() => void run(() => api.reroll(roll.roll_id))}
-              className="min-h-11 rounded-full border border-quest-gilt bg-quest-gilt px-6 font-quest-sans font-bold text-quest-soot"
+              className="min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-6 font-quest-sans font-bold text-quest-soot"
             >
               Second Look — reroll ({roll.rerolls_left} left)
             </button>
@@ -176,7 +176,7 @@ function Result({ roll, offerReroll, onResolved, run, api }: ResultProps): React
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => onResolved(roll)} className="min-h-11 rounded-full border border-quest-gilt bg-quest-gilt px-8 font-quest-sans font-bold text-quest-soot">
+          <button type="button" onClick={() => onResolved(roll)} className="min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-8 font-quest-sans font-bold text-quest-soot">
             Continue
           </button>
         )}

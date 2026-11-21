@@ -172,7 +172,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
               aria-checked={draft.action === a}
               onClick={() => set({ action: a, amount_eur: needsAmount(a) ? draft.amount_eur : null })}
               className={`min-h-11 rounded-md border-2 px-3 font-quest-sans ${
-                draft.action === a ? 'border-quest-gilt bg-quest-verdigris' : 'border-quest-lapis bg-quest-lapis-deep'
+                draft.action === a ? 'border-quest-gilt bg-quest-lapis' : 'border-quest-lapis bg-quest-lapis-deep'
               }`}
             >
               {actionLabels[a]}
@@ -262,7 +262,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
               aria-checked={draft.confidence === c}
               onClick={() => set({ confidence: c })}
               className={`min-h-11 rounded-md border-2 font-quest-sans capitalize ${
-                draft.confidence === c ? 'border-quest-gilt bg-quest-verdigris' : 'border-quest-lapis bg-quest-lapis-deep'
+                draft.confidence === c ? 'border-quest-gilt bg-quest-lapis' : 'border-quest-lapis bg-quest-lapis-deep'
               }`}
             >
               {c.charAt(0).toUpperCase() + c.slice(1)}
@@ -291,7 +291,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
       <button
         type="submit"
         disabled={!valid}
-        className="min-h-11 w-full rounded-md bg-quest-wax px-5 font-quest-sans text-lg font-bold text-quest-vellum disabled:opacity-40"
+        className="min-h-11 w-full rounded-md border border-quest-wax-light bg-quest-lapis-deep px-5 font-quest-sans text-lg font-bold text-quest-vellum disabled:opacity-40"
       >
         Lock my decision
       </button>
@@ -301,7 +301,7 @@ function CommitForm({ campaign }: { campaign: CampaignState }): React.JSX.Elemen
           <div className="w-full max-w-sm space-y-4 rounded-lg bg-quest-lapis p-5">
             <p id="lock-q" className="text-lg">Once locked, you can&apos;t change it. Lock?</p>
             <div className="flex gap-3">
-              <button type="button" onClick={() => void lock()} className="min-h-11 flex-1 rounded-md bg-quest-wax font-quest-sans font-bold">
+              <button type="button" onClick={() => void lock()} className="min-h-11 flex-1 rounded-md border border-quest-wax-light bg-quest-lapis-deep font-quest-sans font-bold">
                 Lock
               </button>
               <button type="button" onClick={() => setStage('form')} className="min-h-11 flex-1 rounded-md border border-quest-vellum-dim font-quest-sans">
@@ -327,7 +327,7 @@ function TimeSkip({ label, onDone }: { label: string; onDone: () => void }): Rea
       className="flex min-h-[60dvh] w-full flex-col items-center justify-center gap-2 text-center"
     >
       <span className="font-quest-title text-5xl text-quest-gilt">{label}</span>
-      <span className="font-quest-sans text-sm text-quest-vellum-dim">Tap to continue</span>
+      <span className="text-sm">Tap to continue</span>
     </button>
   );
 }

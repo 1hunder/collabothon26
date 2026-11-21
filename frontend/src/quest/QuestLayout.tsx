@@ -47,7 +47,7 @@ export default function QuestLayout(): React.JSX.Element {
   };
 
   return (
-    <div className="quest-background relative min-h-dvh bg-quest-lapis-deep px-4 font-quest text-quest-vellum pb-[env(safe-area-inset-bottom)] pt-[calc(1rem+env(safe-area-inset-top))]">
+    <div className="quest-controls quest-background relative min-h-dvh bg-quest-lapis-deep px-4 font-quest text-quest-vellum pb-[env(safe-area-inset-bottom)] pt-[calc(1rem+env(safe-area-inset-top))]">
       {/* The play screen's dock carries the voice control; a second one here sits under the hero status bar. */}
       {location.pathname === '/quest/play' ? null : (
         <div className="absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top))] flex">

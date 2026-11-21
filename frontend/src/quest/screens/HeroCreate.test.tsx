@@ -73,11 +73,22 @@ describe('HeroCreate', () => {
 
   it('highlights only the selected class and enables Begin', async () => {
     setup();
-    const [guardian, analyst] = screen.getAllByRole('radio');
-    await userEvent.click(analyst!);
+    const guardian = screen.getByRole('radio', { name: /Guardian/ });
+    const analyst = screen.getByRole('radio', { name: /Analyst/ });
+    await userEvent.click(analyst);
     expect(analyst).toHaveAttribute('aria-checked', 'true');
     expect(guardian).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByRole('button', { name: 'Begin' })).toBeEnabled();
+  });
+
+  it('wraps keyboard selection and moves focus to the centered class', async () => {
+    setup();
+    screen.getByRole('radio', { name: /Guardian/ }).focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
+    const analyst = screen.getByRole('radio', { name: /Analyst/ });
+    expect(analyst).toBeChecked();
+    expect(analyst).toHaveFocus();
+    expect(analyst).toHaveAttribute('data-position', 'center');
   });
 
   it('Begin creates the hero and opens the disclosure', async () => {

@@ -106,7 +106,7 @@ export default function LibraryScroll({ library, onClose }: LibraryScrollProps):
       >
         {/* Close sits top-left: the quest layout's own "Close quest" button owns the top-right corner. */}
         <header className="flex items-start gap-1 px-3 pt-4">
-          <button type="button" aria-label="Close Library" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-quest-lapis">
+          <button type="button" aria-label="Close Library" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-quest-lapis-deep">
             <X aria-hidden="true" size={22} />
           </button>
           <div className="pr-12">
@@ -119,13 +119,13 @@ export default function LibraryScroll({ library, onClose }: LibraryScrollProps):
           {library.documents.length === 0 ? <p className="mt-3">No documents yet.</p> : null}
         </div>
         <footer className="flex items-center justify-between px-4 pb-4">
-          <button type="button" aria-label="Previous page" disabled={index === 0} onClick={() => go(-1)} className="flex h-11 w-11 items-center justify-center rounded-full text-quest-lapis disabled:opacity-30">
+          <button type="button" aria-label="Previous page" disabled={index === 0} onClick={() => go(-1)} className="flex h-11 w-11 items-center justify-center rounded-full bg-quest-lapis-deep disabled:opacity-30">
             <ChevronLeft aria-hidden="true" size={26} />
           </button>
           <p aria-live="polite" className="font-quest-sans text-sm text-[#5b5242]">
             Page {index + 1} of {pages.length}
           </p>
-          <button type="button" aria-label="Next page" disabled={index === last} onClick={() => go(1)} className="flex h-11 w-11 items-center justify-center rounded-full text-quest-lapis disabled:opacity-30">
+          <button type="button" aria-label="Next page" disabled={index === last} onClick={() => go(1)} className="flex h-11 w-11 items-center justify-center rounded-full bg-quest-lapis-deep disabled:opacity-30">
             <ChevronRight aria-hidden="true" size={26} />
           </button>
         </footer>

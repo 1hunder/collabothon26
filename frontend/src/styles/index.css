@@ -19,6 +19,14 @@
   background-size: cover;
 }
 
+.quest-controls :is(button, [role="button"], a[href]) {
+  @apply font-quest-title font-normal text-quest-gilt;
+}
+
+.quest-controls :is(button, [role="button"], a[href]):focus-visible {
+  @apply outline outline-2 outline-offset-2 outline-quest-gilt;
+}
+
 @keyframes fid-scan {
   0% { transform: translateY(0); opacity: 0; }
   10%, 90% { opacity: 1; }

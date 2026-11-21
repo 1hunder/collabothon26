@@ -25,7 +25,7 @@ export default function Sheet({ title, subtitle, onClose, children }: SheetProps
           type="button"
           aria-label={`Close ${title}`}
           onClick={onClose}
-          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full text-quest-lapis"
+          className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-quest-lapis-deep"
         >
           <X aria-hidden="true" size={22} />
         </button>

@@ -74,7 +74,7 @@ export default function Xp(): React.JSX.Element {
               void qc.invalidateQueries({ queryKey: queryKeys.hero });
               void navigate('/overview', { replace: true });
             }}
-            className="min-h-11 w-full rounded-md bg-quest-verdigris font-quest-sans font-bold"
+            className="min-h-11 w-full rounded-md border border-quest-gilt/70 bg-quest-lapis-deep font-quest-sans font-bold"
           >
             Back to the bank
           </button>
@@ -83,7 +83,7 @@ export default function Xp(): React.JSX.Element {
         <button
           type="button"
           onClick={() => void finish()}
-          className="min-h-11 w-full rounded-md bg-quest-verdigris px-5 font-quest-sans text-lg font-bold"
+          className="min-h-11 w-full rounded-md border border-quest-gilt/70 bg-quest-lapis-deep px-5 font-quest-sans text-lg font-bold"
         >
           Finish quest
         </button>

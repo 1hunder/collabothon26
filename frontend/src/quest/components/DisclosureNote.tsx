@@ -14,7 +14,7 @@ export default function DisclosureNote({ onDismiss, pending }: DisclosureNotePro
         type="button"
         onClick={onDismiss}
         disabled={pending}
-        className="mt-3 min-h-11 rounded-md bg-quest-verdigris px-5 font-quest-sans text-quest-vellum"
+        className="mt-3 min-h-11 rounded-md border border-quest-gilt/70 bg-quest-lapis-deep px-5 font-quest-sans text-quest-vellum"
       >
         {pending ? 'Finding your quest…' : 'Got it'}
       </button>

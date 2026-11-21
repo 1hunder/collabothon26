@@ -134,7 +134,7 @@ export function ActionInput({ busy, onSend, onCancel }: ActionInputProps): React
         <button
           type="submit"
           disabled={empty || busy}
-          className="min-h-11 flex-1 rounded-full bg-quest-gilt px-4 font-quest-sans font-bold text-quest-soot disabled:opacity-40"
+          className="min-h-11 flex-1 rounded-full border border-quest-gilt bg-quest-lapis-deep px-4 font-quest-sans font-bold text-quest-soot disabled:opacity-40"
         >
           Send
         </button>
