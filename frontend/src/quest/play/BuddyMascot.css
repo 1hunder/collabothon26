@@ -1,33 +1,23 @@
-.buddy-track {
-  --mascot-width: clamp(76px, 24vw, 100px);
-  --travel-time: 2s;
+.buddy-mascot {
+  --mascot-width: clamp(114px, 36vw, 150px);
   position: absolute;
   /* Align the visible sprite, accounting for its 7px transparent bottom margin. */
   bottom: calc(100% - var(--mascot-width) * 7 / 380);
-  left: 30px;
   right: 12px;
-  pointer-events: none;
-}
-.buddy-mascot {
-  position: absolute;
-  bottom: 0;
-  left: calc(100% - var(--mascot-width));
   width: var(--mascot-width);
   aspect-ratio: 380 / 248;
   overflow: hidden;
-  pointer-events: auto;
+  z-index: 1;
 }
+img.buddy-mascot { pointer-events: none; }
 .buddy-frames { display: flex; width: 100%; }
 .buddy-frames img { width: 100%; flex: none; }
-.buddy-mascot[data-moving="true"] { animation: buddy-travel var(--travel-time) linear forwards; }
-.buddy-mascot[data-moving="true"] .buddy-frames {
+.buddy-mascot[data-playing="true"] .buddy-frames {
   animation-name: buddy-frames;
-  animation-duration: var(--travel-time);
+  animation-duration: 2s;
   animation-fill-mode: forwards;
 }
-@keyframes buddy-travel { to { left: 0; } }
 @keyframes buddy-frames { to { transform: translateX(var(--last-frame)); } }
 @media (prefers-reduced-motion: reduce) {
-  .buddy-mascot[data-moving="true"] { animation-duration: 1ms; }
-  .buddy-mascot[data-moving="true"] .buddy-frames { animation: none; }
+  .buddy-mascot[data-playing="true"] .buddy-frames { animation-duration: 1ms; }
 }

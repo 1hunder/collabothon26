@@ -426,7 +426,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       ) : (
         <div className="relative">
           {dialogue}
-          {showMascot && <BuddyMascot onArrive={() => { stopVoice(); setBuddyOpen(true); }} />}
+          {showMascot && <BuddyMascot onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />}
         </div>
       )}
     </VnStage>
