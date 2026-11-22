@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAddLesson, useVeteranTimeline, type Judgement, type Luck, type TimelineDecision } from '../../api/veteran';
+import { useAddLesson, useVeteranTimeline, type Judgement, type Luck, type RealCase, type TimelineDecision } from '../../api/veteran';
 import Sheet from './Sheet';
 
 interface VeteranTimelineProps {
@@ -26,6 +26,43 @@ const BAND: Record<string, string> = {
   hedged: 'Kept near even odds',
 };
 
+function signed(pct: number): string {
+  return `${pct > 0 ? '+' : ''}${pct}%`;
+}
+
+/** What really happened: the real company, its real share price and the real headlines. */
+function RealCaseSection({ rc }: { rc: RealCase }): React.JSX.Element {
+  return (
+    <section aria-label="The real case" className="rounded-lg border border-[#5a3c1e]/30 bg-white/40 p-3 text-[14px]">
+      <h3 className="font-quest-sans text-[11px] uppercase tracking-[0.1em] text-[#7A6548]">The real case</h3>
+      <p className="mt-1 font-bold">
+        {rc.company}
+        {rc.ticker ? ` (${rc.ticker})` : ''}
+      </p>
+      <p>
+        {rc.start.date} – {rc.end.date}: {rc.start.price} → {rc.end.price}
+        {rc.move_pct !== null ? ` (${signed(rc.move_pct)})` : ''}. Highest {rc.high}, lowest {rc.low}.
+      </p>
+      <p className="text-[13px] text-[#6E5C43]">
+        Real share prices in US dollars. In the quest they were disguised as gold pieces and story days.
+      </p>
+      {rc.events.length ? (
+        <ol className="mt-2 flex flex-col gap-1.5" aria-label="What really happened">
+          {rc.events.map((e) => (
+            <li key={`${e.date}-${e.headline}`} data-testid="real-event" className="border-l-2 border-quest-gilt/60 pl-2">
+              <span className="block font-quest-sans text-[11px] font-bold uppercase tracking-[0.08em] text-[#7A6548]">
+                {e.date}
+                {e.price ? ` · ${e.price}` : ''}
+              </span>
+              {e.headline}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  );
+}
+
 function Pill({ label, cls }: { label: string; cls: string }): React.JSX.Element {
   return <span className={`inline-block rounded-full px-2 py-0.5 font-quest-sans text-[12px] font-bold ${cls}`}>{label}</span>;
 }
@@ -40,6 +77,7 @@ export default function VeteranTimeline({ campaignId, onClose }: VeteranTimeline
   const [lesson, setLesson] = useState('');
   const kept = addLesson.isSuccess;
   const t = tl.data;
+  const realOf = (seq: number) => t?.real_case?.decisions.find((r) => r.seq === seq);
 
   return (
     <Sheet title={t ? t.title : 'Decision timeline'} subtitle={t ? `From Brannoc's ledger · quest ${t.number}${t.real_name ? ` · ${t.real_name}` : ''}` : undefined} onClose={onClose}>
@@ -68,6 +106,11 @@ export default function VeteranTimeline({ campaignId, onClose }: VeteranTimeline
                     {d.reasoning ? (
                       <span className="mt-0.5 block text-[13px] text-[#6E5C43]">
                         You said: <q className="italic">{d.reasoning}</q>
+                      </span>
+                    ) : null}
+                    {realOf(d.seq) ? (
+                      <span data-testid="real-when" className="mt-0.5 block text-[13px] text-[#24584F]">
+                        In history: {realOf(d.seq)?.date}, share at {realOf(d.seq)?.price}
                       </span>
                     ) : null}
                   </td>
@@ -101,6 +144,7 @@ export default function VeteranTimeline({ campaignId, onClose }: VeteranTimeline
               </dd>
             </div>
           </dl>
+          {t.real_case ? <RealCaseSection rc={t.real_case} /> : null}
           <form
             aria-label="Keep a lesson"
             className="flex flex-col gap-2"

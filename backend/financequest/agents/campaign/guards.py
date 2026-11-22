@@ -77,10 +77,11 @@ def build_allowlist(
     return allowed
 
 
-def number_violations(text: str, allowed: set[str]) -> list[str]:
+def number_violations(text: str, allowed: set[str], big_words: bool = False) -> list[str]:
+    """``big_words``: real history may say "$618 million"; the quest's own amounts never do."""
     bad = [n for n in numbers_in(text) if n not in allowed]
     out = [f"number {n} is not in the reference data" for n in dict.fromkeys(bad)]
-    if _BIG_WORDS.search(text):
+    if not big_words and _BIG_WORDS.search(text):
         out.append("amounts are never written in millions or billions")
     return out
 
@@ -303,6 +304,7 @@ class GuardRules:
     advice: bool = True
     unfound_texts: tuple[str, ...] = ()
     fields: dict[str, FieldRule] = field(default_factory=dict)
+    big_words: bool = False  # the Veteran telling a real case: "$618 million" is history
     field_allowed: dict[str, set[str]] = field(default_factory=dict)  # per-field allowlist override
 
     def static_violations(self, texts: dict[str, str]) -> list[str]:
@@ -316,7 +318,9 @@ class GuardRules:
                 out.append(f"{name} has {word_count(text)} words; the cap is {rule.max_words}")
             if rule.question and not ends_with_question(text):
                 out.append(f"{name} must end with a question")
-            out += number_violations(text, self.field_allowed.get(name, self.allowed))
+            out += number_violations(
+                text, self.field_allowed.get(name, self.allowed), self.big_words
+            )
             out += currency_violations(text)
             out += ident_violations(text)
             if self.voice:

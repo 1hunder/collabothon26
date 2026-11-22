@@ -170,4 +170,55 @@ describe('VeteranTimeline', () => {
     const post = fetchMock.mock.calls.find(([u, i]) => String(u).endsWith('/lessons') && i?.method === 'POST');
     expect(JSON.parse(String(post?.[1]?.body))).toEqual({ text: 'Reread my reasons before I sell.', campaign_id: 'c-1' });
   });
+
+  it('shows the real case: real company, real dates and dollar prices, real headlines', async () => {
+    const real: Timeline = {
+      ...TL,
+      real_case: {
+        company: 'Enron Corporation', ticker: 'ENE',
+        start: { date: '1 August 2001', price: '$43' }, decision_day: { date: '7 September 2001', price: '$31' },
+        end: { date: '30 November 2001', price: '26 cents' },
+        move_pct: -99, move_after_decision_pct: -99, high: '$43', low: '26 cents',
+        decisions: [
+          { seq: 1, action: 'buy', date: '3 August 2001', price: '$42' },
+          { seq: 2, action: 'sell', date: '16 October 2001', price: '$34' },
+        ],
+        events: [{ date: '14 August 2001', headline: 'CEO Jeffrey Skilling resigns', price: '$43' }],
+      },
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return new Response(JSON.stringify({ session_id: 's' }), { status: 201 });
+      if (url.includes('/timeline')) return new Response(JSON.stringify(real), { status: 200 });
+      return new Response('{}', { status: 200 });
+    }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <VeteranTimeline campaignId="c-1" onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const rows = await screen.findAllByTestId('timeline-row');
+    expect(rows[1]).toHaveTextContent('In history: 16 October 2001, share at $34');
+    const section = screen.getByRole('region', { name: 'The real case' });
+    expect(section).toHaveTextContent('Enron Corporation (ENE)');
+    expect(section).toHaveTextContent('1 August 2001 – 30 November 2001: $43 → 26 cents (-99%)');
+    expect(screen.getByTestId('real-event')).toHaveTextContent('14 August 2001 · $43CEO Jeffrey Skilling resigns');
+  });
+
+  it('a quest without real history shows no real-case section', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return new Response(JSON.stringify({ session_id: 's' }), { status: 201 });
+      if (url.includes('/timeline')) return new Response(JSON.stringify({ ...TL, real_case: null }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <VeteranTimeline campaignId="c-1" onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findAllByTestId('timeline-row');
+    expect(screen.queryByRole('region', { name: 'The real case' })).toBeNull();
+    expect(screen.queryByTestId('real-when')).toBeNull();
+  });
 });

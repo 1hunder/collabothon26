@@ -12,7 +12,9 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 from sse_helpers import campaign_state, post_sse, streamed_text
 
+from financequest.agents.campaign.guards import build_allowlist, number_violations
 from financequest.agents.campaign.narration import AgentNarration
+from financequest.agents.veteran.context import real_case_lines
 from financequest.agents.veteran.narration import VeteranNarration, set_veteran
 from financequest.agents.veteran.schemas import VeteranOut
 from financequest.api import sse
@@ -23,7 +25,7 @@ from financequest.db.models_veteran import VeteranMemory, VeteranProfile
 from financequest.db.session import get_engine
 from financequest.llm import get_node_llm
 from financequest.refpack.approve import approve_pack
-from financequest.veteran import memory
+from financequest.veteran import memory, real_case
 
 PACK_DIR = Path(__file__).parent.parent / "financequest" / "fixtures" / "reference" / "fq-av-001"
 
@@ -393,6 +395,71 @@ def test_guards_replace_a_leaking_or_invented_reply(client: TestClient, enron: s
             and "should buy" not in done["text"]
         )
         assert done["text"].rstrip().endswith("?")
+
+
+# ---- the real case: history for teaching, after the quest ---------------------------------------
+def test_real_prices_and_dates_read_as_whole_numbers() -> None:
+    assert [real_case.usd(x) for x in ("42.93", "0.26", "0.004", "1234.5", "0.01")] == [
+        "$43", "26 cents", "0 cents", "$1,235", "1 cent",
+    ]  # fmt: skip
+    assert real_case.long_date("2001-08-14") == "14 August 2001"
+    assert real_case.long_date("Day 3") == "Day 3"
+
+
+def test_number_guard_allows_millions_only_for_history() -> None:
+    allowed = build_allowlist(["a net loss of 618"], [])
+    assert number_violations("a loss of $618 million", allowed)  # a quest reply: never
+    assert number_violations("a loss of $618 million", allowed, big_words=True) == []
+
+
+def test_timeline_shows_the_real_case(client: TestClient, enron: str) -> None:
+    h = new_player(client)
+    cid = finish(client, h, PANIC, forecast=85, conf="high")
+    rc = client.get(f"/hero/veteran/quests/{cid}/timeline", headers=h).json()["real_case"]
+    assert rc["company"] == "Enron Corporation" and rc["ticker"] == "ENE"
+    assert rc["start"]["date"].endswith("2001") and rc["end"]["date"].endswith("2001")
+    prices = [rc["start"]["price"], rc["end"]["price"], *(d["price"] for d in rc["decisions"])]
+    assert all(p.startswith("$") or p.endswith("cent") or p.endswith("cents") for p in prices)
+    assert all("." not in p for p in prices)  # whole dollars or cents, never decimals
+    assert [d["seq"] for d in rc["decisions"]] == list(range(1, len(rc["decisions"]) + 1))
+    assert all(d["date"].endswith("2001") for d in rc["decisions"])
+    assert rc["events"], "the real headlines are part of the lesson"
+    assert all("Golden Guild" not in e["headline"] for e in rc["events"])  # real text, not disguise
+    assert isinstance(rc["move_pct"], int)
+
+
+def test_the_veteran_teaches_with_the_real_case(client: TestClient, enron: str) -> None:
+    h = new_player(client)
+    cid = finish(client, h, PANIC, forecast=85, conf="high")
+    replies = [talk(client, h, topic=cid)]
+    for _ in range(10):
+        replies.append(talk(client, h, "Go on", topic=cid))
+        if "real story" in replies[-1]["text"]:
+            break
+    story = replies[-1]
+    assert "real story" in story["text"], [r["text"] for r in replies]
+    assert "Enron Corporation" in story["text"] and "2001" in story["text"]
+    assert "$" in story["text"] or "cents" in story["text"]
+    assert story["degraded"] is False and story["text"].rstrip().endswith("?")
+    asked = [r for r in replies if "What really happened to the company?" in r["suggestions"]]
+    assert asked, "the hero is offered the real story"
+
+
+def test_real_case_reaches_the_prompt_only_for_the_quest_discussed() -> None:
+    rc = {
+        "company": "Enron Corporation", "ticker": "ENE",
+        "start": {"date": "1 August 2001", "price": "$43"},
+        "decision_day": {"date": "7 September 2001", "price": "$31"},
+        "end": {"date": "30 November 2001", "price": "26 cents"},
+        "move_pct": -99, "move_after_decision_pct": -99, "high": "$45", "low": "26 cents",
+        "decisions": [{"seq": 1, "action": "buy", "date": "3 August 2001", "price": "$42"}],
+        "events": [{"date": "14 August 2001", "headline": "CEO resigns", "price": "$43"}],
+    }  # fmt: skip
+    lines = "\n".join(real_case_lines(rc))
+    assert "Enron Corporation (ticker ENE)" in lines and "26 cents" in lines
+    assert "1. buy | 3 August 2001 | $42" in lines
+    assert "- 14 August 2001 | CEO resigns | $43" in lines
+    assert real_case_lines(None) == []
 
 
 # ---- the demo hero -------------------------------------------------------------------------------
