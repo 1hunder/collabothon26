@@ -176,12 +176,12 @@ def prepared_lesson(concept_key: str, facts: dict[str, Any]) -> dict[str, Any]:
     if concept_key == "short_squeeze":
         return _lesson(
             f"You found that traders have borrowed and sold certificates{day}. That is a bet that the price will fall.",
-            "Selling short means borrowing a certificate, selling it now and buying it back later to return it. "
-            "If the price falls, the seller keeps the difference. If it rises, the loss has no ceiling. When many "
-            "short sellers must buy back at once, their buying pushes the price up even more. That is a squeeze, "
-            "and it stops when the forced buying stops.",
-            "Imagine you borrow one certificate and sell it for 10 gp. If you buy it back at 6 gp, you keep 4 gp. "
-            "If the price jumps to 30 gp, you must pay 30 gp to give it back and you lose 20 gp.",
+            "Selling short means borrowing a certificate, selling it now and returning one later. If the "
+            "price falls, the seller keeps the difference. If it rises, the loss has no ceiling. When many "
+            "short sellers rush to return what they borrowed, their buying pushes the price up even more. "
+            "That is a squeeze.",
+            "Imagine a trader borrows one certificate and sells it for 10 gp. Getting one back at 6 gp leaves "
+            "a 4 gp gain. If the price jumps to 30 gp, getting one back costs 30 gp: a 20 gp loss.",
             "A squeeze is forced buying, not proof the guild got better.",
             "Many short sellers rush to buy back at once. What usually happens to the price?",
             "It jumps up", ["It drops", "Nothing changes"], concept_key)

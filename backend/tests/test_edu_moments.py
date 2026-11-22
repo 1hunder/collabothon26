@@ -62,8 +62,10 @@ def test_detector_triggers_each_concept_from_engine_facts() -> None:
     assert hit(screen_texts=both) == ["cash_vs_profit"]
     assert hit(text="Is cash flow the same as earnings?") == ["concept_question", "cash_vs_profit"]
     moved = {"first": 100, "last": 90, "change_pct": -10}
-    assert hit(chart=moved, at_market=True) == ["price_move"]
-    assert hit(chart=moved, screen="market_square") == ["price_move"]
+    # arriving at the market is not a learning moment (it fired at the start of every quest)
+    assert hit(chart=moved, at_market=True) == []
+    assert hit(chart=moved, screen="market_square") == []
+    assert hit(chart=moved, screen="price_board") == ["price_move"]
     assert hit(chart=moved) == []  # not looking at the board
     assert hit(chart={"first": 100, "last": 103, "change_pct": 3}, at_market=True) == []  # under 8 percent
     assert hit(text="How do I read this chart?") == ["price_move"]  # asking about the chart is enough

@@ -149,9 +149,11 @@ def detect(f: EduFacts) -> list[Candidate]:
     if both or _CASH_RE.search(f.text) or _CASH_RE.search(" ".join(f.clue_texts)) \
             or (_EARN_RE.search(f.text) and _LEDGER_RE.search(f.text)):
         add("cash_vs_profit")
+    # Only when the player engages with prices (asks about the price or chart, or asks Buddy while
+    # looking at the price board). Merely arriving at the Market Square is not a learning moment:
+    # every story's chart has moved, so arrival fired it at the start of every quest.
     moved = f.chart is not None and abs(f.chart.get("change_pct", 0)) >= PRICE_MOVE_PCT
-    if (moved and (f.at_market or (f.screen or "") in ("market_square", "price_board"))) \
-            or _CHART_RE.search(f.text):
+    if (moved and (f.screen or "") == "price_board") or _CHART_RE.search(f.text):
         add("price_move")
     order = {k: i for i, k in enumerate(ORDER)}
     return sorted(hits.values(), key=lambda c: order[c.concept_key])
