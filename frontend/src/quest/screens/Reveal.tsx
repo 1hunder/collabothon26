@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import '@fontsource/alegreya/400.css';
 import '@fontsource/alegreya-sans/400.css';
 import '@fontsource/pirata-one/400.css';
@@ -6,7 +6,8 @@ import type { RevealData } from '../../api/types';
 import { formatStoryNumber } from '../lib/storyNumber';
 
 import { formatRealDate } from '../components/storyChartFormat';
-const StoryChart = lazy(() => import('../components/StoryChart'));
+// Bundled, not lazy: a lazy chunk from a build replaced by a later deploy failed mid-game.
+import StoryChart from '../components/StoryChart';
 
 interface RevealProps {
   data: RevealData;
