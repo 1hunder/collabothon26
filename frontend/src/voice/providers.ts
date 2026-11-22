@@ -11,7 +11,7 @@ export interface VoiceProvider {
 }
 
 /** Server audio that has not started playing by then is replaced by browser speech. */
-export const TTS_TIMEOUT_MS = 30_000; // a new reply takes 7-15 s to synthesize
+export const TTS_TIMEOUT_MS = 20_000; // streamed: a new reply starts in about 3 s
 /** The narrator's server voice plays 15% faster (pitch kept); Buddy at normal speed. */
 export const PLAYBACK_RATE: Partial<Record<VoiceName, number>> = { dm: 1.15 };
 
@@ -94,6 +94,8 @@ export class AudioUrlProvider implements VoiceProvider {
   private audio: HTMLAudioElement | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private request = 0;
+  /** The line loading or playing now ("id:voice"); asked again, it carries on instead of restarting. */
+  private current: string | null = null;
 
   constructor(
     private readonly fallback: VoiceProvider | null = null,
@@ -120,11 +122,17 @@ export class AudioUrlProvider implements VoiceProvider {
 
   speak(textId: string | null, text: string, voice: VoiceName): void {
     if (textId === null) {
+      this.current = null;
       this.fallback?.speak(null, text, voice);
       return;
     }
+    const line = `${textId}:${voice}`;
+    if (line === this.current) return; // the same reply, shown again (streamed, then final)
+    this.current = line;
     const a = this.element();
     this.clearTimer();
+    // A browser-voice line still speaking (an earlier fallback) must not talk over this one.
+    this.fallback?.stop();
     const request = ++this.request;
     let settled = false;
     const fail = (): void => {
@@ -135,12 +143,16 @@ export class AudioUrlProvider implements VoiceProvider {
       a.onerror = null;
       a.onplaying = null;
       a.pause();
+      this.current = null;
       this.fallback?.speak(null, text, voice);
     };
     a.onerror = fail;
     a.onplaying = () => {
       settled = true;
       this.clearTimer();
+    };
+    a.onended = () => {
+      if (request === this.request) this.current = null;
     };
     this.timer = setTimeout(fail, this.timeoutMs);
     a.src = `${baseUrl()}/tts/${encodeURIComponent(textId)}?voice=${voice}`;
@@ -154,6 +166,7 @@ export class AudioUrlProvider implements VoiceProvider {
   stop(): void {
     this.clearTimer();
     this.request += 1; // a line still loading must not fall back to the browser voice later
+    this.current = null;
     if (this.audio) {
       this.audio.onerror = null;
       this.audio.onplaying = null;

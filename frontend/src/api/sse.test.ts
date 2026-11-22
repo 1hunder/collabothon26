@@ -1,4 +1,6 @@
-import { createSseParser } from './sse';
+import { VOICE_KEY } from '../voice/context';
+import { createSseParser, voiceHeader } from './sse';
+import { dmReducer, initialDmState } from './useDmStream';
 import type { DmEvent } from './types';
 
 const stream =
@@ -46,5 +48,33 @@ describe('postSse in fixture mode', () => {
     await postSse('/campaigns/c1/opening', {}, (e) => events.push(e));
     vi.unstubAllEnvs();
     expect(events.map((e) => e.event)).toEqual(['status', 'token', 'token', 'state', 'done']);
+  });
+});
+
+describe('the speaker event and the voice header', () => {
+  it('keeps the speaker event: who speaks and the audio id, before the first word', () => {
+    const events = parseWith([
+      'event: speaker\ndata: {"speaker":"Mira Fen","speaker_kind":"npc","audio_text_id":42,"audio_text":"Whole reply."}\n\n' +
+        'event: token\ndata: {"text":"Whole "}\n\n',
+    ]);
+    expect(events[0]).toEqual({
+      event: 'speaker',
+      data: { speaker: 'Mira Fen', speaker_kind: 'npc', audio_text_id: 42, audio_text: 'Whole reply.' },
+    });
+  });
+
+  it('the reducer keeps the audio id from the speaker event while the text streams', () => {
+    let s = dmReducer(initialDmState, { type: 'send', clientMsgId: 'm1' });
+    s = dmReducer(s, { type: 'event', event: { event: 'speaker', data: { speaker: 'Campaign Master', audio_text_id: 42, audio_text: 'Whole reply.' } } });
+    s = dmReducer(s, { type: 'event', event: { event: 'token', data: { text: 'Whole ' } } });
+    expect(s).toMatchObject({ phase: 'streaming', text: 'Whole ', audioTextId: 42, audioText: 'Whole reply.' });
+  });
+
+  it('tells the server whether voice is on (on unless switched off)', () => {
+    localStorage.removeItem(VOICE_KEY);
+    expect(voiceHeader()).toEqual({ 'X-Voice': 'on' });
+    localStorage.setItem(VOICE_KEY, 'off');
+    expect(voiceHeader()).toEqual({ 'X-Voice': 'off' });
+    localStorage.removeItem(VOICE_KEY);
   });
 });

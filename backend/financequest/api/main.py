@@ -16,6 +16,7 @@ from financequest.api.routers import (
     session,
     veteran,
 )
+from financequest.api.sse import VoiceHeaderMiddleware
 from financequest.config import get_settings
 
 
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     s = get_settings()
     configure_logging(s.log_level)
     app = FastAPI(title="FinanceQuest API", lifespan=lifespan)
+    app.add_middleware(VoiceHeaderMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[o for o in s.cors_origin_list if "*" not in o],

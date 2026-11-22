@@ -1,8 +1,10 @@
 import { ApiError, authedFetch, errorFromResponse, isFixtureMode } from './client';
 import { fixtureSseChunks } from './fixtures';
 import type { DmEvent } from './types';
+import { VOICE_KEY } from '../voice/context';
 
-const eventNames = new Set(['status', 'token', 'card', 'state', 'done', 'error']);
+// "speaker" comes before the first token: who speaks, and the reply's audio id for the voice.
+const eventNames = new Set(['status', 'speaker', 'token', 'card', 'state', 'done', 'error']);
 
 /**
  * Incremental SSE parser. Feed it text chunks as they arrive; chunk boundaries may fall anywhere,
@@ -65,14 +67,28 @@ function fixtureStream(path: string, payload: unknown): Response {
   return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 }
 
-/** POST and consume an SSE response, calling onEvent for each parsed event. */
+/** Voice on (the default) unless the player switched it off; read where the toggle stores it. */
+export function voiceHeader(): Record<string, string> {
+  let on = true;
+  try {
+    on = localStorage.getItem(VOICE_KEY) !== 'off';
+  } catch {
+    // storage blocked: voice stays on, like the toggle
+  }
+  return { 'X-Voice': on ? 'on' : 'off' };
+}
+
+/**
+ * POST and consume an SSE response, calling onEvent for each parsed event. ``X-Voice`` tells the
+ * server whether to start the reply's speech as soon as the text is final (before it streams).
+ */
 export async function postSse(
   path: string,
   body: unknown,
   onEvent: (event: DmEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = isFixtureMode() ? fixtureStream(path, body) : await authedFetch('POST', path, body, signal);
+  const res = isFixtureMode() ? fixtureStream(path, body) : await authedFetch('POST', path, body, signal, voiceHeader());
   if (!res.ok) throw await errorFromResponse(res);
   if (!res.body) throw new ApiError('Server', res.status);
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();

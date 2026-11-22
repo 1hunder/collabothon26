@@ -145,7 +145,11 @@ def test_tts_serves_and_caches(client: TestClient, data_dir: Path) -> None:
     files = sorted((data_dir / "tts").glob("*.wav"))
     assert len(files) == 1  # one call and one cached file per reply and voice
     mtimes = [f.stat().st_mtime_ns for f in files]
-    assert client.get(f"/tts/{ev}", params={"voice": "dm"}).content == r.content
+    # the first answer streamed while it was made (no length yet); the next one is the cached file
+    assert r.headers["cache-control"] == "no-store" and r.content[4:8] == b"\xff\xff\xff\xff"
+    again = client.get(f"/tts/{ev}", params={"voice": "dm"})
+    assert again.content == files[0].read_bytes() and again.content[44:] == r.content[44:]
+    assert again.headers["cache-control"] == "max-age=86400"
     assert [f.stat().st_mtime_ns for f in sorted((data_dir / "tts").glob("*.wav"))] == mtimes
     client.get(f"/tts/{ev}", params={"voice": "buddy"})
     assert len(list((data_dir / "tts").glob("*.wav"))) == 2  # voices cached separately

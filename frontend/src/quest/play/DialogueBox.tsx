@@ -29,8 +29,10 @@ export interface DialogueBoxProps {
    * voice reads it. The voice module (src/voice) plugs in here; this component stays silent.
    */
   onPageShown?: (text: string, voice: VoiceKind, audioTextId?: number | string | null) => void;
-  /** Server audio id of the whole reply; played once, across all pages. */
+  /** Server audio id of the whole reply; played once, across all pages (even while streaming). */
   audioTextId?: number | string | null;
+  /** The reply's whole stored text, known before it has streamed: what the voice reads. */
+  audioText?: string | null;
   /** Swipe down on the box opens the backlog. */
   onSwipeDown?: () => void;
   /**
@@ -53,6 +55,7 @@ export default function DialogueBox({
   onAdvance,
   onPageShown,
   audioTextId = null,
+  audioText = null,
   onSwipeDown,
   revisit = false,
 }: DialogueBoxProps): React.JSX.Element {
@@ -71,20 +74,22 @@ export default function DialogueBox({
   const spoken = useRef<number>(-1);
   const pageReady = final || !last;
   useEffect(() => {
-    // Nothing is spoken while the reply is still arriving: the finished reply brings its server
-    // audio id, and a page already spoken by the browser voice would block that audio.
-    if (revisit || !final || !pageReady || page === '') return;
-    // Server audio covers the whole reply: start it once with page one and let it run across pages.
-    if (final && audioTextId != null) {
+    if (revisit || page === '') return;
+    // Server audio covers the whole reply: start it once, as soon as its id is known (the server
+    // sends it with the first word, its synthesis already running), and let it run across pages.
+    if (audioTextId != null) {
       if (spoken.current >= 0) return;
       spoken.current = 0;
-      onPageShown?.(pages.join(' '), voice, audioTextId);
+      onPageShown?.(audioText ?? pages.join(' '), voice, audioTextId);
       return;
     }
+    // Browser voice page by page, only once the reply is complete: a page spoken while streaming
+    // would be cut short, and would block the server audio the finished reply brings.
+    if (!final || !pageReady) return;
     if (spoken.current === index) return;
     spoken.current = index;
     onPageShown?.(page, voice, null);
-  }, [index, page, pages, pageReady, voice, onPageShown, final, audioTextId, revisit]);
+  }, [index, page, pages, pageReady, voice, onPageShown, final, audioTextId, audioText, revisit]);
 
   const goTo = (i: number): void => {
     setIndex(i);

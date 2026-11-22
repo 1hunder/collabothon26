@@ -521,7 +521,17 @@ export interface QuestJob {
 export type DmEvent =
   | { event: 'status'; data: { state: string } }
   | { event: 'token'; data: { text: string } }
-  | { event: 'speaker'; data: { speaker?: string | null; speaker_kind?: SpeakerKind | null } }
+  | {
+      event: 'speaker';
+      data: {
+        speaker?: string | null;
+        speaker_kind?: SpeakerKind | null;
+        /** The reply's audio id, known before its text streams: the voice can start at once. */
+        audio_text_id?: number | string | null;
+        /** The whole stored text, for the browser voice if the server audio fails. */
+        audio_text?: string | null;
+      };
+    }
   | { event: 'card'; data: { kind: 'dice' | 'news' | 'market' | 'trade'; [field: string]: unknown } }
   | { event: 'state'; data: { can_decide?: boolean; art_ready?: string[]; [field: string]: unknown } }
   | { event: 'done'; data: { text: string; audio_text_id?: number | string | null; [field: string]: unknown } }

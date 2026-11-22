@@ -228,4 +228,28 @@ describe('VoiceProvider and useVoice', () => {
     await userEvent.click(btn);
     expect(screen.getByRole('button', { name: 'Voice off' })).toBeInTheDocument();
   });
+
+describe('AudioUrlProvider: one line at a time', () => {
+  it('asked again for the line it is already playing, it carries on instead of restarting', () => {
+    const audio = fakeAudio();
+    const p = new AudioUrlProvider(null, () => audio);
+    p.speak('42', 'whole reply', 'dm');
+    p.speak('42', 'whole reply', 'dm');
+    expect(audio.play).toHaveBeenCalledTimes(1);
+    (audio as unknown as { onended: () => void }).onended();
+    p.speak('42', 'whole reply', 'dm'); // finished: may be heard again
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    p.stop();
+    p.speak('42', 'whole reply', 'dm'); // stopped: starts again
+    expect(audio.play).toHaveBeenCalledTimes(3);
+  });
+
+  it('a new server line silences a browser-voice line still speaking', () => {
+    const fb = fakeImpl();
+    const p = new AudioUrlProvider(fb, () => fakeAudio());
+    p.speak(null, 'browser line', 'dm');
+    p.speak('43', 'server line', 'dm');
+    expect(fb.calls).toEqual(['speak:dm:browser line', 'stop']);
+  });
+});
 });
