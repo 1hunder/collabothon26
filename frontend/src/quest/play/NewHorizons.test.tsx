@@ -32,7 +32,7 @@ describe('new location with an NPC', () => {
     const tab = await screen.findByTestId('name-tab');
     expect(tab).toHaveTextContent('Orrin Vale');
     expect(tab).toHaveAttribute('data-kind', 'npc');
-    expect(await screen.findByTestId('npc-chip')).toHaveTextContent('Orrin Vale · harbour clerk');
+    expect(screen.queryByTestId('npc-chip')).toBeNull(); // no chip: the name tab says who speaks
     // art turns ready on the server: the next poll clears the loading state
     const db = readDb();
     await act(async () => {
