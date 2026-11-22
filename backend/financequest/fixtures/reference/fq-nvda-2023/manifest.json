@@ -1,0 +1,630 @@
+{
+  "meta": {
+    "case_id": "FQ-NVDA-2023",
+    "version": "1.0",
+    "campaign_title": "The Forge of Thinking-Stones",
+    "currency": "USD",
+    "learning_objectives": [
+      "Read a guild's sales by line and see which line is growing and which is shrinking.",
+      "Understand what a forecast is and why a big forecast surprise can move a price in one day.",
+      "Ask what is already in the price after a big jump.",
+      "Decide how much to commit when the story is good but the price has already risen."
+    ]
+  },
+  "world": {
+    "setting_name": "Highmere",
+    "company_name": "The Lumen Forge",
+    "shares_name": "forge-shares",
+    "market_name": "The Silver Exchange of Highmere",
+    "annual_report_name": "the Forge's Year Scroll",
+    "quarterly_report_name": "the Quarter Scroll",
+    "tone_notes": "Bright, hopeful fantasy of invention: glowing forges, humming thinking-stones and newly awakened golem-minds that can talk. Clear evidence, friendly characters. Never use real names, years, months or brands; never write amounts in prose, use the figure placeholders."
+  },
+  "checkpoints": [
+    {
+      "id": "G0",
+      "role": "intro",
+      "cutoff_date": "2023-02-23",
+      "label": "The Year Scroll and the golem craze"
+    },
+    {
+      "id": "G1",
+      "role": "disclosure",
+      "cutoff_date": "2023-05-24",
+      "label": "The Forge's golden forecast"
+    },
+    {
+      "id": "G2",
+      "role": "decision",
+      "cutoff_date": "2023-05-25",
+      "label": "The morning after the leap"
+    }
+  ],
+  "company_card": {
+    "name": "The Lumen Forge",
+    "trade": "Forges thinking-stones: the glowing stones that power play-boxes and the great golem-minds",
+    "size": "One of the largest forges of the realm, selling to every great house that builds golem-minds",
+    "key_figures": [
+      {
+        "id": "KF-QSALES",
+        "label": "Sales in the latest Quarter Scroll",
+        "value": "6050",
+        "family": "money",
+        "period": "the latest quarter",
+        "checkpoint": "G0",
+        "explain": "Sales are coin taken in before costs."
+      },
+      {
+        "id": "KF-GOLEM",
+        "label": "Sales of golem-hall stones in the latest quarter",
+        "value": "3620",
+        "family": "money",
+        "period": "the latest quarter",
+        "checkpoint": "G0",
+        "explain": "The line that sells to the great golem-builders."
+      },
+      {
+        "id": "KF-COIN",
+        "label": "Coin and ready holdings",
+        "value": "13300",
+        "family": "money",
+        "period": "close of the year",
+        "checkpoint": "G0",
+        "explain": "Coin is not profit; it is what the Forge can spend."
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "E-YEAR-SCROLL",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "key": true,
+      "title": "The Year Scroll: two very different lines",
+      "player_text": "The Quarter Scroll shows sales of {FIG-Q4-SALES}, down {FIG-Q4-SALES-YOY:abs} percent on a year earlier. Two lines tell different stories. Stones for golem-halls sold {FIG-Q4-GOLEM}, up {FIG-Q4-GOLEM-YOY} percent. Stones for play-boxes sold {FIG-Q4-PLAY}, down {FIG-Q4-PLAY-YOY:abs} percent. For the next quarter the Forge expects sales of about {FIG-Q1-GUIDE}.",
+      "figures": [
+        {
+          "id": "FIG-Q4-SALES",
+          "label": "Sales in the latest quarter",
+          "value": "6050",
+          "family": "money",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q4-SALES-YOY",
+          "label": "Change in sales against a year earlier",
+          "value": "-21",
+          "family": "percent",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q4-GOLEM",
+          "label": "Golem-hall stone sales",
+          "value": "3620",
+          "family": "money",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q4-GOLEM-YOY",
+          "label": "Change in golem-hall sales",
+          "value": "11",
+          "family": "percent",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q4-PLAY",
+          "label": "Play-box stone sales",
+          "value": "1830",
+          "family": "money",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q4-PLAY-YOY",
+          "label": "Change in play-box sales",
+          "value": "-46",
+          "family": "percent",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q1-GUIDE",
+          "label": "Expected sales next quarter",
+          "value": "6500",
+          "family": "money",
+          "period": "the next quarter"
+        }
+      ],
+      "teaching_note": "Total sales fell, but the line that sells to golem-builders kept growing."
+    },
+    {
+      "id": "E-VAULT",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "figure",
+      "key": true,
+      "title": "The vault and the year",
+      "player_text": "The Forge closed its year with {FIG-COIN} in coin and ready holdings, against debts of {FIG-DEBT}. Over the whole year it earned a profit of {FIG-YEAR-PROFIT}.",
+      "figures": [
+        {
+          "id": "FIG-COIN",
+          "label": "Coin and ready holdings",
+          "value": "13300",
+          "family": "money",
+          "period": "close of the year"
+        },
+        {
+          "id": "FIG-DEBT",
+          "label": "Debts",
+          "value": "11000",
+          "family": "money",
+          "period": "close of the year"
+        },
+        {
+          "id": "FIG-YEAR-PROFIT",
+          "label": "Profit for the year",
+          "value": "4370",
+          "family": "money",
+          "period": "the last year"
+        }
+      ],
+      "teaching_note": "The Forge holds more coin than it owes and makes a profit."
+    },
+    {
+      "id": "E-GOLEM-CRAZE",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "The talking golem",
+      "player_text": "Everyone at the tavern is talking about a new golem-mind that answers any question in plain words. Builders say each great golem needs thousands of thinking-stones, and only a few forges can make the best ones.",
+      "figures": [],
+      "teaching_note": "Excitement is not yet sales; ask whether it shows up in the ledgers."
+    },
+    {
+      "id": "E-ORDERS-WHISPER",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "Orders from the great houses",
+      "player_text": "A cart-master tells you the great trading houses are queuing for the Forge's newest stones and offering to pay in advance. He cannot say how many, or for how long.",
+      "figures": [],
+      "teaching_note": "A rumour of demand; useful, but check it against the next Quarter Scroll."
+    },
+    {
+      "id": "E-BOARD",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "market",
+      "key": false,
+      "title": "The price board",
+      "player_text": "On the Silver Exchange board, forge-shares have already risen a long way since the start of the season, as traders bet on the golem craze.",
+      "figures": [],
+      "teaching_note": "A rising price shows hope; it does not prove sales will follow."
+    },
+    {
+      "id": "E-QUARTER-SCROLL",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "ledger",
+      "key": true,
+      "title": "The new Quarter Scroll",
+      "player_text": "The new Quarter Scroll shows sales of {FIG-Q1-SALES}, up {FIG-Q1-SALES-QOQ} percent on the quarter before. Golem-hall stones reached a record {FIG-Q1-GOLEM}. Play-box stones sold {FIG-Q1-PLAY}. Profit for the quarter was {FIG-Q1-PROFIT}.",
+      "figures": [
+        {
+          "id": "FIG-Q1-SALES",
+          "label": "Sales this quarter",
+          "value": "7190",
+          "family": "money",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q1-SALES-QOQ",
+          "label": "Change in sales on the previous quarter",
+          "value": "19",
+          "family": "percent",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q1-GOLEM",
+          "label": "Golem-hall stone sales",
+          "value": "4280",
+          "family": "money",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q1-PLAY",
+          "label": "Play-box stone sales",
+          "value": "2240",
+          "family": "money",
+          "period": "the latest quarter"
+        },
+        {
+          "id": "FIG-Q1-PROFIT",
+          "label": "Profit this quarter",
+          "value": "2040",
+          "family": "money",
+          "period": "the latest quarter"
+        }
+      ],
+      "teaching_note": "The growing line is now the biggest line."
+    },
+    {
+      "id": "E-GUIDANCE",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "announcement",
+      "key": true,
+      "title": "The golden forecast",
+      "player_text": "The Forge announces that it expects next quarter's sales to be about {FIG-Q2-GUIDE}. Traders had expected about {FIG-Q2-EXPECTED}. The forge-master says demand for golem-hall stones has risen sharply.",
+      "figures": [
+        {
+          "id": "FIG-Q2-GUIDE",
+          "label": "Expected sales next quarter",
+          "value": "11000",
+          "family": "money",
+          "period": "the next quarter"
+        },
+        {
+          "id": "FIG-Q2-EXPECTED",
+          "label": "What traders had expected for next quarter",
+          "value": "7200",
+          "family": "money",
+          "period": "the next quarter"
+        }
+      ],
+      "teaching_note": "A forecast is a promise about the future, not a result. A big gap between the promise and what others expected moves prices."
+    },
+    {
+      "id": "E-GUIDANCE-GAP",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "opinion",
+      "key": false,
+      "title": "How big is the jump?",
+      "player_text": "Archivist Pell Varro does the sums on a slate: the promised quarter is about half again as large as the quarter just reported. Forges rarely grow that fast in one step. He reminds you that the Forge could miss its promise, and that buyers may already be paying for many good quarters ahead.",
+      "figures": [],
+      "teaching_note": "Ask how much good news is already in the price."
+    },
+    {
+      "id": "E-FORGE-WORDS",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "opinion",
+      "key": false,
+      "title": "The forge-master's words, cried on the square",
+      "player_text": "A herald on the square reads out Forge-Warden Tamsin Reeve's words: a new age of thinking-stones has begun and every great house wants them. She would not say how long the rush will last.",
+      "figures": [],
+      "teaching_note": "Company optimism is not evidence; the next Quarter Scroll will be."
+    },
+    {
+      "id": "E-JUMP",
+      "checkpoint": "G2",
+      "location": "market_square",
+      "kind": "market",
+      "key": true,
+      "title": "The leap on the board",
+      "player_text": "The morning after the forecast, forge-shares leapt about {FIG-JUMP} percent in a single session, making the Lumen Forge one of the most valuable houses in Highmere.",
+      "figures": [
+        {
+          "id": "FIG-JUMP",
+          "label": "One-day rise of forge-shares",
+          "value": "24",
+          "family": "percent",
+          "period": "the day after the forecast"
+        }
+      ],
+      "teaching_note": "After a jump, ask what you would be paying for."
+    },
+    {
+      "id": "E-ARCHIVIST-COLUMNS",
+      "checkpoint": "G2",
+      "location": "library",
+      "kind": "opinion",
+      "key": true,
+      "title": "The Archivist's two columns",
+      "player_text": "Archivist Varro writes two columns. Known: golem-hall sales are growing fast, the Forge earns a profit and holds more coin than it owes, and it has promised a much bigger quarter. Unknown: whether it keeps the promise, how long the golem rush lasts, and whether the price already pays for all of it.",
+      "figures": [],
+      "teaching_note": "Write down what you know and what you hope."
+    }
+  ],
+  "documents": [
+    {
+      "id": "D-YEAR-SCROLL",
+      "checkpoint": "G0",
+      "title": "The Forge's Year Scroll",
+      "evidence_ids": [
+        "E-YEAR-SCROLL",
+        "E-VAULT"
+      ]
+    },
+    {
+      "id": "D-QUARTER-SCROLL",
+      "checkpoint": "G1",
+      "title": "The new Quarter Scroll",
+      "evidence_ids": [
+        "E-QUARTER-SCROLL",
+        "E-GUIDANCE-GAP"
+      ]
+    },
+    {
+      "id": "D-FORECAST",
+      "checkpoint": "G1",
+      "title": "The Forge's forecast notice",
+      "evidence_ids": [
+        "E-GUIDANCE"
+      ]
+    },
+    {
+      "id": "D-ARCHIVIST",
+      "checkpoint": "G2",
+      "title": "The Archivist's two columns",
+      "evidence_ids": [
+        "E-ARCHIVIST-COLUMNS"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "C-PELL",
+      "name": "Archivist Pell Varro",
+      "role": "Keeper of the Forge records in the Library. Patient, good with sums, never tells anyone what to buy.",
+      "location": "library",
+      "may_reveal": {
+        "G0": [
+          "E-YEAR-SCROLL",
+          "E-VAULT"
+        ],
+        "G1": [
+          "E-QUARTER-SCROLL",
+          "E-GUIDANCE-GAP"
+        ],
+        "G2": [
+          "E-ARCHIVIST-COLUMNS"
+        ]
+      },
+      "never": [
+        "Give an opinion on whether to buy, hold or sell",
+        "Reveal anything about prices after today"
+      ]
+    },
+    {
+      "id": "C-ISKA",
+      "name": "Broker Iska Thorn",
+      "role": "A cheerful broker on the Silver Exchange who reads the board and the traders' mood. Enthusiastic, sometimes too much.",
+      "location": "market_square",
+      "may_reveal": {
+        "G0": [
+          "E-BOARD"
+        ],
+        "G1": [
+          "E-GUIDANCE"
+        ],
+        "G2": [
+          "E-JUMP"
+        ]
+      },
+      "never": [
+        "Promise that the price will rise",
+        "Reveal anything about prices after today"
+      ]
+    },
+    {
+      "id": "C-TAMSIN",
+      "name": "Forge-Warden Tamsin Reeve",
+      "role": "Warden of the Lumen Forge. Proud of the forge, speaks for it, never comments on the share price.",
+      "location": "campaign:lumen_forge",
+      "may_reveal": {
+        "G0": [
+          "E-GOLEM-CRAZE",
+          "E-VAULT"
+        ],
+        "G1": [
+          "E-FORGE-WORDS",
+          "E-QUARTER-SCROLL"
+        ]
+      },
+      "never": [
+        "Comment on the share price",
+        "Promise future results"
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "id": "ENC-GOLEM-DEMAND",
+      "title": "Who Is Buying the Stones?",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "dc": 10,
+      "skill_flavor": "Insight (reading the cart-master)",
+      "evidence_ids": [
+        "E-GOLEM-CRAZE"
+      ],
+      "success_clue_id": "E-ORDERS-WHISPER",
+      "failure_forward": "The cart-master shrugs, but the Forge's own Year Scroll in the Library shows which line is growing.",
+      "teaching_target": "Rumours of demand must be checked against the ledgers."
+    },
+    {
+      "id": "ENC-FORECAST-SUMS",
+      "title": "The Forecast Sums",
+      "checkpoint": "G1",
+      "location": "library",
+      "dc": 11,
+      "skill_flavor": "Investigation (checking the forecast)",
+      "evidence_ids": [
+        "E-GUIDANCE",
+        "E-QUARTER-SCROLL"
+      ],
+      "success_clue_id": "E-GUIDANCE-GAP",
+      "failure_forward": "The sums blur, but Archivist Varro will walk you through them if you ask.",
+      "teaching_target": "Compare a forecast with the last result and with what others expected."
+    }
+  ],
+  "news": {
+    "checkpoint": "G1",
+    "time_skip_days": 90,
+    "headline": "The Lumen Forge Promises a Golden Quarter",
+    "summary": "The Forge expects next quarter's sales of about {FIG-Q2-GUIDE}, far above the {FIG-Q2-EXPECTED} traders had expected, as golem-builders queue for its thinking-stones.",
+    "evidence_ids": [
+      "E-GUIDANCE",
+      "E-QUARTER-SCROLL"
+    ]
+  },
+  "prices": {
+    "path": "prices.csv",
+    "decision_date": "2023-05-25",
+    "horizon_end": "2023-08-23"
+  },
+  "fund": null,
+  "rubric": [
+    {
+      "category": "Evidence use: ledgers and announcements",
+      "max": 25
+    },
+    {
+      "category": "Risk and position sizing",
+      "max": 25
+    },
+    {
+      "category": "Separating facts from hopes and fears",
+      "max": 20
+    },
+    {
+      "category": "Forecast clarity",
+      "max": 15
+    },
+    {
+      "category": "Post-reveal reflection",
+      "max": 15
+    }
+  ],
+  "campaign_location_seeds": [
+    {
+      "key": "lumen_forge",
+      "name": "The Lumen Forge",
+      "description": "The great forge hall where glowing thinking-stones are cut and tested.",
+      "art_subject": "A vast fantasy forge hall with rows of glowing crystal stones on workbenches, warm golden light, brass machinery and arches, empty of people, no lettering or logos"
+    },
+    {
+      "key": "golem_builders_hall",
+      "name": "The Golem-Builders' Hall",
+      "description": "Where the great houses assemble their talking golem-minds.",
+      "art_subject": "A tall stone workshop with half-built friendly clockwork golems, cables of light and stacked crystals, soft blue and gold light, empty of people, no lettering or logos"
+    }
+  ],
+  "board": {
+    "title": "The Forge of Thinking-Stones",
+    "teaser": "In bright Highmere, a forge of glowing thinking-stones finds itself at the heart of a craze for talking golem-minds. Its ledgers are strong and its new forecast dazzles the Exchange. Read the scrolls and decide how much gold to commit once the price has already leapt.",
+    "difficulty": "easy",
+    "learn": [
+      "Growth and guidance",
+      "Reading a forecast",
+      "Price after a big jump"
+    ],
+    "order": 2,
+    "briefing": "Highmere is buzzing about talking golem-minds, and every golem needs the glowing thinking-stones made by the Lumen Forge. Its sales to golem-builders are growing while its play-box sales shrink, and it holds plenty of coin. Soon it will publish a new forecast. Your question: is the Forge's growth real and lasting, and how much gold should you commit once everyone else has noticed?"
+  },
+  "debrief": {
+    "questions": [
+      "Which line in the scrolls told you the most: total sales, golem-hall sales or the forecast?",
+      "After the one-day leap, what did you think was already in the price?",
+      "How much did you commit, and why that amount rather than all or nothing?",
+      "Was your result mostly reasoning, timing or luck?"
+    ],
+    "post_reveal_facts": [
+      {
+        "checkpoint": "G3",
+        "text": "Over the following months the forge-shares kept climbing as the Forge's next scroll confirmed the forecast."
+      },
+      {
+        "checkpoint": "G4",
+        "text": "The golem rush lasted far longer than most traders expected; nobody could know that on decision day."
+      }
+    ]
+  },
+  "secret": {
+    "real_entity": "NVIDIA Corporation",
+    "ticker": "NVDA",
+    "actors": [
+      "Jensen Huang",
+      "Colette Kress"
+    ],
+    "city": "Santa Clara, California",
+    "real_dates": {
+      "G0": "2023-02-23",
+      "G1": "2023-05-24",
+      "G2": "2023-05-25",
+      "horizon_end": "2023-08-23",
+      "q4fy23_release": "2023-02-22",
+      "q1fy24_release": "2023-05-24"
+    },
+    "alias_map": {
+      "NVIDIA": "The Lumen Forge",
+      "NVDA shares": "forge-shares",
+      "Nasdaq": "The Silver Exchange of Highmere",
+      "GPUs/chips": "thinking-stones",
+      "Data center segment": "golem-hall stones",
+      "Gaming segment": "play-box stones",
+      "Generative AI / ChatGPT": "talking golem-minds",
+      "Jensen Huang": "the forge-master",
+      "Colette Kress (CFO)": "Forge-Warden Tamsin Reeve",
+      "10-Q": "the Quarter Scroll",
+      "10-K": "the Forge's Year Scroll"
+    },
+    "leak_terms": [
+      "NVIDIA",
+      "Nvidia",
+      "NVDA",
+      "Jensen",
+      "Huang",
+      "Colette Kress",
+      "GeForce",
+      "ChatGPT",
+      "OpenAI",
+      "Microsoft",
+      "Google",
+      "Meta",
+      "Amazon",
+      "AMD",
+      "Intel",
+      "TSMC",
+      "H100",
+      "A100",
+      "GPU",
+      "GPUs",
+      "CUDA",
+      "Hopper",
+      "Santa Clara",
+      "California",
+      "Nasdaq",
+      "artificial intelligence"
+    ],
+    "later_events": [
+      {
+        "checkpoint": "G3",
+        "real_date": "2023-08-23",
+        "text": "NVIDIA reported Q2 FY2024 revenue of $13.5 billion, beating its own $11 billion outlook."
+      }
+    ],
+    "real_events": [
+      {
+        "evidence_id": "E-GUIDANCE",
+        "headline": "NVIDIA guides Q2 FY2024 revenue to $11.0 billion",
+        "text": "On May 24, 2023 NVIDIA reported Q1 FY2024 revenue of $7.19 billion and guided the next quarter to about $11 billion versus analyst expectations near $7.2 billion."
+      },
+      {
+        "evidence_id": "E-JUMP",
+        "headline": "NVIDIA shares jump about 24% in a day",
+        "text": "On May 25, 2023 NVIDIA shares rose about {FIG-JUMP}% and the company approached a $1 trillion market value."
+      }
+    ],
+    "evidence_sources": {
+      "E-YEAR-SCROLL": "NVIDIA Q4 FY2023 results, 2023-02-22",
+      "E-VAULT": "NVIDIA FY2023 10-K",
+      "E-QUARTER-SCROLL": "NVIDIA Q1 FY2024 results, 2023-05-24",
+      "E-GUIDANCE": "NVIDIA Q1 FY2024 outlook; CNBC consensus",
+      "E-JUMP": "NVDA daily prices (Yahoo Finance)"
+    }
+  }
+}

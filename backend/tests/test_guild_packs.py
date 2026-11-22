@@ -143,3 +143,13 @@ def test_gamestop_demo_maths_and_story(client: TestClient, seeded: dict[str, str
     assert max(prices) > 4 * prices[0]  # the chart shows the explosion
     st = campaign_state(client, h, cid)
     assert {loc["key"] for loc in st["locations"]} >= {"tavern", "market_square", "library"}
+
+
+@pytest.mark.parametrize("pack", PACKS, ids=lambda p: p.name)
+def test_no_required_clue_hides_in_a_master_created_place(pack: Path) -> None:
+    """The seal needs every non-dice clue; a place the Master only creates on request must never
+    hold one, or a player who never asks to go there can never decide."""
+    m = _manifest(pack)
+    gated = {en.success_clue_id for en in m.encounters}
+    stuck = [e.id for e in m.evidence if e.location.startswith("campaign:") and e.id not in gated]
+    assert not stuck
