@@ -374,6 +374,19 @@ _SKILL_RE = re.compile(
 )
 
 
+def _names_character(ctx: C.AgentContext, text: str) -> bool:
+    """The player addresses a known character by name (any word of the name, e.g. "Marla" or
+    "Pennywhistle", ignoring titles like "Scholar"); that is a conversation, not a trade answer."""
+    low = text.lower()
+    titles = {"scholar", "broker", "treasurer", "archivist", "steward", "warden", "master", "old",
+              "forge-warden", "the", "of"}  # fmt: skip
+    for ch in ctx.content.get("characters", []):
+        for word in re.findall(r"[A-Za-z][A-Za-z'-]+", str(ch.get("name", ""))):
+            if len(word) >= 3 and word.lower() not in titles and re.search(rf"\b{re.escape(word.lower())}\b", low):
+                return True
+    return False
+
+
 def _plan_scene_answer(
     sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
 ) -> StreamPlan:
@@ -388,6 +401,9 @@ def _plan_scene_answer(
         # Investigating the world (search, study a face, persuade, eavesdrop…) is a dice-worthy
         # action, not a question about the trade: the Master handles it (and may call for a roll),
         # and the decision scene stays open for when the player comes back to it.
+        if no_trade_words and _names_character(ctx, text):
+            keep_scene = True  # "Ask Marla why…": the character answers; the scene stays open
+            return _normal_turn_work(nar, ctx, text)
         if no_trade_words and _SKILL_RE.search(text.lower()):
             keep_scene = True
             return _normal_turn_work(nar, ctx, text)
