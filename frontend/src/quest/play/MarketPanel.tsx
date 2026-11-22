@@ -1,10 +1,11 @@
 import { X } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { Suspense, useState } from 'react';
 import type { PriceRow } from '../../api/types';
 import { formatStoryNumber } from '../lib/storyNumber';
 import { useEscapeKey } from './useEscapeKey';
 
-const StoryChart = lazy(() => import('../components/StoryChart'));
+// Bundled, not lazy: a lazy chunk from a build replaced by a later deploy failed mid-game.
+import StoryChart from '../components/StoryChart';
 
 interface MarketPanelProps {
   rows: readonly PriceRow[];

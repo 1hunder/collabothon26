@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { patchCampaignCache, streamDebrief, useOutcome } from '../../api/campaign';
@@ -7,7 +7,8 @@ import { formatGold } from '../lib/gold';
 import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
 
-const StoryChart = lazy(() => import('../components/StoryChart'));
+// Bundled, not lazy: a lazy chunk from a build replaced by a later deploy failed mid-game.
+import StoryChart from '../components/StoryChart';
 
 /** `/quest/outcome`: every figure comes from GET /campaigns/{id}/reveal, shown as received. */
 export default function Outcome(): React.JSX.Element {
