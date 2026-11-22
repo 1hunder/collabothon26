@@ -25,12 +25,13 @@ export default function QuestLayout(): React.JSX.Element {
   const [sheetOpen, setSheetOpen] = useState(false);
   const entry = location.state as QuestEntryState | null;
   const onDisclosure = location.pathname === '/quest/disclosure';
-  const inSetup = onDisclosure || location.pathname === '/quest/hero/new' || location.pathname === HERO_CLASS_PATH;
+  const onBoard = location.pathname === '/quest/board';
+  const inSetup = onDisclosure || onBoard || location.pathname === '/quest/hero/new' || location.pathname === HERO_CLASS_PATH;
 
   const back = (): void => {
-    if (onDisclosure && entry?.chooseClass) {
+    if ((onDisclosure || onBoard) && entry?.chooseClass) {
       void navigate(HERO_CLASS_PATH, { replace: true, state: entry });
-    } else if (onDisclosure && entry?.newHero) {
+    } else if ((onDisclosure || onBoard) && entry?.newHero) {
       void navigate('/quest/hero/new', { replace: true, state: entry });
     } else {
       void navigate(entry?.origin ?? '/overview', { replace: true });

@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useCampaign, useHero } from '../api/campaign';
-import { phaseToPath } from './phase';
+import { BOARD_PATH, phaseToPath } from './phase';
 
 /** `/quest`: decides where the player goes from the hero and the active campaign. */
 export default function QuestEntry(): React.ReactNode {
@@ -15,5 +15,5 @@ export default function QuestEntry(): React.ReactNode {
   const go = (to: string): React.ReactNode => <Navigate to={to} replace state={location.state} />;
   if (hero.data === null) return go('/quest/hero/new');
   if (campaign.data) return go(phaseToPath(campaign.data.phase));
-  return go('/quest/disclosure');
+  return go(BOARD_PATH);
 }

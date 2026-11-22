@@ -12,7 +12,7 @@ describe('phaseToPath', () => {
     ['reflect', '/quest/reflect'],
     ['company', '/quest/reveal'],
     ['xp', '/quest/xp'],
-    ['done', '/quest/disclosure'],
+    ['done', '/quest/board'],
   ];
   it.each(cases)('%s -> %s', (phase, path) => {
     expect(phaseToPath(phase)).toBe(path);
