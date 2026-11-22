@@ -42,11 +42,11 @@ const routes = [
 ];
 
 describe('Outcome', () => {
-  it('shows the server figures as whole numbers, including the 607.51 case', async () => {
+  it('shows the server figures as whole numbers, including the 607.51 case, and no chart', async () => {
     seedCampaign({ phase: 'reveal', decision: investDecision });
     renderRoutes(routes, ['/quest/outcome']);
     expect(await screen.findByText('Locked at Day 84, evening · horizon 75 days')).toBeInTheDocument();
-    expect(screen.getByTestId('chart')).toHaveAttribute('data-mode', 'story');
+    expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
     const dl = screen.getByText('Final value').closest('div');
     expect(dl).toHaveTextContent('608 gp');
     expect(screen.getByText('Starting budget').closest('div')).toHaveTextContent('1,000 gp');

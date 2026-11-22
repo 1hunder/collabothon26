@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { patchCampaignCache, streamDebrief, useOutcome } from '../../api/campaign';
@@ -6,9 +6,6 @@ import { decisionLabel, formatPct, formatSigned } from '../lib/commit';
 import { formatGold } from '../lib/gold';
 import ScreenBuddy from '../play/ScreenBuddy';
 import { useActiveCampaign } from '../lib/useActiveCampaign';
-
-// Bundled, not lazy: a lazy chunk from a build replaced by a later deploy failed mid-game.
-import StoryChart from '../components/StoryChart';
 
 /** `/quest/outcome`: every figure comes from GET /campaigns/{id}/reveal, shown as received. */
 export default function Outcome(): React.JSX.Element {
@@ -62,16 +59,6 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
       <p className="font-quest-sans text-quest-vellum-dim">
         Locked at {o.locked_at} · horizon {o.horizon_days} days
       </p>
-      <Suspense fallback={<div className="h-60" aria-busy="true" />}>
-        <StoryChart
-          mode="story"
-          points={o.series}
-          markers={[
-            ...decisions.filter((d) => d.story_day !== o.decision_day).map((d) => ({ at: d.story_day, label: `#${d.seq}` })),
-            { at: o.decision_day, label: 'Locked' },
-          ]}
-        />
-      </Suspense>
       {decisions.length > 0 ? (
         <section aria-label="Your decisions" className="space-y-2">
           <h2 className="font-quest-title text-2xl text-quest-gilt">Your decisions</h2>
