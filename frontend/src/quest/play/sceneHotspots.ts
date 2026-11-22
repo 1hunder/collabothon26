@@ -1,10 +1,10 @@
 /**
- * Tap targets painted into the constant backgrounds (each picture has one object with a gold glow).
+ * Tap targets painted into the constant backgrounds.
  * Rects are in IMAGE percent (0-100 of the picture's own width and height), measured on the shipped
- * webp files, so they follow the art however the stage crops it.
+ * background images, so they follow the art however the stage crops it.
  */
 
-export type HotspotTarget = 'library' | 'market';
+export type HotspotTarget = 'library' | 'market' | 'veteran';
 
 export interface ImageRect {
   /** left edge, percent of image width */
@@ -31,6 +31,10 @@ export interface SceneHotspotConfig {
 
 /** Keyed by PlayLocation.key of the fixed locations. */
 export const sceneHotspots: Readonly<Record<string, SceneHotspotConfig>> = {
+  tavern: {
+    natural: { width: 898, height: 1280 },
+    hotspots: [{ target: 'veteran', label: 'Talk to Brannoc at the table', rect: { x: 48, y: 33, w: 19, h: 15 } }],
+  },
   library: {
     natural: { width: 941, height: 1671 },
     // glowing books on the left bookshelves

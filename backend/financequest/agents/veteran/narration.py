@@ -76,6 +76,7 @@ class VeteranNarration:
             hero_name="",
             advice=True,
             fields=fields,
+            big_words=bool(ctx.focus and ctx.focus.get("real_case")),
         )
         spec = GuardedSpec(
             llm=self.llm,

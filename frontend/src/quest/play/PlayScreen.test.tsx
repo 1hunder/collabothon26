@@ -56,7 +56,7 @@ describe('PlayScreen: scene and hero status', () => {
     await readToChoices(user);
     const list = screen.getByRole('region', { name: 'Your turn' });
     expect(within(list).getByText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['◀ Read again', 'Send']); // no hint, no bonus lead
+    expect(within(list).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['◀ Read again', 'Send', 'Chat with CommerzBuddy']); // no hint, no bonus lead
     expect(within(list).queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
   });
 
@@ -176,9 +176,7 @@ describe('PlayScreen: map, titles and places', () => {
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
-    expect(within(board).getByRole('rowheader', { name: '60' })).toBeInTheDocument();
-    expect(within(board).queryByRole('rowheader', { name: '61' })).not.toBeInTheDocument();
-    expect(within(board).getByRole('columnheader', { name: 'Volume' })).toBeInTheDocument();
+    expect(within(board).queryByRole('table')).not.toBeInTheDocument();
   });
 });
 

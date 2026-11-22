@@ -4,12 +4,11 @@ import {
   HABITS_TOPIC,
   questLine,
   type VeteranDone,
-  type VeteranMood,
   type VeteranOverview,
 } from '../../api/veteran';
 import DialogueBox, { VETERAN_NAME, type VoiceKind } from './DialogueBox';
 import { VETERAN_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
-import VeteranPortrait, { VeteranToken } from './VeteranPortrait';
+import { VeteranToken } from './VeteranPortrait';
 
 interface VeteranSceneProps {
   stream: DmStream;
@@ -48,7 +47,6 @@ export default function VeteranScene({ stream, overview, onClose, onTimeline, on
 
   const done = state.phase === 'done' ? (state.extras as unknown as VeteranDone) : null;
   const busy = state.phase === 'sending' || state.phase === 'streaming';
-  const mood: VeteranMood = busy ? 'pondering' : (done?.mood ?? 'listening');
   const key = state.phase === 'idle' ? 'idle' : state.clientMsgId;
   const inChoices = done !== null && advancedKey === key;
 
@@ -152,9 +150,6 @@ export default function VeteranScene({ stream, overview, onClose, onTimeline, on
 
   return (
     <section aria-label="Brannoc, the Veteran" className="relative">
-      <div data-testid="veteran-figure" className="pointer-events-none absolute bottom-full left-0 mb-1 w-[50%] max-w-[210px] animate-summon motion-reduce:animate-none">
-        <VeteranPortrait bare glowing mood={mood} className="block h-auto w-full" />
-      </div>
       {body}
     </section>
   );

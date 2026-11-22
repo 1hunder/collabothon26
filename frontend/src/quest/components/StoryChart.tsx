@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import {
   ColorType,
   LineSeries,
+  LineStyle,
   createChart,
   createSeriesMarkers,
   type LineData,
@@ -18,9 +19,10 @@ export interface StoryMarker {
   label: string;
 }
 
-export type StoryChartProps =
+export type StoryChartProps = { attributionLogo?: boolean } & (
   | { mode: 'story'; points: { story_day: number; price: number }[]; markers?: StoryMarker[] }
-  | { mode: 'real'; points: { date: string; price: number }[]; markers?: StoryMarker[] };
+  | { mode: 'real'; points: { date: string; price: number }[]; markers?: StoryMarker[] }
+);
 
 const DAY = 86_400;
 /** Price scale labels and tooltips are whole numbers, like everything else the player reads. */
@@ -36,22 +38,37 @@ export default function StoryChart(props: StoryChartProps): React.JSX.Element {
       autoSize: true,
       height: 240,
       layout: {
-        background: { type: ColorType.Solid, color: '#161F3D' },
-        textColor: '#E8DCC2',
+        attributionLogo: props.attributionLogo ?? true,
+        background: { type: ColorType.VerticalGradient, topColor: '#ecdfbf', bottomColor: '#d5bf95' },
+        textColor: '#493421',
+        fontFamily: 'Alegreya, Georgia, serif',
+        fontSize: 14,
       },
-      grid: { vertLines: { color: '#22305B' }, horzLines: { color: '#22305B' } },
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { color: 'rgba(100, 71, 40, 0.19)' },
+      },
+      crosshair: {
+        vertLine: { color: '#846947', style: LineStyle.Dotted, labelBackgroundColor: '#57412c' },
+        horzLine: { color: '#846947', style: LineStyle.Dotted, labelBackgroundColor: '#57412c' },
+      },
+      rightPriceScale: { borderColor: '#a58a60' },
       // Room on the right so the last axis label is not cut off at the edge.
-      timeScale:
-        props.mode === 'story'
-          ? { rightOffset: 3, tickMarkFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
-          : { rightOffset: 3, tickMarkFormatter: formatRealTick },
+      timeScale: {
+        borderColor: '#a58a60',
+        rightOffset: 3,
+        tickMarkFormatter: props.mode === 'story' ? (t: Time) => formatStoryDay((t as number) / DAY) : formatRealTick,
+      },
       localization:
         props.mode === 'story'
           ? { locale: LOCALE, priceFormatter: wholePrice, timeFormatter: (t: Time) => formatStoryDay((t as number) / DAY) }
           : { locale: LOCALE, priceFormatter: wholePrice, timeFormatter: formatRealDate },
     });
     const series = chart.addSeries(LineSeries, {
-      color: '#6FB5A8',
+      color: '#63401f',
+      priceLineStyle: LineStyle.Dotted,
+      crosshairMarkerBackgroundColor: '#f4deaa',
+      crosshairMarkerBorderColor: '#63401f',
       lineWidth: 2,
       priceFormat: { type: 'custom', formatter: wholePrice, minMove: 1 },
     });
@@ -66,7 +83,7 @@ export default function StoryChart(props: StoryChartProps): React.JSX.Element {
       time: toTime(m.at),
       position: 'aboveBar',
       shape: 'circle',
-      color: '#C9A227',
+      color: '#813c29',
       text: m.label,
     }));
     const handle = createSeriesMarkers(series, markers);
@@ -79,5 +96,9 @@ export default function StoryChart(props: StoryChartProps): React.JSX.Element {
     };
   }, [props]);
 
-  return <div ref={ref} role="img" aria-label="Price chart" className="h-60 w-full" />;
+  return (
+    <div className="overflow-hidden rounded-md border border-[#997649] bg-[#4b3523] p-0.5 shadow-md">
+      <div ref={ref} role="img" aria-label="Price chart" className="h-60 w-full overflow-hidden rounded-sm" />
+    </div>
+  );
 }

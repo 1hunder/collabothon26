@@ -91,6 +91,27 @@ export interface TimelineDecision {
   tags: string[];
 }
 
+/** A real date and the real share price (US dollars, already written as "$43" or "26 cents"). */
+export interface RealPoint {
+  date: string;
+  price: string;
+}
+
+/** The history behind a finished quest, for teaching: real company, dates, prices, headlines. */
+export interface RealCase {
+  company: string;
+  ticker: string | null;
+  start: RealPoint;
+  decision_day: RealPoint;
+  end: RealPoint;
+  move_pct: number | null;
+  move_after_decision_pct: number | null;
+  high: string;
+  low: string;
+  decisions: (RealPoint & { seq: number; action: string })[];
+  events: { date: string; headline: string; price?: string }[];
+}
+
 export interface VeteranTimeline {
   campaign_id: string;
   number: number;
@@ -103,6 +124,8 @@ export interface VeteranTimeline {
   missed: string[];
   xp: number;
   sound_overall: boolean;
+  /** Null when the quest has no real price history. */
+  real_case?: RealCase | null;
 }
 
 /** Fields of the `done` event of POST /hero/veteran/talk. */

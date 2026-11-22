@@ -29,9 +29,10 @@ from sqlmodel import Session, col, delete, select
 from financequest.campaign import clock, ledger, portfolio
 from financequest.campaign import service as cs
 from financequest.campaign.pack import Pack
-from financequest.db.models import Decision, ScenarioSecret
+from financequest.db.models import Decision, Scenario, ScenarioSecret
 from financequest.db.models_campaign import CampaignRun, Debrief, Hero, Outcome, Trade, XpAward
 from financequest.db.models_veteran import VeteranMemory, VeteranProfile
+from financequest.veteran import real_case
 
 log = logging.getLogger("financequest.veteran")
 VERSION = 2
@@ -431,6 +432,11 @@ def campaign_detail(db: Session, run: CampaignRun, mem: VeteranMemory) -> dict[s
             }
         )
     narrative = (deb.narrative or {}) if deb else {}
+    try:
+        real = real_case.build(db.get(Scenario, run.scenario_id), sec, pack, trades)
+    except Exception:  # noqa: BLE001 - the history is a bonus; the walkthrough works without it
+        log.exception("could not build the real case")
+        real = None
     return {
         "campaign_id": str(run.id),
         "number": mem.number,
@@ -462,6 +468,7 @@ def campaign_detail(db: Session, run: CampaignRun, mem: VeteranMemory) -> dict[s
         "xp": award.total if award else 0,
         "tags": v.get("tags", []),
         "sound_overall": bool(v.get("sound_overall")),
+        "real_case": real,
     }
 
 
