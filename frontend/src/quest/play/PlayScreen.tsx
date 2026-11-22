@@ -406,9 +406,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const inChoices = current !== null && advancedKey === current.key;
   const locKey = location?.key;
 
-  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
-    (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
-  const showMascot = (masterSpeaking || inChoices) && !sheet && activeOverlay.kind === 'none';
+  // CommerzBuddy sits on the dialogue box whoever is speaking (the Master or an NPC), so the
+  // player can always reach him; only sheets and overlays hide him.
+  const dialogueShown = state.phase === 'sending' || state.phase === 'streaming' ||
+    (state.phase !== 'lost' && (inChoices || current !== null));
+  const showMascot = dialogueShown && !sheet && activeOverlay.kind === 'none';
 
   const mascot = showMascot ? (
     <BuddyMascot pending={edu.pending} poppedId={edu.poppedId} onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />
