@@ -27,6 +27,7 @@ from financequest.engine.disguise import (
     format_amount,
     round_sig,
 )
+from financequest.refpack.board import derive_board
 from financequest.refpack.manifest import CampaignManifest, Figure
 from financequest.refpack.validate import PLACEHOLDER, SHORT_TERM_LEN, _leak_hits, validate_manifest
 from financequest.reid.scan import ScanContext, scan_case
@@ -245,6 +246,8 @@ def approve_pack(
     allowed = sorted(
         {_fmt(v.copy_abs()) for v in values.values()} | {_fmt(v) for v in values.values()}
     )
+    if not rendered.get("board"):  # personal quests: derive the card text once, at publish time
+        rendered["board"] = derive_board(rendered)
     prose = prose_fields(rendered)
     closes = [r for r in rows if r["date"] <= m.prices.decision_date]
     result = scan_case(

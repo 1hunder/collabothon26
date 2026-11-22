@@ -23,6 +23,7 @@ import Xp from './quest/screens/Xp';
 import PlayScreen from './quest/play/PlayScreen';
 import QuestPlaceholder from './quest/screens/QuestPlaceholder';
 import RevealRoute from './quest/screens/RevealRoute';
+import QuestBoard from './quest/board/QuestBoard';
 import QuestDisclosure from './quest/screens/QuestDisclosure';
 import { HERO_CLASS_PATH } from './quest/setupNavigation';
 
@@ -93,7 +94,14 @@ export const routes = [
               </PhaseGuard>
             ),
           },
-          { path: 'interests', element: <QuestEntry /> },
+          {
+            path: 'board',
+            element: (
+              <PhaseGuard screen="/quest/board">
+                <QuestBoard />
+              </PhaseGuard>
+            ),
+          },
           {
             path: 'disclosure',
             element: (

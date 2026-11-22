@@ -11,16 +11,21 @@ import type {
   CreateHeroRequest,
   Hero,
   RevealData,
-  QuestJob,
   ScenarioSummary,
   ScenarioView,
   Transaction,
 } from '../types';
 
-import { FixtureHttpError, classHp, readDb, writeDb } from './db';
+import { fixtureBoardResponse, resetFixtureBoard } from './board';
+import { FixtureHttpError, classHp, readDb, resetFixtureDb as resetDb, writeDb } from './db';
 import { fixtureNewCampaign, fixturePlayResponse, fixturePlaySse, fixtureSettleArt } from './play';
 
-export { FixtureHttpError, resetFixtureDb } from './db';
+export { FixtureHttpError } from './db';
+
+export function resetFixtureDb(): void {
+  resetDb();
+  resetFixtureBoard();
+}
 
 export const fixtureScenarioId = 'fixture-lumen';
 
@@ -29,20 +34,6 @@ const fixtureTransactions: Transaction[] = [
   { date: '2026-11-19', merchant: 'Lieferando', amount_eur: '-18.40', category: 'food_delivery', category_label: 'Food delivery' },
   { date: '2026-11-18', merchant: 'Uber', amount_eur: '-12.60', category: 'mobility', category_label: 'Rides & mobility' },
 ];
-
-function fixtureDailyQuest(): QuestJob {
-  return {
-    id: 'fixture-daily',
-    kind: 'daily',
-    quest_date: new Date().toISOString().slice(0, 10),
-    category: 'music',
-    category_label: 'Music & streaming',
-    status: 'ready',
-    step: 'Ready',
-    scenario_id: fixtureScenarioId,
-    created_at: new Date().toISOString(),
-  };
-}
 
 const summaries: ScenarioSummary[] = [
   { id: fixtureScenarioId, industry_shown: 'Lantern oil and lighting', source: 'gate' },
@@ -118,6 +109,7 @@ function createCampaign(body: unknown): CampaignState {
   const hp = classHp[db.hero.class];
   const campaign: CampaignState = {
     ...fixtureNewCampaign(db.hero, req?.interests ?? []),
+    ...(req?.scenario_id ? { scenario_id: req.scenario_id } : {}),
     budget_eur: hp * 10,
     horizon_days: 75,
     offers_spread: true,
@@ -308,11 +300,8 @@ export function fixtureResponse(method: string, path: string, body?: unknown): u
   if (m === 'POST' && path === '/hero') return createHero(body);
   if (m === 'PATCH' && path === '/hero') return chooseHeroClass(body);
   if (m === 'GET' && path === '/me/transactions') return fixtureTransactions;
-  if (m === 'POST' && path.split('?')[0] === '/quests/daily') return fixtureDailyQuest();
-  if (m === 'GET' && path === '/quests') return [fixtureDailyQuest()];
-  if (m === 'POST' && path === '/quests/generate') {
-    return { ...fixtureDailyQuest(), id: 'fixture-extra', kind: 'extra', category: 'gaming', category_label: 'Games & consoles' };
-  }
+  const board = fixtureBoardResponse(m, path, body);
+  if (board !== undefined) return board;
   if (m === 'POST' && path === '/campaigns') return createCampaign(body);
   const abandon = /^\/campaigns\/([^/]+)\/abandon$/.exec(path);
   if (m === 'POST' && abandon) return abandonCampaign(abandon[1]!);

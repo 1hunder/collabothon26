@@ -1,5 +1,7 @@
 import type { CampaignPhase } from '../api/types';
 
+export const BOARD_PATH = '/quest/board';
+
 /** The single mapping from a server campaign phase to its quest route. */
 export function phaseToPath(phase: CampaignPhase): string {
   switch (phase) {
@@ -20,6 +22,6 @@ export function phaseToPath(phase: CampaignPhase): string {
     case 'xp':
       return '/quest/xp';
     case 'done':
-      return '/quest/disclosure';
+      return BOARD_PATH;
   }
 }

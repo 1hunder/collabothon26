@@ -126,7 +126,7 @@ export default function HeroCreate({ chooseClass = false }: { chooseClass?: bool
   const savedHero = chooseClass || entry?.newHero ? hero.data : null;
   const reviewOnly = Boolean(savedHero) && !chooseClass;
   const continueToDisclosure = (): void => {
-    void navigate('/quest/disclosure', { replace: true, state: { ...entry, newHero: !chooseClass, chooseClass } });
+    void navigate('/quest/board', { replace: true, state: { ...entry, newHero: !chooseClass, chooseClass } });
   };
   const [name, setName] = useState('Lena');
   const [heroClass, setHeroClass] = useState<HeroClass | null>(null);
