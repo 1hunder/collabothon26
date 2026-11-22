@@ -17,7 +17,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from financequest.agents.campaign.guards import build_allowlist, whole
-from financequest.campaign import clock, rules
+from financequest.campaign import clock, edu, rules
 from financequest.campaign.events import campaign_events
 from financequest.campaign.pack import Pack
 from financequest.campaign.view import gated_content, gated_view
@@ -73,6 +73,7 @@ class AgentContext:
     final_reasoning: str | None = None  # the note written at the seal (after the lock)
     scene: dict[str, Any] | None = None  # the open decision scene
     offer_facts: dict[str, Any] | None = None  # engine terms of the offers the Master may make
+    edu_pending: list[str] = field(default_factory=list)  # titles of learning moments waiting
 
     @property
     def holds_shares(self) -> bool:
@@ -339,6 +340,7 @@ def build_agent_context(
         purse=service.purse(db, run, pack), decisions=service.decisions_out(db, run, pack),
         final_reasoning=getattr(service.decision_of(db, run.id), "reasoning", None),
         scene=run.market_scene if isinstance(run.market_scene, dict) else None,
+        edu_pending=[m["title"] for m in edu.edu_out(events)["pending"]],
     )  # fmt: skip
 
 
@@ -593,6 +595,9 @@ def build_messages(
         body.append(f"# What the player has open right now (gated data)\n{render_screen(ctx.screen)}")
     if ctx.outcome:
         body.append(f"# Result (after the lock; engine computed)\n{render_outcome(ctx.outcome)}")
+    if buddy and ctx.edu_pending:
+        body.append("# Learning moments waiting (titles only; the app offers them)\n"
+                    + "\n".join(f"- {t}" for t in ctx.edu_pending))
     if hist := history_block(ctx, buddy):
         body.append(hist)
     if extra:

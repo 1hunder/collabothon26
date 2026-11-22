@@ -158,6 +158,18 @@ async def buddy(cid: uuid.UUID, body: BuddyIn, sid: SessionId) -> EventSourceRes
     return sse_response(plan)
 
 
+@router.post("/{cid}/edu/{moment_id}/lesson")
+def edu_lesson(cid: uuid.UUID, moment_id: str, sid: SessionId) -> dict[str, Any]:
+    """CommerzBuddy's short lesson for an educational moment (JSON); marks it viewed."""
+    return turns.make_lesson(sid, cid, moment_id)
+
+
+@router.post("/{cid}/edu/{moment_id}/dismiss")
+def edu_dismiss(cid: uuid.UUID, moment_id: str, sid: SessionId) -> dict[str, Any]:
+    """"No thanks": frees the bubble. "Later" in the UI calls nothing."""
+    return turns.dismiss_moment(sid, cid, moment_id)
+
+
 @router.post("/{cid}/focus/hint")
 async def focus_hint(cid: uuid.UUID, sid: SessionId) -> EventSourceResponse:
     return sse_response(await run_in_threadpool(turns.plan_hint, sid, cid))

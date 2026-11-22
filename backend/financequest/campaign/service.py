@@ -13,7 +13,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from financequest.api.errors import ApiError
-from financequest.campaign import clock, dice, focus, ledger, portfolio, rules, xp
+from financequest.campaign import clock, dice, edu, focus, ledger, portfolio, rules, xp
 from financequest.campaign import reasoning as reasoning_mod
 from financequest.campaign.events import append_event, campaign_events, find_by_msg_id
 from financequest.campaign.journal import backlog, journal
@@ -1308,6 +1308,13 @@ def create_generated_location(
 
 
 # ---- state ------------------------------------------------------------------------------------
+def edu_state(db: Session, cid: uuid.UUID) -> dict[str, Any]:
+    """Pending educational moments (at most 3), a projection of the event log."""
+    rows = db.exec(select(Event).where(Event.campaign_id == cid, Event.type.in_(edu.EDU_TYPES))  # type: ignore[attr-defined]
+                   .order_by(Event.seq))  # type: ignore[arg-type]
+    return edu.edu_out(list(rows))
+
+
 def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     hero = db.get(Hero, run.hero_id)
     assert hero is not None
@@ -1382,6 +1389,7 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "all_in": is_all_in(db, run, pack), "offer": offer_out(run),
         "awaiting_reasoning": awaiting_trade(db, run) is not None,
         "decisions": decisions_out(db, run, pack),
+        "edu": edu.edu_out(events),
     }  # fmt: skip
     if "rumour_ledger" in items:
         state["rumours"] = [

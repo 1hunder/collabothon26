@@ -640,6 +640,14 @@ class CampaignFakeLLM:
             text="Happy to help. Tell me which word or figure puzzles you, and I will explain it "
             f"plainly.{tip}", intent="other", mood="calm")  # fmt: skip
 
+    # ---- educational lesson -------------------------------------------------------------------------------
+    def edu_lesson(self, c: dict[str, Any]) -> S.LessonOut:
+        from financequest.agents.campaign.edu_lessons import prepared_lesson
+        from financequest.agents.campaign.narration import _lesson_out
+
+        m = c["moment"]
+        return _lesson_out(prepared_lesson(m["concept_key"], m["facts"]))
+
     # ---- setup, debrief, xp, advice -----------------------------------------------------------------------
     def setup(self, c: dict[str, Any]) -> S.SetupOut:
         ctx: C.AgentContext = c["ctx"]
