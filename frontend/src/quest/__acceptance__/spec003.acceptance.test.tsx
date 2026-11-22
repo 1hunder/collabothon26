@@ -91,7 +91,10 @@ async function typeAction(user: User, text: string, stopAt?: () => boolean): Pro
 async function goTo(user: User, place: string): Promise<void> {
   await user.click(choiceButton('Map'));
   const map = await screen.findByRole('dialog', { name: 'The map' });
-  await user.click(within(map).getByRole('button', { name: new RegExp(place) }));
+  const name = new RegExp(place);
+  // Tale-only places sit in the list behind "Other locations", below the village map.
+  if (!within(map).queryByRole('button', { name })) await user.click(within(map).getByRole('button', { name: /Other locations/ }));
+  await user.click(within(map).getByRole('button', { name }));
 }
 
 const guard = (path: string, el: ReactNode) => ({ path, element: <PhaseGuard screen={path}>{el}</PhaseGuard> });
@@ -547,8 +550,9 @@ describe('2.6 Locations', () => {
     await enterTavern(user);
     await user.click(choiceButton('Map'));
     const map = await screen.findByRole('dialog', { name: 'The map' });
-    for (const n of ['Tavern', 'Market Square', 'Library', 'The Lamp Works']) expect(within(map).getByRole('button', { name: new RegExp(n) })).toBeInTheDocument();
+    for (const n of ['Tavern', 'Market Square', 'Library']) expect(within(map).getByRole('button', { name: new RegExp(n) })).toBeInTheDocument();
     expect(within(map).getByRole('button', { name: /Tavern/ })).toHaveTextContent('you are here');
+    await user.click(within(map).getByRole('button', { name: /Other locations/ }));
     expect(within(map).getByRole('button', { name: /Lamp Works/ })).toHaveTextContent('this tale only');
   });
   it('2.6-AC2 tapping another location changes the background and the Campaign Master describes it, no dice', async () => {

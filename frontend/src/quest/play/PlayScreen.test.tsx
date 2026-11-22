@@ -128,8 +128,9 @@ describe('PlayScreen: map, titles and places', () => {
     await enterTavern(user);
     await user.click(choiceButton('Map'));
     const map = await screen.findByRole('dialog', { name: 'The map' });
-    for (const n of ['Tavern', 'Market Square', 'Library', 'The Lamp Works']) expect(within(map).getByRole('button', { name: new RegExp(n) })).toBeInTheDocument();
+    for (const n of ['Tavern', 'Market Square', 'Library']) expect(within(map).getByRole('button', { name: new RegExp(n) })).toBeInTheDocument();
     expect(within(map).getByRole('button', { name: /Tavern/ })).toHaveTextContent('you are here');
+    await user.click(within(map).getByRole('button', { name: /Other locations/ }));
     expect(within(map).getByRole('button', { name: /Lamp Works/ })).toHaveTextContent('this tale only');
   });
 
