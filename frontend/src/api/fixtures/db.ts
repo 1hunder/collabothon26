@@ -46,6 +46,8 @@ export interface FixtureDb {
   campaign: CampaignState | null;
   decision?: CommitRequest | null;
   play?: FixturePlay;
+  /** ids of learning moments already raised, so each appears once */
+  eduSeen?: string[];
 }
 
 let memoryDb: FixtureDb = { hero: null, campaign: null };

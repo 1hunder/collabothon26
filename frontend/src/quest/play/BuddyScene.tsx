@@ -2,6 +2,10 @@ import buddySprite from '../../assets/commerzbuddy-frames-gif/frame_15.png';
 import './BuddyMascot.css';
 import type { DmStream } from '../../api/useDmStream';
 import DialogueBox, { BUDDY_NAME, type VoiceKind } from './DialogueBox';
+import { useState } from 'react';
+import { EduLessonCard, EduOffer } from './EduPanel';
+import type { EduControls } from './useEdu';
+import type { EduMoment } from '../../api/types';
 import { BUDDY_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
 
 export const BUDDY_GREETING =
@@ -15,12 +19,16 @@ interface BuddySceneProps {
   onAsked?: () => void;
   /** Where the player is, per the buddy contract: market_square, library, document:<id>, commit, outcome, debrief, xp. */
   screen?: string;
+  /** Learning moments: when some are pending Buddy offers them before the normal chat. */
+  edu?: EduControls;
 }
 
 /**
  * Closing the chat keeps the typed draft in sessionStorage.
  */
-export default function BuddyScene({ stream, onClose, onPageShown, onAsked, screen }: BuddySceneProps): React.JSX.Element {
+export default function BuddyScene({ stream, onClose, onPageShown, onAsked, screen, edu }: BuddySceneProps): React.JSX.Element {
+  const [later, setLater] = useState(false);
+  const [lessonFor, setLessonFor] = useState<EduMoment | null>(null);
   const [draft, setDraft] = useSessionDraft(BUDDY_DRAFT_KEY);
   const { state } = stream;
   const empty = draft.trim() === '';
@@ -37,12 +45,17 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
   const live = state.phase === 'streaming' || state.phase === 'done';
   const text = live ? state.text : state.phase === 'idle' ? BUDDY_GREETING : '';
 
+  const offering = edu !== undefined && edu.pending.length > 0 && !later && lessonFor === null;
   return (
     <section aria-label="CommerzBuddy" className="relative">
       <button type="button" className="buddy-mascot" aria-label="Close CommerzBuddy chat" onClick={onClose}>
         <img src={buddySprite} alt="" draggable={false} />
       </button>
-      {state.phase === 'lost' ? (
+      {edu && lessonFor ? (
+        <EduLessonCard edu={edu} moment={lessonFor} onDone={() => { setLessonFor(null); setLater(true); }} />
+      ) : offering ? (
+        <EduOffer pending={edu.pending} onShow={setLessonFor} onNotNow={(m) => void edu.dismiss(m.id)} onLater={() => setLater(true)} />
+      ) : state.phase === 'lost' ? (
         <div role="alert" className="mx-3 rounded-lg bg-quest-lapis/95 p-4 font-quest text-quest-vellum">
           <p>CommerzBuddy lost the thread.</p>
           <button type="button" onClick={stream.retry} className="mt-2 min-h-11 rounded-full border border-quest-gilt bg-quest-lapis-deep px-5 font-quest-sans font-bold text-quest-soot">
@@ -62,7 +75,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
           audioTextId={state.phase === 'done' ? state.audioTextId : null}
         />
       )}
-      <form
+      {lessonFor || offering ? null : <form
         aria-label="Ask CommerzBuddy"
         className="mx-3 mt-2 flex flex-col gap-2 rounded-lg bg-quest-lapis/95 p-3"
         onSubmit={(e) => {
@@ -94,7 +107,7 @@ export default function BuddyScene({ stream, onClose, onPageShown, onAsked, scre
             Ask
           </button>
         </div>
-      </form>
+      </form>}
     </section>
   );
 }

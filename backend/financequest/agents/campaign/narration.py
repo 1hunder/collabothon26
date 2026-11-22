@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from typing import Any
 
 from pydantic import BaseModel
 
 from financequest.agents.campaign import context as C
 from financequest.agents.campaign import prompts
+from financequest.agents.campaign.edu_lessons import prepared_lesson
 from financequest.agents.campaign.graphs import (
     DM_WORDS,
     NPC,
@@ -20,12 +23,20 @@ from financequest.agents.campaign.graphs import (
     make_rules,
     run_guarded,
 )
-from financequest.agents.campaign.guards import SAFE_FALLBACK, FieldRule, GuardRules, whole
+from financequest.agents.campaign.guards import (
+    SAFE_FALLBACK,
+    FieldRule,
+    GuardRules,
+    lesson_advice_violations,
+    round_numbers,
+    whole,
+)
 from financequest.agents.campaign.schemas import (
     BuddyOut,
     DebriefOut,
     DecideOut,
     DiceOut,
+    LessonOut,
     OfferOut,
     RouteOut,
     SummaryOut,
@@ -113,6 +124,56 @@ def _offer_template(kind: str, facts: dict[str, Any]) -> dict[str, Any]:
 
 
 BUDDY_WORDS = 120
+EDU_FIELDS = {
+    "what_happened": FieldRule(45, False), "idea": FieldRule(60, False), "example": FieldRule(55, False),
+    "takeaway": FieldRule(25, False), "check_question": FieldRule(30, False),
+    **{f"option_{i}": FieldRule(12, False) for i in range(3)},
+}  # fmt: skip
+EDU_HYPOTHETICAL = ("example", "check_question", "option_0", "option_1", "option_2")
+LESSON_SENTENCE_WORDS = 25
+
+
+def lesson_rules(ctx: C.AgentContext, facts: dict[str, Any]) -> GuardRules:
+    """The guards of a lesson. The moment's snapshot figures are allowed everywhere; small round
+    numbers (an imaginary case) only in the example and the quiz."""
+    rules_ = make_rules(ctx, json.dumps(facts), fields=EDU_FIELDS)
+    rules_.field_allowed = {k: rules_.allowed | round_numbers() for k in EDU_HYPOTHETICAL}
+    return rules_
+
+
+def lesson_violations(ctx: C.AgentContext, out: LessonOut, facts: dict[str, Any]) -> list[str]:
+    return lesson_rules(ctx, facts).static_violations(_lesson_texts(out)) + _lesson_checks(out)
+
+
+def _lesson_out(d: dict[str, Any]) -> LessonOut:
+    c = d["check"]
+    return LessonOut(
+        what_happened=d["what_happened"], idea=d["idea"], example=d["example"], takeaway=d["takeaway"],
+        check_question=c["question"], check_options=c["options"], answer_index=c["answer_index"],
+    )
+
+
+def _lesson_texts(o: LessonOut) -> dict[str, str]:
+    return {"what_happened": o.what_happened, "idea": o.idea, "example": o.example,
+            "takeaway": o.takeaway, "check_question": o.check_question,
+            **{f"option_{i}": t for i, t in enumerate(o.check_options)}}  # fmt: skip
+
+
+def _lesson_checks(o: LessonOut) -> list[str]:
+    """Reading level (short sentences), at most two sentences about the game, three distinct
+    options, and never advice."""
+    out: list[str] = []
+    for name, text in _lesson_texts(o).items():
+        if any(len(s.split()) > LESSON_SENTENCE_WORDS for s in re.split(r"(?<=[.!?])\s+", text)):
+            out.append(f"{name} has a sentence over {LESSON_SENTENCE_WORDS} words; use short sentences")
+        out += lesson_advice_violations(text)
+        if re.search(r"[$£]|\b(dollars?|pounds?|usd)\b", text, re.I):
+            out.append("uses real-world currency; the quest's money is gold pieces (gp)")
+    if len(re.findall(r"[.!?](?:\s|$)", o.what_happened)) > 2:
+        out.append("what_happened must be one or two sentences")
+    if len({t.strip().lower() for t in o.check_options}) < 3:
+        out.append("the three answer options must differ")
+    return list(dict.fromkeys(out))
 NEWS_WORDS = 80
 HINT_WORDS = 80
 PART_WORDS = 70
@@ -407,6 +468,34 @@ class AgentNarration:
         out: BuddyOut = res.out
         return TurnReply(text=out.text.strip(), speaker=C.BUDDY_NAME, intent=out.intent,
                          mood=out.mood, degraded=res.degraded)  # fmt: skip
+
+    # ---- educational lesson ---------------------------------------------------------------------------
+    def edu_lesson(self, ctx: C.AgentContext, moment: dict[str, Any]) -> dict[str, Any]:
+        """CommerzBuddy's lesson for one moment. The same guards as every narrating node; the
+        example and the quiz may use small round numbers of an imaginary case, nothing else new.
+        A failed guard (or a failed call) gives the prepared lesson of the concept."""
+        facts = dict(moment["facts"])
+        key = str(moment["concept_key"])
+        base = lesson_rules(ctx, facts)
+        extra = (
+            f"# Moment to teach\nConcept: {moment['title']}. Moment facts (the only figures about the "
+            f"player's game; whole numbers, gold pieces): {json.dumps(facts)}"
+        )
+        spec = GuardedSpec(
+            llm=self.llm, node="campaign_edu_lesson", schema=LessonOut, effort="low",
+            messages=lambda notes: C.build_messages(
+                ctx, prompts.EDU_LESSON, f"Write the lesson: {moment['title']}.", corrective=notes, extra=extra),
+            texts=_lesson_texts, rules=base, checks=_lesson_checks,
+            template=lambda: _lesson_out(prepared_lesson(key, facts)),
+            ctx=ctx, llm_context={"ctx": ctx, "moment": moment},
+        )  # fmt: skip
+        out: LessonOut = run_guarded(spec).out
+        return {
+            "what_happened": out.what_happened.strip(), "idea": out.idea.strip(),
+            "example": out.example.strip(), "takeaway": out.takeaway.strip(),
+            "check": {"question": out.check_question.strip(),
+                      "options": [o.strip() for o in out.check_options], "answer_index": out.answer_index},
+        }
 
     # ---- debrief ----------------------------------------------------------------------------------
     def debrief(self, ctx: C.AgentContext) -> dict[str, Any]:

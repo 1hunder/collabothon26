@@ -257,6 +257,24 @@ def whole_numbers(value: Any) -> Any:
     return value.model_copy(update=update) if update else value
 
 
+# ---- hypothetical examples (lessons): small round numbers about an imaginary case --------------------
+def round_numbers(limit: int = 1000) -> set[str]:
+    """Whole numbers up to ``limit`` that are 0 to 10 or a multiple of 5: fit for a made-up example."""
+    return {str(n) for n in range(0, limit + 1) if n <= BARE_MAX or n % 5 == 0}
+
+
+_LESSON_ADVICE = re.compile(
+    r"\b(you\s+(should|must|ought\s+to|need\s+to|had\s+better)|i\s+(recommend|suggest|advise)|"
+    r"(buy|sell|hold|invest|short)\s+(it|them|this|these|more|less|now|today|some|all|everything)\b|"
+    r"is\s+a\s+(good|bad|great|smart)\s+(buy|sell|investment|idea\s+to\s+(buy|sell)))\b", re.I,
+)
+LESSON_ADVICE_NOTE = "tells the player what to buy, sell or hold; a lesson explains, it never advises"
+
+
+def lesson_advice_violations(text: str) -> list[str]:
+    return [LESSON_ADVICE_NOTE] if _LESSON_ADVICE.search(text) else []
+
+
 # ---- format -------------------------------------------------------------------------------------
 def word_count(text: str) -> int:
     return len(text.split())
@@ -285,6 +303,7 @@ class GuardRules:
     advice: bool = True
     unfound_texts: tuple[str, ...] = ()
     fields: dict[str, FieldRule] = field(default_factory=dict)
+    field_allowed: dict[str, set[str]] = field(default_factory=dict)  # per-field allowlist override
 
     def static_violations(self, texts: dict[str, str]) -> list[str]:
         out: list[str] = []
@@ -297,7 +316,7 @@ class GuardRules:
                 out.append(f"{name} has {word_count(text)} words; the cap is {rule.max_words}")
             if rule.question and not ends_with_question(text):
                 out.append(f"{name} must end with a question")
-            out += number_violations(text, self.allowed)
+            out += number_violations(text, self.field_allowed.get(name, self.allowed))
             out += currency_violations(text)
             out += ident_violations(text)
             if self.voice:

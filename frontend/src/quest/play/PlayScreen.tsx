@@ -18,6 +18,8 @@ import ChoiceList from './ChoiceList';
 import DialogueBox, { DM_NAME, type VoiceKind } from './DialogueBox';
 import DiceMoment, { type DiceApi } from './DiceMoment';
 import Dock from './Dock';
+import { useEdu } from './useEdu';
+import type { EduMoment } from '../../api/types';
 import HeroStatus from './HeroStatus';
 import { useReportSheetOpen } from '../sheetOpen';
 import JournalSheet from './JournalSheet';
@@ -154,7 +156,9 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
 
   const opening = useRef(false);
   // Every finished reply becomes the scene; its extras say who spoke, what to offer, what happened.
+  const edu = useEdu(id);
   const onTurnDone = (done: DmDone): void => {
+    edu.announce(done.extras.edu_new as EduMoment[] | undefined);
     const x = done.extras as TurnExtras;
     setScene({
       key: done.clientMsgId,
@@ -204,7 +208,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   };
 
   const dm = useDmStream(`${base}/actions`, onTurnDone);
-  const buddy = useDmStream(`${base}/buddy`);
+  const buddy = useDmStream(`${base}/buddy`, (d) => edu.announce(d.extras.edu_new as EduMoment[] | undefined));
   const veteran = useDmStream(VETERAN_TALK_PATH, () => void qc.invalidateQueries({ queryKey: veteranKeys.overview }));
   const veteranInfo = useVeteran(veteranOpen);
 
@@ -551,6 +555,8 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           onMap={() => setSheet('map')}
           onJournal={() => setSheet('journal')}
           onToggleVoice={toggleVoice}
+          eduWaiting={edu.pending.length}
+          onBuddy={() => { stopVoice(); setBuddyOpen(true); }}
         />
       }
       overlays={
@@ -607,11 +613,11 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           onAsked={stopVoice}
         />
       ) : buddyOpen ? (
-        <BuddyScene stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
+        <BuddyScene edu={edu} stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
         <div className="relative">
           {dialogue}
-          {showMascot && <BuddyMascot onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />}
+          {showMascot && <BuddyMascot pending={edu.pending} poppedId={edu.poppedId} onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />}
         </div>
       )}
     </VnStage>

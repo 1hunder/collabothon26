@@ -395,6 +395,29 @@ export interface NewsInfo {
   summary: string;
 }
 
+/** A learning moment the server spotted; at most three wait at a time. */
+export interface EduMoment {
+  id: string;
+  concept_key: string;
+  title: string;
+}
+
+export interface EduState {
+  pending: EduMoment[];
+  pending_count: number;
+}
+
+/** POST /campaigns/{id}/edu/{moment_id}/lesson (marks the moment viewed). */
+export interface EduLesson {
+  id: string;
+  title: string;
+  what_happened: string;
+  idea: string;
+  example: string;
+  takeaway: string;
+  check: { question: string; options: string[]; answer_index: number };
+}
+
 /** Resumable campaign state (GET /campaigns/{id}). Numbers are display values from the server. */
 export interface CampaignState {
   id: string;
@@ -426,6 +449,7 @@ export interface CampaignState {
   pending: PendingRoll | null;
   can_decide: boolean;
   opening_done: boolean;
+  edu?: EduState;
   /** Suggestions of the latest Campaign Master reply, when the server keeps them for resuming. */
   suggestions: string[];
   characters?: { id: string; name: string; role: string; location: string | null }[];
