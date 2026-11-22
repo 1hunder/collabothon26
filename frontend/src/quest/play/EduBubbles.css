@@ -1,10 +1,11 @@
-.edu-bubbles { position: absolute; right: 20%; bottom: calc(100% - 6px); width: 44px; height: 0; pointer-events: none; z-index: 2; }
+/* One bubble image above CommerzBuddy's head; sized to stay visible but small on a phone. */
+.edu-bubbles { position: absolute; right: 18%; bottom: calc(100% - 10px); width: 46px; height: 0; pointer-events: none; z-index: 2; }
 .edu-bubble {
-  position: absolute; right: calc(var(--i) * 12px); bottom: calc(var(--i) * 28px);
-  display: grid; place-items: center; width: 30px; height: 28px; border-radius: 14px 14px 14px 4px;
-  background: #e8dcc2; color: #7a1f1f; border: 2px solid #c9a227; font: 800 18px/1 'Alegreya Sans', sans-serif;
-  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  position: absolute; right: 0; bottom: 0; width: 46px; height: auto;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+  animation: edu-float 3s ease-in-out infinite;
 }
-.edu-bubble[data-pop="true"] { animation: edu-pop .5s cubic-bezier(.3,1.6,.5,1) both; }
+.edu-bubble[data-pop="true"] { animation: edu-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both, edu-float 3s ease-in-out 0.5s infinite; }
 @keyframes edu-pop { from { transform: scale(0) translateY(10px); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .edu-bubble[data-pop="true"] { animation: none; } }
+@keyframes edu-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .edu-bubble, .edu-bubble[data-pop="true"] { animation: none; } }

@@ -55,7 +55,7 @@ describe('learning moments', () => {
 
   it('wakes with one bubble per moment, capped at three', () => {
     renderEdu([m(1), m(2), m(3), m(4)]);
-    expect(screen.getAllByTestId('edu-bubble')).toHaveLength(3);
+    expect(screen.getAllByTestId('edu-bubble')).toHaveLength(1); // one bubble, however many wait
     const btn = screen.getByRole('button', { name: /3 learning moments waiting/ });
     expect(btn).toHaveAttribute('data-awake', 'true');
     expect(btn.querySelector('.buddy-frames')).not.toBeNull();
@@ -66,9 +66,8 @@ describe('learning moments', () => {
     expect(screen.getAllByTestId('edu-bubble')).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: 'announce' }));
     const bubbles = screen.getAllByTestId('edu-bubble');
-    expect(bubbles).toHaveLength(2);
-    expect(bubbles[1]).toHaveAttribute('data-pop', 'true');
-    expect(bubbles[0]).toHaveAttribute('data-pop', 'false');
+    expect(bubbles).toHaveLength(1); // still one bubble; it pops again for the new moment
+    expect(bubbles[0]).toHaveAttribute('data-pop', 'true');
   });
 
   it('offers a single moment when Buddy opens, and Later keeps it pending', async () => {
@@ -86,7 +85,7 @@ describe('learning moments', () => {
     expect(screen.getByText('I spotted 3 learning moments. Which one first?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Not now: Moment 2' }));
     expect(request).toHaveBeenCalledWith('POST', '/campaigns/c1/edu/m2/dismiss');
-    await waitFor(() => expect(screen.getAllByTestId('edu-bubble')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByTestId('edu-bubble')).toHaveLength(1));
   });
 
   it('Show me renders every lesson section and runs the check', async () => {

@@ -19,7 +19,7 @@ from financequest.campaign.events import append_event
 from financequest.db.models import Event
 from financequest.db.models_campaign import CampaignRun
 
-MAX_PENDING = 3
+MAX_PENDING = 3  # up to 3 moments are recorded; the UI shows one bubble
 PRICE_MOVE_PCT = 8
 CONCENTRATION_PCT = 80
 

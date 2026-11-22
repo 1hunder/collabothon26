@@ -1,15 +1,24 @@
+import bubbleUrl from '../../assets/edu-bubble.webp';
 import './EduBubbles.css';
 
-/** Up to three "!" speech bubbles stacked above CommerzBuddy, one per waiting learning moment. */
+/**
+ * One thought bubble with "!" above CommerzBuddy while any learning moment is waiting. Several
+ * moments can be recorded; the count lives on the dock badge and in Buddy's offer, not here.
+ */
 export default function EduBubbles({ ids, poppedId }: { ids: string[]; poppedId: string | null }): React.JSX.Element | null {
   if (ids.length === 0) return null;
+  const popped = poppedId !== null && ids.includes(poppedId);
   return (
     <span className="edu-bubbles" aria-hidden="true" data-testid="edu-bubbles">
-      {ids.map((id, i) => (
-        <span key={id} data-testid="edu-bubble" data-pop={id === poppedId} className="edu-bubble" style={{ '--i': i } as React.CSSProperties}>
-          !
-        </span>
-      ))}
+      <img
+        key={popped ? poppedId : 'bubble'}
+        src={bubbleUrl}
+        alt=""
+        data-testid="edu-bubble"
+        data-pop={popped}
+        className="edu-bubble"
+        draggable={false}
+      />
     </span>
   );
 }
