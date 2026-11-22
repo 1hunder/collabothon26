@@ -2,6 +2,8 @@
 
 Dice & Dividends is a fantasy role-playing game for your phone, built for the Commerzbank "Finance Quest" challenge at Collabothon 2026. Create a hero, pick a quest, explore a village, question its characters and roll dice while an AI Campaign Master runs the story. Underneath, every quest is a real market case with the company disguised and the ending hidden, so your hero's big decision is a real investment judgment. The reveal shows which company you were dealing with and what really happened. It runs inside a simulated Commerzbank banking app with simulated funds.
 
+**Play it live:** [financequest-mauve.vercel.app](https://financequest-mauve.vercel.app/) (best on a phone)
+
 ## Project card
 
 **Project name:** Dice & Dividends
@@ -11,6 +13,8 @@ Dice & Dividends is a fantasy role-playing game for your phone, built for the Co
 **Technology stack:** Frontend: TypeScript, React 18, Vite, Tailwind CSS, TanStack Query, React Router, TradingView Lightweight Charts. Backend: Python 3.12, FastAPI, Pydantic, SQLModel, Alembic, PostgreSQL, Server-Sent Events. AI: Anthropic Claude (Opus 5.5) orchestrated with LangGraph and langchain-anthropic; Google Gemini for scene art and voice narration (TTS). Data: yfinance price history, hand-researched case packs. Infrastructure: Docker, Railway (API, PostgreSQL, storage bucket), Vercel, GitHub Actions. Testing: pytest, ruff, mypy, Vitest, Testing Library, Playwright.
 
 **Source code:** https://github.com/1hunder/collabothon26
+
+**Live demo:** https://financequest-mauve.vercel.app/
 
 ### The problem
 
