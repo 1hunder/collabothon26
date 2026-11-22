@@ -254,9 +254,7 @@ def _walk(ctx: VeteranContext) -> VeteranOut:
         d = decisions[step]
         verb = ACTION.get(d["action"], "you chose")
         amount = (
-            f" {d['amount_eur']} gp"
-            if d["action"] in ("buy", "sell") and d["amount_eur"]
-            else ""
+            f" {d['amount_eur']} gp" if d["action"] in ("buy", "sell") and d["amount_eur"] else ""
         )
         luck = LUCK.get((d["judgement"], d["luck"]), "")
         said = f" You said: {_quote(d['reasoning'], 14)}" if d.get("reasoning") else ""
@@ -328,13 +326,45 @@ def _walk(ctx: VeteranContext) -> VeteranOut:
             text=f"It ended in {kind}{pct}.{moral}{refl} What lesson from this road would you keep in "
             "your journal?",
             mood="approving" if f.get("sound_overall") else "pondering",
-            suggestions=["Keep a lesson in my journal", "What habits do you see?", "Another quest"],
+            suggestions=[
+                "What really happened to the company?" if f.get("real_case") else "Another quest",
+                "Keep a lesson in my journal",
+                "What habits do you see?",
+            ],
         )
+    rc = f.get("real_case")
+    if step == n + 3 and rc:
+        return VeteranOut(text=real_story(rc), mood="pondering", suggestions=[
+            "Keep a lesson in my journal", "What habits do you see?", "Another quest",
+        ])  # fmt: skip
     return VeteranOut(
         text="That is the whole road, start to end. Pick another quest, or we can look at the habits "
         "that follow you. Which shall it be?",
         mood="listening",
         suggestions=_menu(ctx),
+    )
+
+
+def real_story(rc: dict[str, Any]) -> str:
+    """History in the Veteran's words: the real company, real dates, real prices, one headline."""
+    ticker = f" ({rc['ticker']})" if rc.get("ticker") else ""
+    move = f", {rc['move_pct']}% in all" if rc.get("move_pct") is not None else ""
+    first = (rc.get("events") or [None])[0]
+    head = f" On {first['date']} the news read: {first['headline']}." if first else ""
+    yours = (rc.get("decisions") or [None])[0]
+    mine = (
+        f" Your first decision fell on {yours['date']}, with the share at {yours['price']}."
+        if yours
+        else ""
+    )
+    return (
+        _cut(
+            f"Now the real story, since the road is behind you. The guild was {rc['company']}{ticker}. "
+            f"On {rc['start']['date']} its share stood at {rc['start']['price']}; by "
+            f"{rc['end']['date']} it was {rc['end']['price']}{move}.{head}{mine}",
+            110,
+        ).rstrip(".…")
+        + ". Knowing that, which clue would you weigh differently?"
     )
 
 

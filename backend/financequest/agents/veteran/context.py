@@ -111,7 +111,11 @@ def facts_block(ctx: VeteranContext) -> str:
             lines.append(
                 f"{d['seq']}. {d['when']} ({d['day']}) | {d['action']} | {whole(d['amount_eur'])} | "
                 f'"{d["text"]}" | {d["judgement"]} | {d["luck"]}'
-                + (f' | their reasons, in their words: "{d["reasoning"]}"' if d.get("reasoning") else " | no reasons given")
+                + (
+                    f' | their reasons, in their words: "{d["reasoning"]}"'
+                    if d.get("reasoning")
+                    else " | no reasons given"
+                )
             )
         if f.get("closing_note"):
             lines.append(f'Closing note at the seal: "{f["closing_note"]}"')
@@ -129,7 +133,45 @@ def facts_block(ctx: VeteranContext) -> str:
         lines.append(f"Debrief: sound reasoning: {d.get('sound')} | luck: {d.get('luck')}")
         if f.get("reflection"):
             lines.append(f'Their reflection: "{f["reflection"]}"')
+        lines += real_case_lines(f.get("real_case"))
     return "\n".join(lines)
+
+
+def real_case_lines(rc: dict[str, Any] | None) -> list[str]:
+    """History behind the finished quest: real company, dates, US dollar share prices, headlines."""
+    if not rc:
+        return []
+    ticker = f" (ticker {rc['ticker']})" if rc.get("ticker") else ""
+    out = [
+        "\n# The real case behind this quest (revealed history, for teaching)",
+        f"Real company: {rc['company']}{ticker}. Prices are the real share price in US dollars.",
+        f"The quest began on {rc['start']['date']} at {rc['start']['price']}; the decision day "
+        f"was {rc['decision_day']['date']} at {rc['decision_day']['price']}; the quest ended on "
+        f"{rc['end']['date']} at {rc['end']['price']}.",
+    ]
+    if rc.get("move_pct") is not None:
+        after = rc.get("move_after_decision_pct")
+        out.append(
+            f"Over the whole period the real price moved {rc['move_pct']}% (highest close "
+            f"{rc['high']}, lowest close {rc['low']})"
+            + (
+                f"; from the decision day to the end it moved {after}%."
+                if after is not None
+                else "."
+            )
+        )
+    if rc.get("decisions"):
+        out.append(
+            "The hero's decisions on the real calendar (number | action | real date | real price):"
+        )
+        out += [f"{d['seq']}. {d['action']} | {d['date']} | {d['price']}" for d in rc["decisions"]]
+    if rc.get("events"):
+        out.append("What really happened (real date | real headline | real price that day):")
+        out += [
+            f"- {e['date']} | {e['headline']}" + (f" | {e['price']}" if e.get("price") else "")
+            for e in rc["events"]
+        ]
+    return out
 
 
 def history_block(ctx: VeteranContext) -> str:

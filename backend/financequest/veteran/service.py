@@ -290,6 +290,7 @@ def timeline(db: Session, sid: uuid.UUID, cid: uuid.UUID) -> dict[str, Any]:
             "missed",
             "xp",
             "sound_overall",
+            "real_case",
         )
     }
 
