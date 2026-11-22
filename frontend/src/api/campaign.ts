@@ -98,6 +98,11 @@ export function saveCommitDraft(id: string, draft: Partial<CommitDraft>): Promis
   return request<void>('PUT', `/campaigns/${id}/commit-draft`, draft);
 }
 
+/** Leave an open decision scene without trading; it comes back when the player asks to decide. */
+export function leaveScene(id: string): Promise<{ market_scene: null }> {
+  return request('POST', `/campaigns/${id}/scene/leave`);
+}
+
 export function resumePlay(id: string): Promise<{ phase: 'play'; commit_draft: CommitDraft | null }> {
   return request('POST', `/campaigns/${id}/resume-play`);
 }

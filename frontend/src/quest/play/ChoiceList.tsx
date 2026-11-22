@@ -16,6 +16,8 @@ export interface ChoiceListProps {
   busy?: boolean;
   onSend: (text: string) => void;
   onDecide: () => void;
+  /** Shown in a decision scene: leave it without trading (it comes back when the player decides). */
+  onLeave?: () => void;
   /** Bring back the reply just read, to read it again (a tap went past it too fast). */
   onReread?: () => void;
 }
@@ -34,6 +36,7 @@ export default function ChoiceList({
   onSend,
   onReread,
   onDecide,
+  onLeave,
 }: ChoiceListProps): React.JSX.Element {
   return (
     <section aria-label="Your turn" className="mx-3 flex flex-col gap-2">
@@ -55,6 +58,16 @@ export default function ChoiceList({
         />
         {mascot}
       </div>
+      {onLeave ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onLeave}
+          className="mx-1.5 flex min-h-11 items-center gap-1.5 self-start rounded-full border border-quest-gilt/50 bg-quest-soot/60 px-4 font-quest-sans text-sm text-quest-vellum hover:bg-quest-soot/80 disabled:opacity-50"
+        >
+          <span aria-hidden="true" className="text-quest-gilt">✕</span> Leave without trading
+        </button>
+      ) : null}
       {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
       {canDecide ? (
         <button

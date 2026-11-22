@@ -120,6 +120,11 @@ async def move(cid: uuid.UUID, body: MoveIn, sid: SessionId) -> EventSourceRespo
     return sse_response(plan)
 
 
+@router.post("/{cid}/scene/leave")
+def leave_scene(cid: uuid.UUID, sid: SessionId) -> dict[str, Any]:
+    return turns.leave_scene(sid, cid)
+
+
 @router.post("/{cid}/rolls")
 def roll(cid: uuid.UUID, body: RollIn, db: DbSession, sid: SessionId) -> dict[str, Any]:
     run, pack, hero = _load(db, cid, sid)

@@ -663,7 +663,22 @@ def support_reason(db: Session, run: CampaignRun, pack: Pack) -> str | None:
     price = ledger.fill_row(pack.rows, run.clock_day).close
     if shares > 0 and cost > 0 and shares * price * 100 <= cost * (100 - rules.SUPPORT_POSITION_DOWN_PCT):
         return "position_down"
+    if shares > 0 and cost > 0 and shares * price < cost and _fell_from_best(db, run, pack, price):
+        return "position_down"  # underwater, and the holding lost a big share of its best value
     return None
+
+
+HP_SUPPORT_REASONS = ("broke", "low_hp")  # may come after any reply; market reasons after a decision
+
+
+def _fell_from_best(db: Session, run: CampaignRun, pack: Pack, price: Decimal) -> bool:
+    """Today's price is at least SUPPORT_DRAWDOWN_PCT below the best close since the first buy."""
+    buys = [t.story_day for t in trades_of(db, run.id) if t.action == "buy"]
+    if not buys:
+        return False
+    since = min(buys)
+    best = max((r.close for r in pack.rows if since <= r.day <= run.clock_day), default=price)
+    return price * 100 <= best * (100 - rules.SUPPORT_DRAWDOWN_PCT)
 
 
 def second_look_clue(db: Session, run: CampaignRun, pack: Pack) -> str | None:

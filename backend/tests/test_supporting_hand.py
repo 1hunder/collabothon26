@@ -392,3 +392,42 @@ def test_the_bouncing_back_lesson_is_prepared_and_neutral(client: TestClient, en
     les = r.json()
     assert les["title"] == "Bouncing back from a loss" and "200 gp" in les["what_happened"]
     assert len(les["check"]["options"]) == 3
+
+
+def test_a_deep_fall_from_the_best_while_underwater_counts_as_trouble(client: TestClient, enron: str) -> None:
+    """Bought early, rode a peak, now below cost but less than 30% under it: still in trouble."""
+    import dataclasses
+
+    from financequest.campaign.pack import Row
+
+    h, cid = fresh(client)
+    turn(client, h, cid, BUY_HALF)
+    buy = trades(cid)[-1]
+    paid = Decimal(buy.amount_cents) / 100 / Decimal(buy.shares)
+    d = buy.story_day
+
+    def row(day: int, close: Decimal) -> Row:
+        return Row(day, f"d{day}", close, close, close, close)
+
+    def check(db: Session, run: CampaignRun, pack: Any) -> list[str | None]:
+        out = []
+        for later in (Decimal("0.95"), Decimal("1.1")):  # under cost / above cost
+            rows = (row(d, paid), row(d + 1, paid * Decimal("1.5")), row(d + 2, paid * later))
+            run.clock_day = d + 2
+            out.append(service.support_reason(db, run, dataclasses.replace(pack, rows=rows)))
+        db.rollback()
+        return out
+
+    assert with_run(cid, check) == ["position_down", None]
+
+
+def test_a_market_loss_is_met_after_a_decision_not_on_a_walk(client: TestClient, enron: str) -> None:
+    h, cid = fresh(client)
+    turn(client, h, cid, BUY_HALF)
+    set_day(cid, DAY_LOW)  # the coins are now worth about 38% less than was paid
+    st = state(client, h, cid)
+    lib = next(x["id"] for x in st["locations"] if x["key"] == "library")
+    post_sse(client, f"/campaigns/{cid}/move", h, {"location_id": lib})
+    assert state(client, h, cid)["offer"] is None  # arriving somewhere is not the moment
+    done = turn(client, h, cid)  # holding in a scene is
+    assert_offer(done, "rescue_buyback", "position_down")

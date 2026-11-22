@@ -621,6 +621,12 @@ export function fixturePlayResponse(method: string, path: string, body?: unknown
       save(x);
     }
   }
+  if (m === 'POST' && /^\/campaigns\/[^/]+\/scene\/leave$/.test(path)) {
+    const x = ctx();
+    x.c.market_scene = null;
+    save(x);
+    return { market_scene: null };
+  }
   if (m === 'POST' && /^\/campaigns\/[^/]+\/resume-play$/.test(path)) {
     const x = ctx();
     if (x.c.phase === 'commit') {

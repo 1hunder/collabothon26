@@ -123,3 +123,23 @@ def test_only_wanting_to_decide_still_opens_the_scene(
     act(client, h, cid, "I want to decide now")
     assert "trade" not in types(cid)
     assert campaign_state(client, h, cid)["market_scene"] is not None  # the scene asks what they do
+
+
+def test_leave_button_closes_a_decision_scene_without_a_trade(
+    client: TestClient, enron: str
+) -> None:
+    h, cid = _setup(client)
+    open_scene(h, cid, "decision")
+    r = client.post(f"/campaigns/{cid}/scene/leave", headers=h)
+    assert r.status_code == 200 and r.json()["market_scene"] is None
+    assert campaign_state(client, h, cid)["market_scene"] is None
+    assert "scene_passed" in types(cid) and "trade" not in types(cid)
+    again = client.post(f"/campaigns/{cid}/scene/leave", headers=h)
+    assert again.status_code == 200  # nothing open: fine
+
+
+def test_an_open_offer_cannot_be_left_with_the_button(client: TestClient, enron: str) -> None:
+    h, cid = _setup(client)
+    open_scene(h, cid, "offer")
+    assert client.post(f"/campaigns/{cid}/scene/leave", headers=h).status_code == 409
+    assert campaign_state(client, h, cid)["market_scene"] is not None

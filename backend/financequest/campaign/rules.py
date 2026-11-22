@@ -212,6 +212,7 @@ def loan_amount(text: str, maximum: int) -> int:
 # ---- the supporting hand: a helping offer when the player is in trouble -------------------------
 SUPPORT_LOW_HP_PCT = 40  # HP at or under this share of the starting HP
 SUPPORT_POSITION_DOWN_PCT = 30  # the coins in the company are worth this much less than was paid
+SUPPORT_DRAWDOWN_PCT = 25  # underwater, and the price is this much below its best since the first buy
 SUPPORT_LOSS_SALE_PCT = 25  # a sale that lost at least this share of the amount sold
 PATRON_GRANT_PCT = 20  # a patron's one-time gift: up to this share of the starting HP / gold
 BIG_LOSS_PCT = 60  # a final result at or under this share of the starting budget is a big loss

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
+import { leaveScene, patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
 import { request } from '../../api/client';
 import type { CampaignState, DiceCard, DiceMode, HpChange, MarketCard, NewsCard, PlayLocation, RollResult, SpeakerKind, TradeCard, TurnExtras } from '../../api/types';
 import { useDmStream, type DmDone } from '../../api/useDmStream';
@@ -372,6 +372,15 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     }
   };
 
+  const leave = async (): Promise<void> => {
+    patchCampaignCache(qc, id, { market_scene: null });
+    try {
+      await leaveScene(id);
+    } finally {
+      refresh();
+    }
+  };
+
   const toggleVoice = (): void => {
     if (onToggleVoice) onToggleVoice();
     else if (hasProvider) voiceApi.toggle();
@@ -472,6 +481,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           awaitingReasoning={c.awaiting_reasoning === true}
           onSend={sendAction}
           onDecide={() => void decide()}
+          onLeave={c.market_scene && !c.offer ? () => void leave() : undefined}
           onReread={current.text.trim() !== '' ? () => {
             setRereadKey(current.key);
             setAdvancedKey(null);
