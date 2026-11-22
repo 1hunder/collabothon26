@@ -1119,7 +1119,7 @@ describe('2.12 Committing the decision', () => {
 // ================================================================================================
 describe('2.13 Reveal and HP update', () => {
   const routes = [guard('/quest/outcome', <Outcome />), guard('/quest/debrief', <Debrief />)];
-  it('2.13-AC1 after Lock a "[horizon] later…" screen appears, followed by the reveal with the extended chart', async () => {
+  it('2.13-AC1 after Lock a "[horizon] later…" screen appears, followed by the outcome without a chart', async () => {
     const user = userEvent.setup();
     seedCampaign({ phase: 'commit', heroClass: 'analyst' });
     renderRoutes([guard('/quest/commit', <Commit />), guard('/quest/outcome', <Outcome />)], ['/quest/commit']);
@@ -1127,7 +1127,8 @@ describe('2.13 Reveal and HP update', () => {
     await user.click(screen.getByRole('button', { name: 'Lock my decision' }));
     await user.click(screen.getByRole('button', { name: 'Lock' }));
     await user.click(await screen.findByText('75 days later…', {}, { timeout: 3000 }));
-    expect(await screen.findByRole('img', { name: 'Price chart' })).toHaveAttribute('data-mode', 'story');
+    expect(await screen.findByRole('heading', { name: 'The outcome' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Price chart' })).not.toBeInTheDocument();
   });
   it('2.13-AC2 the reveal shows final value, loss in gold and percent, and the HP change from the server', async () => {
     seedCampaign({ phase: 'reveal', decision: investDecision });
