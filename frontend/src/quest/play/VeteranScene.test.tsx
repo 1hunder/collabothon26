@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DmStream, DmStreamState } from '../../api/useDmStream';
 import type { VeteranOverview, VeteranTimeline as Timeline } from '../../api/veteran';
 import DialogueBox, { VETERAN_NAME } from './DialogueBox';
-import TavernVeteran from './TavernVeteran';
+import HotspotLayer from './HotspotLayer';
 import VeteranPortrait from './VeteranPortrait';
 import VeteranScene from './VeteranScene';
 import VeteranTimeline from './VeteranTimeline';
@@ -46,7 +46,7 @@ describe('VeteranScene', () => {
     expect(s.send).toHaveBeenCalledTimes(1);
     expect(s.send).toHaveBeenCalledWith({ text: '', topic: null });
     expect(screen.getByText('Brannoc puffs on his pipe…')).toBeInTheDocument();
-    expect(screen.getByTestId('veteran-figure')).toBeInTheDocument();
+    expect(screen.queryByTestId('veteran-figure')).toBeNull();
   });
 
   it('speaks under his own wax-red name tab, then offers the remembered roads', async () => {
@@ -115,14 +115,12 @@ describe('Veteran voice and figure', () => {
     }
   });
 
-  it('sits by the fire as a tap target, disabled while something else is open', async () => {
+  it('makes the seated man a tap target, hidden while something else is open', async () => {
     const onOpen = vi.fn();
-    const { rerender } = render(<TavernVeteran active hidden={false} onOpen={onOpen} />);
+    const { rerender } = render(<HotspotLayer locationKey="tavern" active onOpen={onOpen} />);
     await userEvent.click(screen.getByRole('button', { name: /Talk to Brannoc/ }));
-    expect(onOpen).toHaveBeenCalledTimes(1);
-    rerender(<TavernVeteran active={false} hidden={false} onOpen={onOpen} />);
-    expect(screen.getByRole('button', { name: /Talk to Brannoc/ })).toBeDisabled();
-    rerender(<TavernVeteran active hidden onOpen={onOpen} />);
+    expect(onOpen).toHaveBeenCalledWith('veteran');
+    rerender(<HotspotLayer locationKey="tavern" active={false} onOpen={onOpen} />);
     expect(screen.queryByRole('button', { name: /Talk to Brannoc/ })).toBeNull();
   });
 });
