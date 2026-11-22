@@ -783,6 +783,14 @@
       "art_subject": "Wet stone steps and columns of a grand exchange building at dusk, gilded banners, lanterns, no people, no lettering or logos"
     }
   ],
+  "board": {
+    "title": "The Lantern Guild's Long Winter",
+    "teaser": "In Aster Vale the Golden Guild Trading Consortium is the pride of the Grand Exchange, and its ledgers glitter. Then the guild council changes its mind about the books, and the market starts to whisper. Read the ledgers, question the folk of the Exchange and decide where your gold belongs before the winter shows its hand.",
+    "difficulty": "medium",
+    "learn": ["Profit isn't cash", "Reading debt", "Reacting to news"],
+    "order": 10,
+    "briefing": "Rain taps on the stained glass of Aster Vale, and every trader at the Grand Exchange is talking about the Golden Guild Trading Consortium. The guild deals in energy and signal-tower networks, and it is counted among the largest houses of the Exchange. Its ledgers show great sales, yet a council proclamation has just stirred doubt about how the books are kept. Your question is simple and hard: do the guild's claims hold up against the facts you can find, and how much gold, if any, should you commit before the future is shown?"
+  },
   "debrief": {
     "questions": [
       "What was knowable when you committed?",
