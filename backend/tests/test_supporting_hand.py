@@ -419,3 +419,15 @@ def test_a_deep_fall_from_the_best_while_underwater_counts_as_trouble(client: Te
         return out
 
     assert with_run(cid, check) == ["position_down", None]
+
+
+def test_a_market_loss_is_met_after_a_decision_not_on_a_walk(client: TestClient, enron: str) -> None:
+    h, cid = fresh(client)
+    turn(client, h, cid, BUY_HALF)
+    set_day(cid, DAY_LOW)  # the coins are now worth about 38% less than was paid
+    st = state(client, h, cid)
+    lib = next(x["id"] for x in st["locations"] if x["key"] == "library")
+    post_sse(client, f"/campaigns/{cid}/move", h, {"location_id": lib})
+    assert state(client, h, cid)["offer"] is None  # arriving somewhere is not the moment
+    done = turn(client, h, cid)  # holding in a scene is
+    assert_offer(done, "rescue_buyback", "position_down")

@@ -597,7 +597,7 @@ def commit_turn(
         out = _streamed(db, run, pack, stored_ev, cards)
     if news_card:
         out.done["news_text"] = news_card.get("framing")
-    return _support_followup(sid, cid, out, nar)
+    return _support_followup(sid, cid, out, nar, hp_only=True)
 
 
 def frame_news(
@@ -794,7 +794,9 @@ def _all_in_followup(
 # ==============================================================================================
 # the supporting hand: help for a player in trouble
 # ==============================================================================================
-def _support_followup(sid: uuid.UUID, cid: uuid.UUID, out: Streamed, nar: Narration) -> Streamed:
+def _support_followup(
+    sid: uuid.UUID, cid: uuid.UUID, out: Streamed, nar: Narration, *, hp_only: bool = False
+) -> Streamed:
     """After a reply that may have put the player in trouble (damage, a loss at the board, a sale at
     a loss) the engine checks; the Master then offers one fitting supporting hand, once per
     campaign. The engine lists the kinds it can really give and supplies every figure; a refused or
@@ -806,6 +808,8 @@ def _support_followup(sid: uuid.UUID, cid: uuid.UUID, out: Streamed, nar: Narrat
         with _session() as db:
             run, pack, hero = service.load(db, cid, sid, write=False)
             reason = service.support_reason(db, run, pack)
+            if hp_only and reason not in service.HP_SUPPORT_REASONS:
+                reason = None  # a market loss is met right after a decision, not on a walk or a talk
             options = service.support_options(db, run, pack, hero) if reason else {}
             if reason is None or not options:
                 return out
@@ -1084,7 +1088,7 @@ def plan_narrate_roll(sid: uuid.UUID, cid: uuid.UUID, roll_id: uuid.UUID) -> Str
             ev = append_event(db, run, "dm_reply", payload, key)
             _finish(db, run)
             out = _streamed(db, run, pack, ev, [])
-        return _support_followup(sid, cid, out, nar)
+        return _support_followup(sid, cid, out, nar, hp_only=True)
 
     return StreamPlan(cid, work=lambda: nar.narrate_roll(ctx, roll), commit=commit,
                       deadline_s=TURN_BUDGET_S)
