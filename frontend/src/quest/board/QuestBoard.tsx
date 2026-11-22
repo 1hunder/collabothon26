@@ -19,7 +19,9 @@ export default function QuestBoard(): React.JSX.Element {
 
   if (board.isError) return <p role="alert">Could not load the Quest Board. Please try again.</p>;
   if (!board.data) return <p role="status">Reading the notices…</p>;
-  const { curated, mine, suggestion } = board.data;
+  const { curated, suggestion } = board.data;
+  // Only ready or in-progress commissions appear; failed ones are never shown on the board.
+  const mine = board.data.mine.filter((c) => c.status !== 'failed');
   const open = [...curated, ...mine].find((c) => c.id === openId) ?? null;
 
   const start = (card: QuestCard): void => {

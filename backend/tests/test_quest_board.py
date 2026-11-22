@@ -181,3 +181,16 @@ def test_played_and_finished_flags(client: TestClient, enron: str) -> None:
     assert card["played"] is True and card["finished"] is True
     other = _player(client)
     assert client.get("/quests/board", headers=other).json()["curated"][0]["played"] is False
+
+
+def test_failed_commissions_are_not_listed(client: TestClient, enron: str) -> None:
+    h = _player(client)
+    card = client.post("/quests/generate", json={}, headers=h).json()
+    _mine(client, h, card["id"])
+    with Session(get_engine()) as db:
+        job = db.get(GenerationJob, uuid.UUID(card["id"]))
+        assert job is not None
+        job.status = "failed"
+        db.add(job)
+        db.commit()
+    assert client.get("/quests/board", headers=h).json()["mine"] == []
