@@ -365,14 +365,31 @@ _EXPLORE_RE = re.compile(
 )
 
 
+_SKILL_RE = re.compile(
+    r"\b(search|searching|inspect|examine|investigate|look (?:for|around|closely)|study|"
+    r"scrutini[sz]e|read (?:his|her|their) (?:face|eyes|expression)|watch (?:him|her|them)|"
+    r"is (?:he|she|they) (?:lying|hiding)|persuade|convince|charm|bargain with|pressure|"
+    r"sneak|eavesdrop|overhear|listen in|spy|recall|remember what)\b"
+)
+
+
 def _plan_scene_answer(
     sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
 ) -> StreamPlan:
     """An answer in an open decision scene is a decision, a question about the trade, or something
     else entirely (travel, talk, explore): that last one passes the scene and runs a normal turn."""
 
+    keep_scene = False  # a skill attempt runs as a normal turn but leaves the scene open
+
     def work() -> DecisionReply | TurnReply:
+        nonlocal keep_scene
         no_trade_words = not rules.parse_decision(text)[0]
+        # Investigating the world (search, study a face, persuade, eavesdrop…) is a dice-worthy
+        # action, not a question about the trade: the Master handles it (and may call for a roll),
+        # and the decision scene stays open for when the player comes back to it.
+        if no_trade_words and _SKILL_RE.search(text.lower()):
+            keep_scene = True
+            return _normal_turn_work(nar, ctx, text)
         # No LLM call needed: travel to a known place, or any explore/travel/talk wording with no
         # buy/sell/hold in it (e.g. "I want to explore some new locations").
         if no_trade_words and (names_travel(ctx, text) or _EXPLORE_RE.search(text.lower())):
@@ -393,7 +410,8 @@ def _plan_scene_answer(
     def commit(reply: DecisionReply | TurnReply) -> Streamed:
         if isinstance(reply, DecisionReply):
             return commit_decision(sid, cid, text, reply, msg=msg, nar=nar)
-        pass_scene(sid, cid, text, msg=msg)
+        if not keep_scene:
+            pass_scene(sid, cid, text, msg=msg)
         return commit_turn(sid, cid, reply, msg=msg, nar=nar)
 
     return StreamPlan(

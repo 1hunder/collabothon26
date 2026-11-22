@@ -78,3 +78,15 @@ def test_a_question_about_the_trade_keeps_the_scene_open(client: TestClient, enr
     act(client, h, cid, "what is the broker's fee?")
     assert campaign_state(client, h, cid)["market_scene"] is not None
     assert "trade" not in types(cid) and "scene_passed" not in types(cid)
+
+
+def test_a_skill_attempt_in_an_open_scene_gets_a_dice_card_and_keeps_the_scene(
+    client: TestClient, enron: str
+) -> None:
+    h, cid = _setup(client)
+    open_scene(h, cid)
+    done = act(client, h, cid, "I search the tables carefully for any clues the traders left")
+    card = done.get("card") or {}
+    assert done.get("intent") == "challenge" and card.get("kind") == "dice"
+    assert "scene_passed" not in types(cid) and "trade" not in types(cid)
+    assert campaign_state(client, h, cid)["market_scene"] is not None  # still open for later
