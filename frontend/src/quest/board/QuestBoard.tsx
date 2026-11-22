@@ -53,21 +53,25 @@ export default function QuestBoard(): React.JSX.Element {
         {notices(curated)}
       </section>
 
-      <section aria-labelledby="qb-mine">
-        <h2 id="qb-mine" className="qb-section-title font-quest-title">Your quests</h2>
-        <ul className="qb-grid">
-          <li>
-            <div className="qb-wrap">
-              <button type="button" className="qb-notice qb-commission" onClick={() => setCommissioning(true)}>
-                <Feather aria-hidden="true" className="mx-auto mb-1 text-quest-gilt" size={26} />
-                <span className="block font-quest-title text-2xl text-quest-gilt">Commission a new quest</span>
-                <span className="block text-base">Built from your spending, or from what you ask for.</span>
-              </button>
-            </div>
-          </li>
-        </ul>
-        {mine.length > 0 ? <div className="mt-5">{notices(mine)}</div> : null}
-      </section>
+      <ul className="qb-grid mt-6">
+        <li>
+          <div className="qb-wrap">
+            <button type="button" className="qb-notice qb-commission" onClick={() => setCommissioning(true)}>
+              <Feather aria-hidden="true" className="mx-auto mb-1 text-quest-gilt" size={26} />
+              <span className="block font-quest-title text-2xl text-quest-gilt">Commission a new quest</span>
+              <span className="block text-base">Built from your spending, or from what you ask for.</span>
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      {/* "Your quests" appears only once the player has commissioned one. */}
+      {mine.length > 0 ? (
+        <section aria-labelledby="qb-mine">
+          <h2 id="qb-mine" className="qb-section-title font-quest-title">Your quests</h2>
+          {notices(mine)}
+        </section>
+      ) : null}
 
       {open ? <QuestDetail card={open} onClose={() => setOpenId(null)} onStart={start} /> : null}
       {commissioning ? (

@@ -35,14 +35,14 @@ function setup() {
 }
 
 describe('QuestBoard', () => {
-  it('shows guild notices, your quests (one being written) and stamps', async () => {
+  it('shows guild notices and your quests (one being written), without stamps', async () => {
     setup();
     expect(await screen.findByRole('button', { name: 'Open quest: The Lantern Guild Gambit' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open quest: Keel and Cannon' })).toBeInTheDocument();
-    expect(screen.getByText('Played')).toBeInTheDocument();
-    expect(screen.getByText('Finished')).toBeInTheDocument();
+    expect(screen.queryByText('Played')).toBeNull();
+    expect(screen.queryByText('Finished')).toBeNull();
     const mine = screen.getByRole('region', { name: 'Your quests' });
-    expect(within(mine).getByRole('button', { name: /Commission a new quest/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Commission a new quest/ })).toBeInTheDocument();
     expect(within(mine).getByRole('status')).toHaveTextContent('A quest is being written');
     // difficulty is text, whole-number gold
     const lantern = screen.getByRole('button', { name: 'Open quest: The Lantern Guild Gambit' });
@@ -65,12 +65,6 @@ describe('QuestBoard', () => {
     await screen.findByRole('dialog');
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('offers Play again on a finished quest', async () => {
-    setup();
-    await userEvent.click(await screen.findByRole('button', { name: 'Open quest: The Saffron Ledger' }));
-    expect(await screen.findByRole('button', { name: 'Play again' })).toBeEnabled();
   });
 
   it('Start posts /campaigns with the scenario_id and enters play', async () => {

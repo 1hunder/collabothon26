@@ -71,12 +71,10 @@ export default function QuestNotice({ card, onOpen, onRetry }: QuestNoticeProps)
     );
   }
 
-  const stamp = card.finished ? 'Finished' : card.played ? 'Played' : null;
   return (
     <div className="qb-wrap">
       {pin}
       <button type="button" className="qb-notice" onClick={() => onOpen(card)} aria-label={`Open quest: ${card.title}`}>
-        {stamp ? <span className={card.finished ? 'qb-stamp finished' : 'qb-stamp'}>{stamp}</span> : null}
         <span className="qb-title block font-quest-title">{card.title}</span>
         <span className="qb-company block">{card.company_name}, {card.trade}</span>
         <span className="qb-teaser block">{card.teaser}</span>
