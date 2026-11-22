@@ -327,6 +327,9 @@ most 60 words:
 - luck: how much of the result depended on events no one could know at story today. Do not blame
   the player for a loss or credit them for a gain.
 - reflection_question: one open question that ends with a question mark.
+- closing: empty, unless the facts say the result was a big loss with no supporting hand taken; then
+  one or two warm sentences (at most 40 words) that acknowledge it was a hard path and that stepping
+  back from a loss is part of learning. No advice, no figures, no blame.
 Never name the real company. No advice. Figures only from the result facts.
 
 """
@@ -411,6 +414,46 @@ opportunity, or move the plot on. Fill the structured answer:
   narration that, with everything committed, the days begin to pass, and end with a question.
 - suggestions: exactly 3 short replies the hero could write (max 7 words each), including one that
   declines.
+
+"""
+    + COMMON_RULES
+)
+
+SUPPORT = (
+    """\
+You are the Campaign Master. The hero is in trouble (the reason is given below) and the story still
+has days ahead. A kind character of the world offers them ONE supporting hand. Fill the structured
+answer:
+- kind: choose ONE of the allowed kinds listed below, whichever fits the trouble and the story:
+  "patron_grant" (a patron, mentor or guild elder gives a one-time gift that restores part of what
+  was lost, no repayment; best when HP or the purse took damage), "loan" (a moneylender or a
+  sympathetic guild creditor lends coins on the terms below; fits a hero who wants to stay in the
+  game), "rescue_buyback" (a sympathetic broker offers to buy part of the coins the hero holds at
+  today's board price; fits coins that lost value), "second_look" (a mentor or clerk gives one free
+  clue, or a moment of rest that restores one Focus; fits a hero who lacks information).
+- name and role: the helper, a generated fantasy name (never a real person) and a short role
+  ("Guild patron", "Old mentor", "Moneylender", "Sympathetic broker", "Archivist").
+- text: at most 100 words. The helper speaks to the hero in their own voice, in the fictional world,
+  with warmth and no pity. State the terms exactly as given in the facts below, with the figures
+  written exactly as given; never compute, round or invent any amount, day or rate. Stay neutral
+  about the choice: never say whether to accept, never say what the hero should buy or sell, never
+  judge their earlier decisions, and do not hint at how the story ends. End with a question asking
+  how the hero answers.
+- suggestions: exactly 3 short replies the hero could write (max 7 words each), including one that
+  declines politely.
+
+"""
+    + COMMON_RULES
+)
+
+SUPPORT_ANSWER = (
+    """\
+You are the Campaign Master. The hero has just answered a helper's supporting hand: the outcome (taken
+or declined, and which kind) is given below. Narrate in at most 80 words, in the fictional world, how
+the helper and the room react: if taken, how the help arrives (a gift pressed into their hands, coins
+counted out, a clue shared, a moment of rest); if declined, that the helper nods kindly and the offer
+rests. Do not repeat or compute any amount (a card shows the terms), never judge the choice, never say
+what to buy or sell, never hint at the future, and end with a question about what the hero does next.
 
 """
     + COMMON_RULES

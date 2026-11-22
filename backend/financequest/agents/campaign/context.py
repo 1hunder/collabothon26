@@ -74,6 +74,8 @@ class AgentContext:
     scene: dict[str, Any] | None = None  # the open decision scene
     offer_facts: dict[str, Any] | None = None  # engine terms of the offers the Master may make
     edu_pending: list[str] = field(default_factory=list)  # titles of learning moments waiting
+    support_reason: str | None = None  # why the supporting hand is being offered (engine)
+    support_closing: bool = False  # debrief: a big loss with no supporting hand taken
 
     @property
     def holds_shares(self) -> bool:
@@ -251,6 +253,8 @@ def render_outcome(o: dict[str, Any]) -> str:
         parts.append(f"budget bar before: {o['hp_before']}, after: {o['hp_after']}")
     if o.get("loan_repay") is not None:
         parts.append(f"loan to repay: {whole(o['loan_repay'])} gold pieces")
+    if o.get("patron_grant") is not None:
+        parts.append(f"a patron's gift received: {whole(o['patron_grant'])} gold pieces")
     return "Result of the decision: " + "; ".join(parts) + "."
 
 
@@ -269,6 +273,7 @@ def outcome_facts(db: Session, run: CampaignRun) -> tuple[dict[str, Any] | None,
         "cash": oc.cash, "invested": oc.invested, "value_now": oc.value_now, "final": oc.final,
         "pnl": oc.pnl, "pnl_pct": oc.pnl_pct, "hp_before": oc.hp_before, "hp_after": oc.hp_after,
         **({"loan_repay": str(loan.repay)} if (loan := service.loan_of(service.trades_of(db, run.id))) else {}),
+        **({"patron_grant": str(g.amount)} if (g := service.grant_of(service.trades_of(db, run.id))) else {}),
     }  # fmt: skip
     deb = db.get(Debrief, run.id)
     texts = [str(dec.evidence or "")] + ([deb.reflection_text] if deb and deb.reflection_text else [])
@@ -341,6 +346,10 @@ def build_agent_context(
         final_reasoning=getattr(service.decision_of(db, run.id), "reasoning", None),
         scene=run.market_scene if isinstance(run.market_scene, dict) else None,
         edu_pending=[m["title"] for m in edu.edu_out(events)["pending"]],
+        support_closing=bool(
+            outcome and Decimal(str(outcome["final"])) * 100 <= run.hp_start * 10 * rules.BIG_LOSS_PCT
+            and not any(e.type == "support_taken" for e in events)
+        ),
     )  # fmt: skip
 
 
@@ -437,9 +446,11 @@ def free_numbers(ctx: AgentContext, typed: str = "") -> list[Any]:
         if ctx.purse.get("loan"):
             nums += [ctx.purse["loan"]["principal_eur"], ctx.purse["loan"]["repay_eur"],
                      ctx.purse["loan"]["interest_eur"], ctx.purse["net_eur"]]
+        if ctx.purse.get("grant"):
+            nums.append(ctx.purse["grant"]["amount_eur"])
     for terms in [*(ctx.offer_facts or {}).values(), ((ctx.scene or {}).get("offer") or {}).get("terms") or {}]:
         nums += [v for v in terms.values() if isinstance(v, int | float)]  # the offer's own terms
-    nums += [rules.LOAN_INTEREST_PCT, rules.LOAN_PRINCIPAL_PCT]
+    nums += [rules.LOAN_INTEREST_PCT, rules.LOAN_PRINCIPAL_PCT, rules.PATRON_GRANT_PCT]
     for d in ctx.decisions:
         nums += [d["amount_eur"], d["cash_after_eur"]]
         if d.get("effect_eur") is not None:  # only after the lock

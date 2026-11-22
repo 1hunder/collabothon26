@@ -93,6 +93,10 @@ def build_facts(db: Session, run: CampaignRun, pack: Pack, ev: Event, events: li
     if loan:
         f.loan = {"principal": _whole(loan.get("principal_eur", 0)), "repay": _whole(loan.get("repay_eur", 0)),
                   "interest": _whole(loan.get("interest_eur", 0) or (loan.get("repay_eur", 0) - loan.get("principal_eur", 0)))}
+    if offer.get("reason"):  # a supporting hand: the lesson may quote what the engine offered
+        t = offer.get("terms") or {}
+        f.support = {"kind": str(offer.get("kind")), "reason": str(offer["reason"]),
+                     "amount": _whole(t.get("gift_eur") or t.get("principal_eur") or t.get("max_eur") or 0)}  # fmt: skip
     rid = p.get("roll_id")
     roll = next((e.payload for e in reversed(events) if e.type == "dice_roll" and (e.seq or 0) <= (ev.seq or 0)
                  and (e.payload or {}).get("final") and (e.payload or {}).get("roll_id") == rid), None) if rid else None

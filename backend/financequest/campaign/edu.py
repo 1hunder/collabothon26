@@ -32,12 +32,13 @@ CATALOG: dict[str, str] = {
     "price_move": "Why prices move",
     "concentration": "All eggs in one basket",
     "loan_cost": "Borrowing costs",
+    "bouncing_back": "Bouncing back from a loss",
     "thin_reasoning": "Deciding with evidence",
     "luck_vs_skill": "Luck vs judgement",
     "concept_question": "Terms in plain words",
 }
 # detection priority when several fire in one turn (the cap then keeps the first three)
-ORDER = ("concept_question", "luck_vs_skill", "news_reaction", "first_trade", "loan_cost",
+ORDER = ("concept_question", "luck_vs_skill", "news_reaction", "first_trade", "bouncing_back", "loan_cost",
          "concentration", "thin_reasoning", "debt_and_equity", "cash_vs_profit", "price_move")  # fmt: skip
 
 # canonical term -> pattern in the player's words
@@ -75,6 +76,7 @@ class EduFacts:
     screen_texts: list[str] = field(default_factory=list)  # what the open Library page shows
     loan_offered: bool = False
     loan: dict[str, int] | None = None
+    support: dict[str, Any] | None = None  # a supporting hand offered this turn: kind, reason, figure
     roll: dict[str, Any] | None = None  # final dice check: title, result, used
     hp_loss: int = 0
     chart: dict[str, int] | None = None  # first, last, change_pct of the shown board
@@ -123,6 +125,8 @@ def detect(f: EduFacts) -> list[Candidate]:
         add("news_reaction")
     if f.trade:
         add("first_trade")
+    if f.support:
+        add("bouncing_back")
     if f.loan_offered:
         add("loan_cost")
     total = f.gp.get("total", 0)
@@ -158,6 +162,8 @@ def snapshot(f: EduFacts, cand: Candidate) -> dict[str, Any]:
         snap["news"] = f.news_headline
     if key == "first_trade" and f.trade:
         snap["trade"] = dict(f.trade)
+    if key == "bouncing_back" and f.support:
+        snap["support"] = dict(f.support)
     if key in ("loan_cost", "debt_and_equity") and f.loan:
         snap["loan"] = dict(f.loan)
     if key == "luck_vs_skill":

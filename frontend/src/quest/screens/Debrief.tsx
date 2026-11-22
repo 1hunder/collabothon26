@@ -63,6 +63,7 @@ export default function Debrief(): React.JSX.Element {
       ))}
       <p className="font-quest-sans italic text-quest-vellum-dim">{debrief.forecast_line}</p>
       <WhatIfPanel rows={debrief.whatif} />
+      {debrief.closing ? <p className="font-quest-sans italic text-quest-vellum-dim">{debrief.closing}</p> : null}
       <p className="text-lg">{debrief.reflection_question}</p>
       <button
         type="button"

@@ -16,6 +16,8 @@ export function offerTerms(offer: Pick<Offer, 'kind' | 'terms'>): string {
   if (offer.kind === 'loan') {
     return `Up to ${formatGold(Number(t.principal_eur))} now, ${Math.round(Number(t.interest_pct))}% flat interest: repay ${formatGold(Number(t.repay_eur))} ${t.due}.`;
   }
+  if (offer.kind === 'patron_grant') return `Patron's help: +${formatGold(Number(t.gift_eur))}, no repayment.`;
+  if (offer.kind === 'second_look') return t.gives === 'one Focus' ? 'A quiet hour: one Focus back, free.' : 'A free look: one clue.';
   return `Buys back up to ${formatGold(Number(t.max_eur))} of your coins at ${t.price}.`;
 }
 
@@ -31,6 +33,12 @@ export function PurseLine({ purse, className = '' }: { purse: Purse; className?:
         <dt className="inline text-quest-vellum-dim">In the company </dt>
         <dd className="inline font-bold">{formatGold(purse.position_eur)}</dd>
       </div>
+      {purse.grant ? (
+        <div className="basis-full">
+          <dt className="inline text-quest-vellum-dim">Patron </dt>
+          <dd className="inline font-bold">{purse.grant.label}</dd>
+        </div>
+      ) : null}
       {purse.loan ? (
         <div className="basis-full">
           <dt className="inline text-quest-vellum-dim">Loan </dt>
@@ -75,7 +83,7 @@ export function MarketMoment({ card, onAnswer }: MarketMomentProps): React.JSX.E
   );
 }
 
-const verb: Record<TradeCard['action'], string> = { buy: 'Put in', sell: 'Took out', hold: 'Held your coins', loan: 'Borrowed' };
+const verb: Record<TradeCard['action'], string> = { buy: 'Put in', sell: 'Took out', hold: 'Held your coins', loan: 'Borrowed', grant: 'Received' };
 
 interface OfferMomentProps {
   card: OfferMomentCard;
@@ -87,11 +95,11 @@ export function OfferMoment({ card, onAnswer }: OfferMomentProps): React.JSX.Ele
   return (
     <div className="absolute inset-0 z-[26] flex items-center bg-quest-soot/75 px-5">
       <article
-        aria-label="An offer"
+        aria-label={card.reason ? 'A helping hand' : 'An offer'}
         className="w-full rounded-lg border border-quest-gilt/60 bg-quest-lapis-deep/95 p-5 text-quest-vellum shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
       >
         <p className="font-quest-sans text-xs font-bold uppercase tracking-widest text-quest-gilt">
-          {card.day_label} · An offer
+          {card.day_label} · {card.reason ? 'A helping hand' : 'An offer'}
         </p>
         <h2 className="mt-1 font-quest-title text-3xl leading-tight text-quest-gilt">{card.by.name}</h2>
         <p className="font-quest-sans text-sm text-quest-vellum-dim">{card.by.role}</p>

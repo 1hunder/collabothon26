@@ -40,6 +40,7 @@ from financequest.agents.campaign.schemas import (
     OfferOut,
     RouteOut,
     SummaryOut,
+    SupportOut,
     TextOut,
     XpOut,
 )
@@ -123,6 +124,47 @@ def _offer_template(kind: str, facts: dict[str, Any]) -> dict[str, Any]:
             "text": "With everything committed, the days begin to pass. Are you ready to wait?"}  # fmt: skip
 
 
+_SUPPORT_REASONS = {
+    "low_hp": "their HP (the purse bar) is low after the damage they took",
+    "position_down": "the coins they hold in the company are worth much less than they paid",
+    "loss_sale": "they sold coins at a loss",
+    "broke": "their purse bar is empty",
+}
+_SUPPORT_SUGGESTIONS = {
+    "loan": ["I take the loan", "No, thank you", "I look around instead"],
+    "patron_grant": ["I accept the help", "No, thank you", "I look around instead"],
+    "rescue_buyback": ["Sell half of my coins", "No, I keep them", "I look around instead"],
+    "second_look": ["Yes, show me", "No, thank you", "I look around instead"],
+}
+_SUPPORT_HELPERS = {
+    "loan": ("Ismene Dray", "Moneylender"), "patron_grant": ("Edda Wren", "Guild patron"),
+    "rescue_buyback": ("Cato Brindle", "Sympathetic broker"), "second_look": ("Old Marek", "Mentor"),
+}  # fmt: skip
+
+
+def _support_template(kind: str, terms: dict[str, Any]) -> dict[str, Any]:
+    """The prepared supporting hand used when the model's fails the guards: engine terms only."""
+    name, role = _SUPPORT_HELPERS[kind]
+    if kind == "patron_grant":
+        body = (f"A guild patron presses a purse into your hands: {whole(terms['gift_eur'])} gold pieces "
+                f"to restore part of what you lost, a gift with no repayment. Do you accept?")
+    elif kind == "loan":
+        body = (f"A moneylender offers you up to {whole(terms['principal_eur'])} gold pieces now, at flat "
+                f"interest of {whole(terms['interest_pct'])} percent: {whole(terms['repay_eur'])} gold pieces "
+                f"repaid {terms['due']}. How do you answer?")
+    elif kind == "rescue_buyback":
+        body = ("A broker offers to buy part of your coins in the company at today's board price, up to "
+                f"{whole(terms['max_eur'])} gold pieces worth. How do you answer?")
+    else:
+        body = ("An old mentor offers you a free look: one clue shared at no cost to you. Do you accept?"
+                if terms.get("gives") == "one clue" else
+                "An old mentor offers you a quiet hour to gather your thoughts, restoring one Focus at no cost. "
+                "Do you accept?")
+    return {"name": name, "role": role, "text": body, "suggestions": _SUPPORT_SUGGESTIONS[kind]}
+
+
+SUPPORT_CLOSING = ("This was a hard path, and it is no failure to feel it. Stepping back from a loss "
+                   "and asking what it taught you is exactly how a trader grows.")
 BUDDY_WORDS = 120
 EDU_FIELDS = {
     "what_happened": FieldRule(45, False), "idea": FieldRule(60, False), "example": FieldRule(55, False),
@@ -402,6 +444,62 @@ class AgentNarration:
                           role=role if kind != "fast_forward" else "", text=out.text.strip(),
                           suggestions=sugg, degraded=res.degraded)  # fmt: skip
 
+    # ---- the supporting hand: the story offers help to a hero in trouble ----------------------------
+    def support(self, ctx: C.AgentContext, reason: str, allowed: list[str]) -> OfferReply:
+        """The Master picks one engine-allowed kind of help and voices a helper. The engine supplies
+        the terms and validates the kind; a refused or failed model gets the prepared offer."""
+        facts = ctx.offer_facts or {}
+        kinds = [k for k in allowed if k in facts] or allowed[:1]
+        first = rules.support_pick(reason, kinds)
+        ctx.support_reason = reason
+        lines = [
+            "# Supporting hand (engine computed, gold pieces)",
+            f"Why the hero is in trouble: {_SUPPORT_REASONS[reason]}.",
+            f"Allowed kinds: {', '.join(kinds)}.",
+        ]
+        for k in kinds:
+            t = facts[k]
+            lines.append(f"{k} terms: " + ", ".join(
+                f"{key} {whole(v) if isinstance(v, int | float) else v}" for key, v in t.items()) + ".")
+        extra = "\n".join([*lines, *C.purse_lines(ctx)])
+        template = SupportOut(kind=first, **_support_template(first, facts[first]))  # type: ignore[arg-type]
+        spec = GuardedSpec(
+            llm=self.llm, node="campaign_support", schema=SupportOut, effort="medium",
+            messages=lambda notes: C.build_messages(
+                ctx, prompts.SUPPORT, "Offer the supporting hand.", corrective=notes, extra=extra),
+            texts=lambda o: {"text": o.text},
+            rules=make_rules(ctx, fields={"text": FieldRule(SCENE_WORDS, True)}),
+            template=lambda: template, ctx=ctx,
+            llm_context={"ctx": ctx, "input": "Offer the supporting hand.", "allowed": kinds,
+                         "reason": reason},
+        )  # fmt: skip
+        res = run_guarded(spec)
+        out: SupportOut = res.out
+        kind = out.kind if out.kind in kinds else first
+        name = " ".join(out.name.split())[:40] or _SUPPORT_HELPERS[kind][0]
+        role = " ".join(out.role.split())[:40] or _SUPPORT_HELPERS[kind][1]
+        text = out.text.strip() if kind == out.kind else _support_template(kind, facts[kind])["text"]
+        sugg = [x.strip() for x in out.suggestions if x.strip()][:3] or _SUPPORT_SUGGESTIONS[kind]
+        return OfferReply(kind=kind, name=name, role=role, text=text, suggestions=sugg,
+                          degraded=res.degraded)  # fmt: skip
+
+    def support_answer(self, ctx: C.AgentContext, kind: str, taken: bool) -> TurnReply:
+        """The hero answered the supporting hand: narrated in the world, no figure repeated."""
+        verdict = "taken" if taken else "declined"
+        text, degraded, _ = self._text_node(
+            ctx, node="campaign_support_answer", prompt=prompts.SUPPORT_ANSWER,
+            user="Narrate the answer to the supporting hand.",
+            extra=f"# The answer\nKind of help: {kind}. The hero {verdict} it.\n" + "\n".join(C.purse_lines(ctx)),
+            effort="low", max_words=PART_WORDS + 10, question=True,
+            template=("The helper's kindness settles over the room, and the moment passes. What do you do next?"
+                      if taken else
+                      "The helper nods kindly and steps back; the offer rests there should you want it. "
+                      "What do you do next?"),
+            llm_context={"kind": kind, "taken": taken},
+        )  # fmt: skip
+        return TurnReply(text=text, degraded=degraded, intent="offer_answer",
+                         suggestions=decision_suggestions(ctx))  # fmt: skip
+
     def offer_answer(self, ctx: C.AgentContext) -> TurnReply:
         """The hero took the loan: the coins change hands (a card shows the terms)."""
         text, degraded, _ = self._text_node(
@@ -511,16 +609,20 @@ class AgentNarration:
             overlooked=", ".join(missed) if missed else "Nothing important",
             luck="Part of the result depended on events no one could know at the time.",
             reflection_question=question,
+            closing=SUPPORT_CLOSING if ctx.support_closing else "",
         )  # fmt: skip
         extra = (
             f"# Debrief facts \nOverlooked clue titles: {', '.join(missed) or 'none'}.\n"
             f"Player's written evidence: {' | '.join(ctx.player_texts)}\n"
-            f"Suggested reflection question: {question}\n{C.render_outcome(ctx.outcome) if ctx.outcome else ''}\n"
+            + ("Closing line: required. The result was a big loss and no supporting hand was taken.\n"
+               if ctx.support_closing else "Closing line: leave empty.\n")
+            + f"Suggested reflection question: {question}\n{C.render_outcome(ctx.outcome) if ctx.outcome else ''}\n"
             + decisions_block(ctx)
         )
         fields = {k: FieldRule(PART_WORDS, False) for k in
                   ("sound_reasoning", "how_you_reasoned", "overlooked", "luck")}  # fmt: skip
         fields["reflection_question"] = FieldRule(PART_WORDS, True)
+        fields["closing"] = FieldRule(45, False)
         spec = GuardedSpec(
             llm=self.llm, node="campaign_debrief", schema=DebriefOut, effort="high",
             messages=lambda notes: C.build_messages(ctx, prompts.DEBRIEF, "Give the debrief.", corrective=notes, extra=extra),
@@ -528,8 +630,9 @@ class AgentNarration:
             template=lambda: template, ctx=ctx, llm_context={"ctx": ctx, "question": question},
         )  # fmt: skip
         out: DebriefOut = run_guarded(spec).out
+        closing = (out.closing.strip() or SUPPORT_CLOSING) if ctx.support_closing else ""
         return {"sound": out.sound_reasoning, "reasoning": out.how_you_reasoned, "overlooked": out.overlooked, "luck": out.luck,
-                "question": out.reflection_question}  # fmt: skip
+                "question": out.reflection_question, **({"closing": closing} if closing else {})}  # fmt: skip
 
     # ---- xp ----------------------------------------------------------------------------------------
     def xp(
