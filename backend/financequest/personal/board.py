@@ -189,7 +189,7 @@ def board(db: Session, sid: uuid.UUID) -> dict[str, Any]:
     budget, runs, personal = budget_gp(db, sid), _runs(db, sid), _personal_ids(db)
     scenarios = [
         sc for sc in db.exec(select(Scenario).where(Scenario.status == "playable"))
-        if sc.id not in personal
+        if sc.id not in personal and _board_of(sc).get("listed", True) is not False
     ]  # fmt: skip
     cards = sorted(
         ((_board_of(sc), sc) for sc in scenarios), key=lambda t: (t[0]["order"], t[0]["title"])

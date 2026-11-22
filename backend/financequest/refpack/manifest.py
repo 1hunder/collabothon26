@@ -187,6 +187,7 @@ class BoardMeta(_Model):
     learn: list[str] = Field(default_factory=list, max_length=3)
     order: int = 1000
     briefing: str = ""  # 3-5 sentences for the detail view; derived when empty
+    listed: bool = True  # False keeps the pack playable but off the Quest Board
 
 
 class CampaignManifest(_Model):

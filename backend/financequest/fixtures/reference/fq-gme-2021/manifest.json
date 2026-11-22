@@ -1,0 +1,860 @@
+{
+  "meta": {
+    "case_id": "FQ-GME-2021",
+    "version": "1.0",
+    "campaign_title": "The Siege of the Grand Exchange",
+    "currency": "USD",
+    "learning_objectives": [
+      "Tell a business's ledgers apart from the price of its certificates and from the mood of the crowd.",
+      "Read sales, losses, coin in the vault and debts without mixing numbers that use different bases.",
+      "Explain what it means to borrow certificates, sell them, and later have to buy them back.",
+      "See why a crowded bet against a guild can turn into a sudden rush to buy, and why that rush can end just as fast.",
+      "Size a position for wild swings: decide how much you could lose, not only how much you could win.",
+      "Judge the quality of a decision separately from its result; choosing to stay out can be a sound choice."
+    ]
+  },
+  "world": {
+    "setting_name": "Eldervale",
+    "company_name": "The Guild of Games and Wonders",
+    "shares_name": "wonder-certificates",
+    "market_name": "The Grand Exchange of Eldervale",
+    "annual_report_name": "the Guild's Year-Book",
+    "quarterly_report_name": "the Season Ledger",
+    "tone_notes": "Bright, noisy fantasy market town in midwinter: lantern-lit shopfronts full of games and wonder-boxes, a roaring crowd at the Exchange, the iron bell that halts trading. Keep it playful but honest: a rising price is not proof of a healthy guild, and the crowd can be right or wrong. Never use real names, years, months or brands; never write amounts in prose, use the figure placeholders."
+  },
+  "checkpoints": [
+    {
+      "id": "G0",
+      "role": "intro",
+      "cutoff_date": "2021-01-11",
+      "label": "The Season Ledger and the new council"
+    },
+    {
+      "id": "G1",
+      "role": "disclosure",
+      "cutoff_date": "2021-01-22",
+      "label": "The Exchange bell rings for the Guild"
+    },
+    {
+      "id": "G2",
+      "role": "decision",
+      "cutoff_date": "2021-01-25",
+      "label": "The morning of decision"
+    }
+  ],
+  "company_card": {
+    "name": "The Guild of Games and Wonders",
+    "trade": "A realm-wide guild of shopfronts selling games, wonder-boxes and curios, now pushing orders by courier-raven",
+    "size": "Thousands of shopfronts across the realm, many of them quiet as more folk buy their games straight from the game-makers",
+    "key_figures": [
+      {
+        "id": "KF-SALES",
+        "label": "Sales in the latest Season Ledger",
+        "value": "1004.7",
+        "family": "money",
+        "period": "the latest season",
+        "checkpoint": "G0",
+        "explain": "Sales are the coin taken in before costs. They fell sharply against the same season a year earlier."
+      },
+      {
+        "id": "KF-COIN",
+        "label": "Coin in the vault, including coin set aside",
+        "value": "586.6",
+        "family": "money",
+        "period": "close of the latest season",
+        "checkpoint": "G0",
+        "explain": "Coin is not profit. It is what the Guild can spend or use to pay debts."
+      },
+      {
+        "id": "KF-DEBT",
+        "label": "Long-term debts",
+        "value": "216.0",
+        "family": "money",
+        "period": "close of the latest season",
+        "checkpoint": "G0",
+        "explain": "Promises to repay lenders later; they must be paid whatever the certificate price does."
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "E-SEASON-LEDGER",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "key": true,
+      "title": "The Season Ledger: a hard season",
+      "player_text": "The Season Ledger shows sales of {FIG-Q3-SALES} this season, against {FIG-Q3-SALES-PRIOR} in the same season a year before, a fall of {FIG-Q3-SALES-FALL:abs} percent. Sales in shopfronts open for a full year fell {FIG-Q3-COMPS:abs} percent, while courier-raven orders rose {FIG-Q3-RAVEN} percent. The Guild still lost coin on its trade: a loss from operations of {FIG-Q3-OPLOSS:abs}, and a final loss of {FIG-Q3-NETLOSS:abs}, smaller than last year's {FIG-Q3-NETLOSS-PRIOR:abs}.",
+      "figures": [
+        {
+          "id": "FIG-Q3-SALES",
+          "label": "Sales this season",
+          "value": "1004.7",
+          "family": "money",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q3-SALES-PRIOR",
+          "label": "Sales in the same season a year earlier",
+          "value": "1438.5",
+          "family": "money",
+          "period": "the same season a year earlier"
+        },
+        {
+          "id": "FIG-Q3-SALES-FALL",
+          "label": "Change in sales against a year earlier",
+          "value": "-30",
+          "family": "percent",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q3-COMPS",
+          "label": "Change in sales at shopfronts open a full year",
+          "value": "-25",
+          "family": "percent",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q3-RAVEN",
+          "label": "Growth of courier-raven orders",
+          "value": "257",
+          "family": "percent",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q3-OPLOSS",
+          "label": "Loss from operations",
+          "value": "-63.0",
+          "family": "money",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q3-NETLOSS",
+          "label": "Final loss",
+          "value": "-18.8",
+          "family": "money",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q3-NETLOSS-PRIOR",
+          "label": "Final loss a year earlier",
+          "value": "-83.4",
+          "family": "money",
+          "period": "the same season a year earlier"
+        }
+      ],
+      "teaching_note": "Sales fell hard and the Guild still loses money; fast growth in one small channel does not make the whole business grow."
+    },
+    {
+      "id": "E-VAULT",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "figure",
+      "key": true,
+      "title": "The vault and the debts",
+      "player_text": "At the close of the season the vault held {FIG-CASH} in ready coin, plus {FIG-CASH-RESTRICTED} set aside that cannot be spent freely. Long-term debts stood at {FIG-LT-DEBT}. All that the Guild owed, including rents on its shopfronts and bills to suppliers, came to {FIG-TOTAL-LIAB}, against everything it held of {FIG-TOTAL-ASSETS}. What would be left for owners, the owners' claim, was {FIG-EQUITY}. Unsold games and wonder-boxes on the shelves were valued at {FIG-INVENTORY}.",
+      "figures": [
+        {
+          "id": "FIG-CASH",
+          "label": "Ready coin in the vault",
+          "value": "445.9",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-CASH-RESTRICTED",
+          "label": "Coin set aside, not freely spendable",
+          "value": "140.7",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-LT-DEBT",
+          "label": "Long-term debts",
+          "value": "216.0",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-TOTAL-LIAB",
+          "label": "Everything owed",
+          "value": "2269.2",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-TOTAL-ASSETS",
+          "label": "Everything held",
+          "value": "2601.4",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-EQUITY",
+          "label": "Owners' claim",
+          "value": "332.2",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-INVENTORY",
+          "label": "Unsold goods on the shelves",
+          "value": "861.0",
+          "family": "money",
+          "period": "close of the latest season"
+        }
+      ],
+      "teaching_note": "Coin in the vault buys time; debts and rents still have to be paid. The owners' claim is small next to everything owed."
+    },
+    {
+      "id": "E-HOLIDAY",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "announcement",
+      "key": true,
+      "title": "The Midwinter Festival tally",
+      "player_text": "The Guild posted its tally of the Midwinter Festival weeks. Total sales were down {FIG-HOL-TOTAL:abs} percent on the festival a year before. Sales at shopfronts open a full year were up {FIG-HOL-COMPS} percent, and courier-raven orders were up {FIG-HOL-RAVEN} percent. The Guild had closed many shopfronts during the year.",
+      "figures": [
+        {
+          "id": "FIG-HOL-TOTAL",
+          "label": "Change in total festival sales",
+          "value": "-3",
+          "family": "percent",
+          "period": "the Midwinter Festival weeks"
+        },
+        {
+          "id": "FIG-HOL-COMPS",
+          "label": "Change in festival sales at shopfronts open a full year",
+          "value": "5",
+          "family": "percent",
+          "period": "the Midwinter Festival weeks"
+        },
+        {
+          "id": "FIG-HOL-RAVEN",
+          "label": "Growth of festival courier-raven orders",
+          "value": "309",
+          "family": "percent",
+          "period": "the Midwinter Festival weeks"
+        }
+      ],
+      "teaching_note": "Three numbers on three different bases. Total sales fell even though sales per remaining shopfront rose: there were fewer shopfronts."
+    },
+    {
+      "id": "E-HOLIDAY-BASES",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "opinion",
+      "key": false,
+      "title": "Scholar Marrow's note on the festival tally",
+      "player_text": "Scholar Marrow lays the three festival numbers side by side. The first counts every shopfront, the second only shopfronts open a full year, the third only courier-raven orders. None of them is wrong, she says, but they answer different questions: is the whole Guild bigger, are the surviving shopfronts busier, and how fast is the small new channel growing.",
+      "figures": [],
+      "teaching_note": "Before comparing numbers, ask what each one counts."
+    },
+    {
+      "id": "E-COUNCIL",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "announcement",
+      "key": true,
+      "title": "Three reformers join the Guild council",
+      "player_text": "A proclamation is nailed to the Exchange board. After an agreement with its largest outside owner, the Guild adds three newcomers to its council. Their leader, Ryn Callow, built a famous pet-provisions caravan that sold by courier-raven, and he already holds about {FIG-CALLOW-STAKE} percent of the wonder-certificates. He has written openly that the Guild should become a courier-raven merchant first and a shopfront merchant second.",
+      "figures": [
+        {
+          "id": "FIG-CALLOW-STAKE",
+          "label": "Share of the certificates held by the reformer's company",
+          "value": "13",
+          "family": "percent",
+          "period": "at the agreement"
+        }
+      ],
+      "teaching_note": "A new council is a possibility, not a result. Nothing in the ledgers has changed yet."
+    },
+    {
+      "id": "E-COUNCIL-RECORD",
+      "checkpoint": "G0",
+      "location": "campaign:wonders_guild_hall",
+      "kind": "opinion",
+      "key": false,
+      "title": "What the reformer has done before",
+      "player_text": "Treasurer Oswin Hale admits the council is divided. The reformer's caravan grew from nothing into a household name before he sold it to a great trading house. His captains ran the caravan's ledgers and its courier routes. Hale says the plan is to shrink the shopfronts, sell more by raven and keep the vault full, but he will not promise when, or whether, it works.",
+      "figures": [],
+      "teaching_note": "A strong record raises the odds of a turnaround; it does not guarantee one."
+    },
+    {
+      "id": "E-WONDERBOXES",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "Talk of the new wonder-boxes",
+      "player_text": "At the tavern, a toymaker says the realm's two great makers of wonder-boxes have just released a new generation. In the past, new wonder-boxes filled the Guild's shopfronts for a year or two. But more and more players now buy their games straight from the makers by raven, without visiting any shopfront at all.",
+      "figures": [],
+      "teaching_note": "A helpful cycle and a long decline can happen at the same time."
+    },
+    {
+      "id": "E-BOARD-QUIET",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "market",
+      "key": false,
+      "title": "The price board before the storm",
+      "player_text": "On the Exchange board the Guild's wonder-certificates have already more than doubled over the past season, from a low base. Many traders had written the Guild off as a dying chain of shopfronts, and plenty of them have bet that the price will fall further.",
+      "figures": [],
+      "teaching_note": "A price that has already risen tells you what others did, not what will happen next."
+    },
+    {
+      "id": "E-SHORT-LEDGER",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "figure",
+      "key": true,
+      "title": "The lending ledger: more borrowed than free",
+      "player_text": "The lending houses that track borrowed certificates report that traders have borrowed and sold wonder-certificates equal to about {FIG-SHORT-PCT} percent of all the certificates freely traded. To close such a bet, a trader must buy certificates back and return them. Different lending houses count this in different ways, and their numbers do not all agree.",
+      "figures": [
+        {
+          "id": "FIG-SHORT-PCT",
+          "label": "Certificates borrowed and sold, as a share of freely traded certificates",
+          "value": "139",
+          "family": "percent",
+          "period": "as reported in the latest weeks"
+        }
+      ],
+      "teaching_note": "More than all the free certificates have been sold short: if those sellers rush to buy back at once, the price can jump. That is a squeeze, and it can reverse."
+    },
+    {
+      "id": "E-SHORT-MECH",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "opinion",
+      "key": false,
+      "title": "How a borrowed-certificate bet works",
+      "player_text": "Scholar Marrow draws it on a slate. A trader borrows a certificate, sells it today and hopes to buy it back cheaper later and return it, keeping the difference. If the price rises instead, the loss has no ceiling. When many such traders panic at once, each must buy, and their buying pushes the price higher still, which makes the next trader panic. When the buying stops, nothing holds the price up.",
+      "figures": [],
+      "teaching_note": "A squeeze is driven by forced buying, not by better ledgers. When the forced buying ends, the price can fall just as fast."
+    },
+    {
+      "id": "E-PALE-HERALD",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "opinion",
+      "key": false,
+      "title": "The Pale Herald's pamphlet",
+      "player_text": "The Pale Herald, a famous pamphleteer who earns coin by betting against guilds, nails up a notice: buyers at these prices are fools, and he will explain why the certificates will fall back to where they started. The crowd answers with jeers, and the price keeps climbing the very next day.",
+      "figures": [],
+      "teaching_note": "Loud opinions on either side are not evidence. Ask what each speaker gains if the price moves their way."
+    },
+    {
+      "id": "E-SURGE",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "market",
+      "key": true,
+      "title": "The day the bell rang",
+      "player_text": "On the last trading day before the decision, wonder-certificates leapt about {FIG-SURGE} percent in a single session. The Exchange bell that pauses trading when prices move too fast rang for the Guild again and again. More certificates changed hands that day than in many weeks before.",
+      "figures": [
+        {
+          "id": "FIG-SURGE",
+          "label": "One-day rise of the certificates",
+          "value": "51",
+          "family": "percent",
+          "period": "the last trading day before the decision"
+        }
+      ],
+      "teaching_note": "A trading pause slows the market down; it does not tell you which way the price will go next."
+    },
+    {
+      "id": "E-HALL-VOICES",
+      "checkpoint": "G1",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "The Hall of Many Voices",
+      "player_text": "At the tavern everyone is talking about the Hall of Many Voices, a great open meeting-place where thousands of small traders post their reasons and their wins. Some point to the coin in the vault and the new council. Many simply cheer that the borrowers must be squeezed. Marla Pennywhistle, the loudest crowd-caller, swears she has owned certificates since the price was tiny and is not selling.",
+      "figures": [],
+      "teaching_note": "Separate the arguments (vault, council, borrowed certificates) from the cheering."
+    },
+    {
+      "id": "E-IRONVAULT-WHISPER",
+      "checkpoint": "G1",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "Whispers about the Ironvault House",
+      "player_text": "In a corner, two runners from the Ironvault House, a big trading house that bet heavily against the Guild, mutter that their masters are losing a fortune and may need help from larger houses. They do not say whether the Ironvault House has bought back its borrowed certificates.",
+      "figures": [],
+      "teaching_note": "Rumours about other traders' pain are hard to verify and can be wrong."
+    },
+    {
+      "id": "E-DAWN-BULLETIN",
+      "checkpoint": "G2",
+      "location": "market_square",
+      "kind": "market",
+      "key": true,
+      "title": "The decision day on the board",
+      "player_text": "This morning a merchant bulletin said wonder-certificates were offered about half again higher before the Exchange even opened. During the day the price swung wildly, at one point far above the morning offer and later far below it, and the bell rang many times. By the close it was still up, but well off the top. Nobody on the floor can say where it goes tomorrow.",
+      "figures": [],
+      "teaching_note": "A wild day shows how fast a crowded trade can turn. Decide how much you could afford to lose before you decide how much to put in."
+    },
+    {
+      "id": "E-SCHOLAR-LIST",
+      "checkpoint": "G2",
+      "location": "library",
+      "kind": "opinion",
+      "key": true,
+      "title": "Scholar Marrow's two columns",
+      "player_text": "Scholar Marrow sets two columns before you. Known: sales are falling, the Guild still loses coin, the vault is full enough to last a while, three reformers have joined the council, and more certificates have been sold short than are freely traded. Unknown: whether the reformers can turn the Guild around, whether the borrowers will buy back now or later, how long the crowd keeps buying, and what the price is tomorrow.",
+      "figures": [],
+      "teaching_note": "Write down what you know and what you do not. A decision built on the unknown column is a bet on luck."
+    }
+  ],
+  "documents": [
+    {
+      "id": "D-SEASON-LEDGER",
+      "checkpoint": "G0",
+      "title": "The latest Season Ledger",
+      "evidence_ids": [
+        "E-SEASON-LEDGER",
+        "E-VAULT"
+      ]
+    },
+    {
+      "id": "D-FESTIVAL-TALLY",
+      "checkpoint": "G0",
+      "title": "The Midwinter Festival tally",
+      "evidence_ids": [
+        "E-HOLIDAY",
+        "E-HOLIDAY-BASES"
+      ]
+    },
+    {
+      "id": "D-COUNCIL-PROCLAMATION",
+      "checkpoint": "G0",
+      "title": "Proclamation of the new council",
+      "evidence_ids": [
+        "E-COUNCIL"
+      ]
+    },
+    {
+      "id": "D-LENDING-LEDGER",
+      "checkpoint": "G1",
+      "title": "The lending houses' ledger",
+      "evidence_ids": [
+        "E-SHORT-LEDGER",
+        "E-SHORT-MECH"
+      ]
+    },
+    {
+      "id": "D-BROADSHEET",
+      "checkpoint": "G1",
+      "title": "The Exchange broadsheet",
+      "evidence_ids": [
+        "E-SURGE",
+        "E-PALE-HERALD"
+      ]
+    },
+    {
+      "id": "D-SCHOLAR-LIST",
+      "checkpoint": "G2",
+      "title": "Scholar Marrow's two columns",
+      "evidence_ids": [
+        "E-SCHOLAR-LIST"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "C-YSOLDE",
+      "name": "Scholar Ysolde Marrow",
+      "role": "Keeper of the Guild Archive in the Library. She reads ledgers patiently, explains borrowed certificates and different bases, and never tells anyone what to buy.",
+      "location": "library",
+      "may_reveal": {
+        "G0": [
+          "E-SEASON-LEDGER",
+          "E-VAULT",
+          "E-HOLIDAY",
+          "E-HOLIDAY-BASES"
+        ],
+        "G1": [
+          "E-SHORT-MECH",
+          "E-SHORT-LEDGER"
+        ],
+        "G2": [
+          "E-SCHOLAR-LIST"
+        ]
+      },
+      "never": [
+        "Give an opinion on whether to buy, hold or sell",
+        "Reveal anything about prices after today"
+      ]
+    },
+    {
+      "id": "C-MARLA",
+      "name": "Marla Pennywhistle",
+      "role": "The loudest crowd-caller of the Grand Exchange, a small trader who has held wonder-certificates since they were cheap. Cheerful, passionate and certain; she can be right and she can be wrong.",
+      "location": "market_square",
+      "may_reveal": {
+        "G0": [
+          "E-COUNCIL",
+          "E-BOARD-QUIET"
+        ],
+        "G1": [
+          "E-SURGE",
+          "E-PALE-HERALD",
+          "E-HALL-VOICES"
+        ],
+        "G2": [
+          "E-DAWN-BULLETIN"
+        ]
+      },
+      "never": [
+        "Promise that the price will rise",
+        "Reveal anything about prices after today"
+      ]
+    },
+    {
+      "id": "C-OSWIN",
+      "name": "Treasurer Oswin Hale",
+      "role": "Treasurer of the Guild of Games and Wonders, keeper of its seat in the Guild Hall. He speaks for the Guild, defends the plan, and says nothing about the certificate price.",
+      "location": "campaign:wonders_guild_hall",
+      "may_reveal": {
+        "G0": [
+          "E-HOLIDAY",
+          "E-COUNCIL",
+          "E-COUNCIL-RECORD",
+          "E-WONDERBOXES"
+        ],
+        "G1": [
+          "E-VAULT"
+        ]
+      },
+      "never": [
+        "Comment on the certificate price or the crowd",
+        "Promise that the turnaround will work"
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "id": "ENC-FESTIVAL-BASES",
+      "title": "Three Numbers, Three Bases",
+      "checkpoint": "G0",
+      "location": "library",
+      "dc": 12,
+      "skill_flavor": "Investigation (comparing the festival numbers)",
+      "evidence_ids": [
+        "E-HOLIDAY",
+        "E-SEASON-LEDGER"
+      ],
+      "success_clue_id": "E-HOLIDAY-BASES",
+      "failure_forward": "The numbers seem to contradict each other, but Scholar Marrow is happy to explain what each one counts if you ask her.",
+      "teaching_target": "Numbers with different bases are not contradictory and cannot be compared directly."
+    },
+    {
+      "id": "ENC-NEW-COUNCIL",
+      "title": "What the New Council Proves",
+      "checkpoint": "G0",
+      "location": "campaign:wonders_guild_hall",
+      "dc": 12,
+      "skill_flavor": "Insight (reading the treasurer)",
+      "evidence_ids": [
+        "E-COUNCIL"
+      ],
+      "success_clue_id": "E-COUNCIL-RECORD",
+      "failure_forward": "The treasurer stays polite and vague, but the proclamation on the Exchange board already tells you who joined and why.",
+      "teaching_target": "An appointment is a possibility, not a result."
+    },
+    {
+      "id": "ENC-LENDING-CLERK",
+      "title": "The Lending Clerk",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "dc": 14,
+      "skill_flavor": "Persuasion (coaxing the lending clerk)",
+      "evidence_ids": [
+        "E-SHORT-LEDGER"
+      ],
+      "success_clue_id": "E-SHORT-MECH",
+      "failure_forward": "The clerk shoos you away, but the lending ledger is posted on the board, and Scholar Marrow can explain how borrowing works.",
+      "teaching_target": "Borrowing, selling short and buying back are three different steps; forced buying-back can move the price."
+    },
+    {
+      "id": "ENC-IRONVAULT-RUNNERS",
+      "title": "The Ironvault Runners",
+      "checkpoint": "G1",
+      "location": "tavern",
+      "dc": 13,
+      "skill_flavor": "Stealth (overhearing the runners)",
+      "evidence_ids": [
+        "E-HALL-VOICES"
+      ],
+      "success_clue_id": "E-IRONVAULT-WHISPER",
+      "failure_forward": "The runners notice you and fall silent. The rest of the tavern is still happy to share what the Hall of Many Voices is saying.",
+      "teaching_target": "Rumours about other traders are hard to check and can be wrong."
+    }
+  ],
+  "news": {
+    "checkpoint": "G1",
+    "time_skip_days": 11,
+    "headline": "The Exchange Bell Rings for the Guild of Games and Wonders",
+    "summary": "Wonder-certificates leap about {FIG-SURGE} percent in a single session and the Exchange bell pauses trading again and again. The lending houses report borrowed and sold certificates equal to about {FIG-SHORT-PCT} percent of all freely traded certificates, and a famous pamphleteer calls the buyers fools.",
+    "evidence_ids": [
+      "E-SURGE",
+      "E-SHORT-LEDGER",
+      "E-PALE-HERALD"
+    ]
+  },
+  "prices": {
+    "path": "prices.csv",
+    "decision_date": "2021-01-25",
+    "horizon_end": "2021-02-05"
+  },
+  "fund": null,
+  "rubric": [
+    {
+      "category": "Evidence use: ledgers, vault and the lending ledger",
+      "max": 25
+    },
+    {
+      "category": "Risk and position sizing in a wild market",
+      "max": 25
+    },
+    {
+      "category": "Separating fundamentals from the crowd",
+      "max": 20
+    },
+    {
+      "category": "Forecast clarity",
+      "max": 15
+    },
+    {
+      "category": "Post-reveal reflection",
+      "max": 15
+    }
+  ],
+  "campaign_location_seeds": [
+    {
+      "key": "wonders_guild_hall",
+      "name": "The Guild Hall of Games and Wonders",
+      "description": "The Guild's old headquarters above its biggest shopfront, where the treasurer keeps the council's papers.",
+      "art_subject": "A cosy old guild hall above a fantasy toy and game shop, shelves of board games, carved wooden puzzle boxes and glowing wonder-boxes, warm lanterns, a large ledger desk, empty of people, no lettering or logos"
+    },
+    {
+      "key": "ironvault_counting_house",
+      "name": "The Ironvault Counting House",
+      "description": "A cold stone counting house where a big trading house keeps its ledgers of borrowed certificates.",
+      "art_subject": "A cold grey stone counting house interior with iron-banded strongboxes, tall ledgers, abacuses and a single tense lantern, empty of people, no lettering or logos"
+    },
+    {
+      "key": "hall_of_many_voices",
+      "name": "The Hall of Many Voices",
+      "description": "A huge noisy meeting-hall where thousands of small traders post notices, cheer and argue about the Guild.",
+      "art_subject": "A vast medieval meeting hall covered in pinned paper notices and banners, rows of benches, confetti on the floor, lantern light, empty of people, no lettering or logos"
+    },
+    {
+      "key": "courier_gatehouse",
+      "name": "The Coin-Couriers' Gatehouse",
+      "description": "The gatehouse of the coin-couriers who carry small traders' orders to the Exchange.",
+      "art_subject": "A fantasy stone gatehouse with a heavy portcullis half lowered, message tubes and sealed orders piled on a counter, torches at night, empty of people, no lettering or logos"
+    }
+  ],
+  "board": {
+    "title": "The Siege of the Grand Exchange",
+    "teaser": "In midwinter Eldervale, a struggling guild of game merchants becomes the most fought-over prize on the Grand Exchange. The borrowers bet it will fall, the crowd swears it will soar, and the Exchange bell will not stop ringing. Read the ledgers, listen to both sides and decide how much gold you dare to risk.",
+    "difficulty": "medium",
+    "learn": [
+      "Short squeezes",
+      "Crowd mania vs fundamentals",
+      "Volatility and trading halts"
+    ],
+    "order": 1,
+    "briefing": "Snow falls on Eldervale and every voice at the Grand Exchange is shouting about the Guild of Games and Wonders. Its shopfronts sell fewer games every season and its ledgers show a loss, yet a famous reformer has just joined its council and more certificates have been sold short than are freely traded. The crowd is buying, the borrowers are bleeding and the Exchange bell keeps ringing. Your question: is this a turnaround, a squeeze, or both, and how much gold, if any, should you risk before the next session?"
+  },
+  "debrief": {
+    "questions": [
+      "Which evidence told you about the Guild's business, and which only told you about the crowd and the borrowers? Which one drove your choice?",
+      "Before you committed, how much of your gold could you afford to lose if the squeeze ended overnight? Did your position match that answer?",
+      "The price rose and fell several times its size within days. Did your result come from your reasoning, from your timing, or from luck?",
+      "If you stayed out or kept most of your gold in cash, was that a sound choice even if the price kept rising for a while?",
+      "What rule will you carry into the next quest about chasing a price that has already leapt?"
+    ],
+    "post_reveal_facts": [
+      {
+        "checkpoint": "G3",
+        "text": "In the days after the decision the price kept climbing to several times the decision-day level, then fell back hard. Some coin-couriers stopped small traders from opening new purchases for a while, which is different from the Exchange bell."
+      },
+      {
+        "checkpoint": "G3",
+        "text": "By the end of the story the certificates were worth less than on decision day, but still far above where the quest began."
+      },
+      {
+        "checkpoint": "G4",
+        "text": "A later review by the realm's market overseers found that buying back by borrowers explained some of the jumps, but broad buying by the crowd kept the price up; it also counted dozens of bell pauses over those weeks."
+      }
+    ]
+  },
+  "secret": {
+    "real_entity": "GameStop Corp.",
+    "ticker": "GME",
+    "actors": [
+      "Ryan Cohen",
+      "Alan Attal",
+      "Jim Grube",
+      "Keith Gill",
+      "Roaring Kitty",
+      "Andrew Left",
+      "Gabe Plotkin",
+      "George Sherman"
+    ],
+    "city": "Grapevine, Texas",
+    "real_dates": {
+      "G0": "2021-01-11",
+      "G1": "2021-01-22",
+      "G2": "2021-01-25",
+      "horizon_end": "2021-02-05",
+      "q3_release": "2020-12-08",
+      "holiday_release": "2021-01-11",
+      "board_agreement": "2021-01-11",
+      "citron_call": "2021-01-19",
+      "peak_close": "2021-01-27",
+      "broker_restrictions": "2021-01-28",
+      "sec_staff_report": "2021-10-18",
+      "stock_split": "2022-07-22"
+    },
+    "alias_map": {
+      "GameStop Corp.": "The Guild of Games and Wonders",
+      "GME common stock": "wonder-certificates",
+      "New York Stock Exchange": "The Grand Exchange of Eldervale",
+      "Form 10-K": "the Guild's Year-Book",
+      "Form 10-Q": "the Season Ledger",
+      "Holiday sales period": "the Midwinter Festival weeks",
+      "E-commerce": "courier-raven orders",
+      "Video game consoles": "wonder-boxes",
+      "Console makers (Sony, Microsoft)": "the realm's two great makers of wonder-boxes",
+      "Ryan Cohen / RC Ventures": "Ryn Callow",
+      "Chewy": "a famous pet-provisions caravan",
+      "Alan Attal and Jim Grube": "the reformer's captains",
+      "George Sherman (CEO)": "the Guild's high master",
+      "Keith Gill / Roaring Kitty": "Marla Pennywhistle, crowd-caller",
+      "r/WallStreetBets on Reddit": "the Hall of Many Voices",
+      "Citron Research / Andrew Left": "the Pale Herald",
+      "Melvin Capital": "the Ironvault House",
+      "Citadel and Point72": "two larger trading houses",
+      "Robinhood and other brokers": "the coin-couriers",
+      "LULD trading pause": "the Exchange bell",
+      "Short interest data providers (S3 Partners, IHS Markit)": "the lending houses",
+      "SEC staff report": "a later review by the realm's market overseers"
+    },
+    "leak_terms": [
+      "GameStop",
+      "Game Stop",
+      "GME",
+      "NYSE",
+      "New York",
+      "Grapevine",
+      "Texas",
+      "Ryan Cohen",
+      "Cohen",
+      "RC Ventures",
+      "Chewy",
+      "Alan Attal",
+      "Jim Grube",
+      "George Sherman",
+      "Keith Gill",
+      "Roaring Kitty",
+      "DeepFuckingValue",
+      "WallStreetBets",
+      "wallstreetbets",
+      "WSB",
+      "Reddit",
+      "Melvin",
+      "Gabe Plotkin",
+      "Citadel",
+      "Ken Griffin",
+      "Point72",
+      "Citron",
+      "Andrew Left",
+      "Robinhood",
+      "Michael Burry",
+      "Burry",
+      "Scion",
+      "PlayStation",
+      "Xbox",
+      "Nintendo",
+      "Sony",
+      "Microsoft",
+      "COVID",
+      "pandemic",
+      "Elon Musk",
+      "Gamestonk",
+      "S3 Partners",
+      "IHS Markit",
+      "FINRA",
+      "SEC",
+      "Wall Street",
+      "stonks",
+      "diamond hands",
+      "to the moon",
+      "Power to the Players"
+    ],
+    "later_events": [
+      {
+        "checkpoint": "G3",
+        "real_date": "2021-01-26",
+        "text": "The price nearly doubled again in one session."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2021-01-27",
+        "text": "The closing price peaked at about four and a half times the decision-day close."
+      },
+      {
+        "checkpoint": "G3",
+        "real_date": "2021-01-28",
+        "text": "Several brokers restricted new purchases; the price swung violently and closed sharply lower."
+      },
+      {
+        "checkpoint": "G4",
+        "real_date": "2021-02-05",
+        "text": "The price fell back to below the decision-day level."
+      },
+      {
+        "checkpoint": "G4",
+        "real_date": "2021-10-18",
+        "text": "The regulators' staff report: short covering explained part of the rise; broad positive sentiment sustained it."
+      }
+    ],
+    "real_events": [
+      {
+        "evidence_id": "E-COUNCIL",
+        "headline": "GameStop adds Ryan Cohen, Alan Attal and Jim Grube to its board",
+        "text": "On January 11, 2021 GameStop agreed with RC Ventures, Ryan Cohen's firm holding about {FIG-CALLOW-STAKE}% of the shares, to appoint Cohen (Chewy co-founder) and two former Chewy executives to its board."
+      },
+      {
+        "evidence_id": "E-HOLIDAY",
+        "headline": "GameStop holiday sales: comparable sales up, total sales down",
+        "text": "For the nine weeks to January 2, 2021 total sales fell {FIG-HOL-TOTAL:abs}%, comparable store sales rose {FIG-HOL-COMPS}% and e-commerce sales rose {FIG-HOL-RAVEN}%."
+      },
+      {
+        "evidence_id": "news",
+        "headline": "GME jumps 51% with repeated volatility halts as short sellers are squeezed",
+        "text": "On January 22, 2021 GameStop closed at $65.01 (as traded) after rising about {FIG-SURGE}%; short interest was reported at about {FIG-SHORT-PCT}% of the float, and Citron Research's Andrew Left had called buyers 'suckers' days earlier."
+      },
+      {
+        "evidence_id": "E-DAWN-BULLETIN",
+        "headline": "January 25: GME swings from $159 to $61 and closes at $76.79",
+        "text": "Pre-market quotes indicated about +50%; the stock was halted repeatedly and closed up 18%."
+      }
+    ],
+    "evidence_sources": {
+      "E-SEASON-LEDGER": "GameStop Q3 FY2020 earnings release, 2020-12-08 (SEC EX-99.1)",
+      "E-VAULT": "GameStop Q3 FY2020 balance sheet, 2020-12-08 (SEC EX-99.1)",
+      "E-HOLIDAY": "GameStop holiday sales release, 2021-01-11 (SEC 8-K EX-99.1)",
+      "E-COUNCIL": "GameStop 8-K board agreement with RC Ventures, 2021-01-11",
+      "E-SHORT-LEDGER": "S3 Partners short interest as reported by Bloomberg/Business Insider, Jan 2021 (about 139-142% of float)",
+      "E-SURGE": "GME daily prices (Yahoo Finance; case archive Wikimedia close data), 2021-01-22",
+      "E-PALE-HERALD": "Citron Research public statements, 2021-01-19",
+      "E-DAWN-BULLETIN": "Reuters pre-market report 2021-01-25 07:28 ET; daily prices",
+      "E-IRONVAULT-WHISPER": "Press reports of Melvin Capital losses, Jan 22-25 2021"
+    }
+  }
+}

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from financequest.config import get_settings
-from financequest.db.models import ScenarioSecret
+from financequest.db.models import Scenario, ScenarioSecret
 from financequest.db.models_campaign import CampaignRun
 from financequest.db.models_personal import GenerationJob
 from financequest.db.session import get_engine
@@ -31,6 +31,13 @@ def enron(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     with Session(get_engine()) as db:
         res = approve_pack(PACK_DIR, db)
         assert res.ok and res.scenario_id, res.reasons
+        # The Enron pack is unlisted on the real board (board.listed=false); these tests use it as
+        # the one curated quest, so list it here.
+        sc = db.get(Scenario, res.scenario_id)
+        assert sc is not None and sc.manifest
+        sc.manifest = {**sc.manifest, "board": {**sc.manifest.get("board", {}), "listed": True}}
+        db.add(sc)
+        db.commit()
     yield res.scenario_id
 
 

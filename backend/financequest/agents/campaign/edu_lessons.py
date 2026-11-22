@@ -173,6 +173,18 @@ def prepared_lesson(concept_key: str, facts: dict[str, Any]) -> dict[str, Any]:
             "Equity is what the owners keep after the debts are paid.",
             "A guild owns goods worth 100 gp and owes 80 gp. What is left for the owners?",
             "20 gp", ["80 gp", "180 gp"], concept_key)
+    if concept_key == "short_squeeze":
+        return _lesson(
+            f"You found that traders have borrowed and sold certificates{day}. That is a bet that the price will fall.",
+            "Selling short means borrowing a certificate, selling it now and buying it back later to return it. "
+            "If the price falls, the seller keeps the difference. If it rises, the loss has no ceiling. When many "
+            "short sellers must buy back at once, their buying pushes the price up even more. That is a squeeze, "
+            "and it stops when the forced buying stops.",
+            "Imagine you borrow one certificate and sell it for 10 gp. If you buy it back at 6 gp, you keep 4 gp. "
+            "If the price jumps to 30 gp, you must pay 30 gp to give it back and you lose 20 gp.",
+            "A squeeze is forced buying, not proof the guild got better.",
+            "Many short sellers rush to buy back at once. What usually happens to the price?",
+            "It jumps up", ["It drops", "Nothing changes"], concept_key)
     if concept_key == "price_move":
         pr = facts.get("price")
         what = (f"The price board shows the price going from {_n(pr, 'first')} to {_n(pr, 'last')}, "
