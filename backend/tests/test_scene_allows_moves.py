@@ -90,3 +90,14 @@ def test_a_skill_attempt_in_an_open_scene_gets_a_dice_card_and_keeps_the_scene(
     assert done.get("intent") == "challenge" and card.get("kind") == "dice"
     assert "scene_passed" not in types(cid) and "trade" not in types(cid)
     assert campaign_state(client, h, cid)["market_scene"] is not None  # still open for later
+
+
+def test_asking_a_named_character_in_an_open_scene_is_a_conversation(
+    client: TestClient, enron: str
+) -> None:
+    h, cid = _setup(client)
+    open_scene(h, cid)
+    done = act(client, h, cid, "Ask Ren Tal why the crowd is so nervous today")
+    assert done.get("intent") != "scene_question"
+    assert "trade" not in types(cid) and "scene_passed" not in types(cid)
+    assert campaign_state(client, h, cid)["market_scene"] is not None  # still open for later
