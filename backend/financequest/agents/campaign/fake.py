@@ -80,8 +80,17 @@ def script_offer(kind: str) -> None:
     OFFER_SCRIPT.append(kind)
 
 
+SUPPORT_SCRIPT: list[str] = []
+
+
+def script_support(kind: str) -> None:
+    """Queue the kind (loan / patron_grant / rescue_buyback / second_look) of the next supporting hand."""
+    SUPPORT_SCRIPT.append(kind)
+
+
 def clear_offers() -> None:
     OFFER_SCRIPT.clear()
+    SUPPORT_SCRIPT.clear()
 
 
 # ---- movement phrasing and place synonyms ----------------------------------------------------
@@ -528,6 +537,43 @@ class CampaignFakeLLM:
             text="With everything committed, the days begin to pass. Are you ready to wait?",
         )  # fmt: skip
 
+    def support(self, c: dict[str, Any]) -> S.SupportOut:
+        from financequest.agents.campaign.narration import _SUPPORT_SUGGESTIONS, _support_template
+
+        ctx: C.AgentContext = c["ctx"]
+        allowed: list[str] = c["allowed"]
+        want = SUPPORT_SCRIPT.pop(0) if SUPPORT_SCRIPT else rules.support_pick(str(c["reason"]), allowed)
+        kind = want if want in allowed else rules.support_pick(str(c["reason"]), allowed)
+        facts = (ctx.offer_facts or {})[kind]
+        pick = int(ctx.campaign_id.replace("-", "")[:8] or "0", 16)
+        t = _support_template(kind, facts)
+        names = {
+            "patron_grant": (("Edda Wren", "Guild patron"), ("Master Corvin", "Old mentor")),
+            "loan": (("Ismene Dray", "Moneylender"), ("Orlan Pike", "Moneylender")),
+            "rescue_buyback": (("Ysolde Marsh", "Sympathetic broker"), ("Cato Brindle", "Sympathetic broker")),
+            "second_look": (("Old Marek", "Mentor"), ("Tamsin Hale", "Archivist")),
+        }[kind]
+        name, role = names[pick % 2]
+        text = t["text"]
+        if kind == "patron_grant":
+            text = (f"{name}, a patron of the guild, has watched your hard days and presses a purse into "
+                    f"your hands: {whole(facts['gift_eur'])} gold pieces to restore part of what you "
+                    "lost. It is a gift, with nothing to repay. Do you accept it?")
+        elif kind == "second_look":
+            text = (f"{name}, an old friend of the guild, leans close: for a free look, one clue shared "
+                    "at no cost to you. Do you take it?" if facts.get("gives") == "one clue" else
+                    f"{name} offers you a quiet hour by the fire to gather your thoughts, restoring "
+                    "one Focus at no cost. Do you accept?")
+        return S.SupportOut(kind=kind, name=name, role=role, text=text,  # type: ignore[arg-type]
+                            suggestions=_SUPPORT_SUGGESTIONS[kind])
+
+    def support_answer(self, c: dict[str, Any]) -> S.TextOut:
+        if c.get("taken"):
+            return S.TextOut(text="The help arrives quietly, and the room goes back to its own business. "
+                                  "What do you do next?")
+        return S.TextOut(text="The helper nods kindly and steps back; the offer rests there should you "
+                              "want it. What do you do next?")
+
     def offer_answer(self, c: dict[str, Any]) -> S.TextOut:
         return S.TextOut(
             text="The lender counts the coins into your purse and the room goes back to its own "
@@ -661,6 +707,7 @@ class CampaignFakeLLM:
 
     def debrief(self, c: dict[str, Any]) -> S.DebriefOut:
         ctx: C.AgentContext = c["ctx"]
+        from financequest.agents.campaign.narration import SUPPORT_CLOSING
         from financequest.campaign.xp import excerpt
 
         mine = excerpt(ctx.player_texts[0] if ctx.player_texts else "", 80)
@@ -684,6 +731,7 @@ class CampaignFakeLLM:
             luck=f"Much of this result turned on events no one could know at story day "
             f"{ctx.gv.clock_day}. Judge your process, not the outcome alone.",
             reflection_question=c.get("question") or "What would you check first next time?",
+            closing=SUPPORT_CLOSING if ctx.support_closing else "",
         )
 
     def xp(self, c: dict[str, Any]) -> S.XpOut:

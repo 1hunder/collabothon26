@@ -207,3 +207,29 @@ def loan_amount(text: str, maximum: int) -> int:
     if "half" in text.lower():
         return maximum // 2
     return maximum
+
+
+# ---- the supporting hand: a helping offer when the player is in trouble -------------------------
+SUPPORT_LOW_HP_PCT = 40  # HP at or under this share of the starting HP
+SUPPORT_POSITION_DOWN_PCT = 30  # the coins in the company are worth this much less than was paid
+SUPPORT_LOSS_SALE_PCT = 25  # a sale that lost at least this share of the amount sold
+PATRON_GRANT_PCT = 20  # a patron's one-time gift: up to this share of the starting HP / gold
+BIG_LOSS_PCT = 60  # a final result at or under this share of the starting budget is a big loss
+SUPPORT_KINDS = ("loan", "patron_grant", "rescue_buyback", "second_look")
+SUPPORT_REASONS = ("low_hp", "position_down", "loss_sale", "broke")
+# what the Master leans towards for each trouble (the first allowed kind wins in FAKE_LLM and when
+# the model's pick is invalid)
+SUPPORT_PREFERENCE = {
+    "broke": ("patron_grant", "loan", "second_look"),
+    "low_hp": ("patron_grant", "loan", "second_look"),
+    "position_down": ("rescue_buyback", "loan", "second_look", "patron_grant"),
+    "loss_sale": ("loan", "second_look", "patron_grant"),
+}
+
+
+def support_pick(reason: str, allowed: list[str]) -> str:
+    """The kind the Master leans towards for this trouble, among the engine-allowed kinds."""
+    for kind in SUPPORT_PREFERENCE.get(reason, ()):
+        if kind in allowed:
+            return kind
+    return allowed[0]

@@ -19,7 +19,13 @@ from financequest.campaign.events import append_event, campaign_events, find_by_
 from financequest.campaign.journal import backlog, journal
 from financequest.campaign.narration import Narration
 from financequest.campaign.pack import Pack, load_pack
-from financequest.campaign.view import board_out, gated_content, gated_view, reveal_chart
+from financequest.campaign.view import (
+    board_out,
+    gated_content,
+    gated_view,
+    reveal_chart,
+    visible_evidence,
+)
 from financequest.db.models import Decision, Event, Scenario
 from financequest.db.models_campaign import (
     CampaignRun,
@@ -353,6 +359,9 @@ def purse(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
     if loan is not None:
         out["loan"] = loan_out(loan)
         out["net_eur"] = _eur(pos.cash + held - loan.repay)  # what they own once the loan is repaid
+    grant = grant_of(trades_of(db, run.id))
+    if grant is not None:  # a patron's gift (only present once one was given)
+        out["grant"] = grant_out(grant)
     return out
 
 
@@ -365,10 +374,15 @@ class Loan:
 
 
 def loan_of(trades: list[Trade]) -> Loan | None:
-    row = next((t for t in trades if t.action == "loan"), None)
-    if row is None:
+    """The loans taken, added up (a supporting hand may add a second, smaller one)."""
+    rows = [t for t in trades if t.action == "loan"]
+    if not rows:
         return None
-    return Loan(row.text.removeprefix(LOAN_TEXT), Decimal(row.amount_cents) / 100, Decimal(row.price or 0))
+    lenders = list(dict.fromkeys(t.text.removeprefix(LOAN_TEXT) for t in rows))
+    return Loan(
+        " and ".join(lenders), sum((Decimal(t.amount_cents) / 100 for t in rows), portfolio.ZERO),
+        sum((Decimal(t.price or 0) for t in rows), portfolio.ZERO),
+    )
 
 
 def loan_out(loan: Loan) -> dict[str, Any]:
@@ -379,13 +393,40 @@ def loan_out(loan: Loan) -> dict[str, Any]:
     }
 
 
-def loan_terms(run: CampaignRun) -> dict[str, Any]:
-    """What a moneylender may offer: up to half the starting budget, flat interest, repaid at the
-    end of the horizon. Pure engine figures."""
-    principal = Decimal(run.hp_start * HP_EUR * rules.LOAN_PRINCIPAL_PCT // 100)
+def loan_capacity(run: CampaignRun, trades: list[Trade]) -> int:
+    """What a moneylender may still lend: half the starting budget in total, loans taken included."""
+    taken = loan_of(trades)
+    cap = run.hp_start * HP_EUR * rules.LOAN_PRINCIPAL_PCT // 100
+    return max(0, cap - int(taken.principal if taken else 0))
+
+
+def loan_terms(run: CampaignRun, trades: list[Trade] | None = None) -> dict[str, Any]:
+    """What a moneylender may offer: what is left of half the starting budget, flat interest,
+    repaid at the end of the horizon. Pure engine figures."""
+    principal = Decimal(loan_capacity(run, trades or []))
     repay = portfolio.q_cents(principal * (100 + rules.LOAN_INTEREST_PCT) / 100)
     return {"principal_eur": float(principal), "interest_pct": rules.LOAN_INTEREST_PCT,
             "repay_eur": float(repay), "due": "at the end of the horizon"}  # fmt: skip
+
+
+# ---- a patron's gift (a Trade row with action "grant") -----------------------------------------------
+GRANT_TEXT = "Patron's help"
+
+
+@dataclass(frozen=True)
+class Grant:
+    amount: Decimal  # gold pieces, no repayment
+
+
+def grant_of(trades: list[Trade]) -> Grant | None:
+    rows = [t for t in trades if t.action == "grant"]
+    if not rows:
+        return None
+    return Grant(sum((Decimal(t.amount_cents) / 100 for t in rows), portfolio.ZERO))
+
+
+def grant_out(grant: Grant) -> dict[str, Any]:
+    return {"amount_eur": _eur(grant.amount), "label": f"{GRANT_TEXT}: +{_eur(grant.amount):g} gp, no repayment"}
 
 
 def scenes_opened(db: Session, cid: uuid.UUID) -> list[str]:
@@ -509,13 +550,16 @@ def nothing_at_stake(db: Session, run: CampaignRun, pack: Pack, trade: Trade, te
 
 
 def offer_facts(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
-    """The engine's figures for the two offers the Master may make (gold pieces only)."""
+    """The engine's figures for the two offers the Master may make (gold pieces only). A loan is
+    offered only while some of the 50% cap is left."""
     p = purse(db, run, pack)
-    return {
+    facts: dict[str, Any] = {
         "buyback": {"max_eur": p["position_eur"], "price": "today's board price",
                     "default_portion": "half"},
-        "loan": loan_terms(run),
     }  # fmt: skip
+    if loan_capacity(run, trades_of(db, run.id)) > 0:
+        facts["loan"] = loan_terms(run, trades_of(db, run.id))
+    return facts
 
 
 def open_offer(
@@ -571,6 +615,139 @@ def accept_loan(db: Session, run: CampaignRun, pack: Pack, text: str) -> Trade:
         "purse": purse(db, run, pack),
     })  # fmt: skip
     return trade
+
+
+# ---- the supporting hand: help for a player in trouble --------------------------------------------
+def support_offered(db: Session, cid: uuid.UUID) -> bool:
+    return has_event(db, cid, "support_offer")
+
+
+def support_taken(db: Session, cid: uuid.UUID) -> bool:
+    return has_event(db, cid, "support_taken")
+
+
+def holdings_history(trades: list[Trade]) -> tuple[Decimal, Decimal, list[tuple[Decimal, Decimal]]]:
+    """Average-cost bookkeeping over the trades: (what the coins still held cost, how many shares
+    are held, and for each sale (what the sold coins had cost, what they fetched))."""
+    cost = shares = portfolio.ZERO
+    sales: list[tuple[Decimal, Decimal]] = []
+    for t in trades:
+        moved, amount = Decimal(t.shares or 0), Decimal(t.amount_cents) / 100
+        if t.action == "buy" and moved > 0:
+            cost, shares = cost + amount, shares + moved
+        elif t.action in ("sell", "loss") and moved < 0 and shares > 0:
+            part = cost * min(-moved / shares, Decimal(1))
+            if t.action == "sell":
+                sales.append((part, amount))
+            cost, shares = cost - part, shares + moved
+    return cost, max(shares, portfolio.ZERO), sales
+
+
+def support_reason(db: Session, run: CampaignRun, pack: Pack) -> str | None:
+    """Why the player counts as in trouble right now (``broke`` > ``low_hp`` > ``loss_sale`` >
+    ``position_down``), or None. Only once per campaign, only in play before the decision is locked,
+    and never while a scene, an offer, a dice check or a follow-up question is open (so never beside
+    an open all-in offer)."""
+    if run.phase != "play" or run.market_scene or run.pending or support_offered(db, run.id):
+        return None
+    if awaiting_trade(db, run) is not None:
+        return None
+    hp = hp_now(run)
+    if hp <= 0:
+        return "broke"
+    if run.hp_lost > 0 and hp * 100 <= run.hp_start * rules.SUPPORT_LOW_HP_PCT:
+        return "low_hp"
+    cost, shares, sales = holdings_history(trades_of(db, run.id))
+    if any(amt > 0 and (part - amt) * 100 >= amt * rules.SUPPORT_LOSS_SALE_PCT for part, amt in sales):
+        return "loss_sale"
+    price = ledger.fill_row(pack.rows, run.clock_day).close
+    if shares > 0 and cost > 0 and shares * price * 100 <= cost * (100 - rules.SUPPORT_POSITION_DOWN_PCT):
+        return "position_down"
+    return None
+
+
+def second_look_clue(db: Session, run: CampaignRun, pack: Pack) -> str | None:
+    """An unlocked clue the player has not found (key clues first), for a free look."""
+    vis = {e.id for e in visible_evidence(pack, gated_view(run))}
+    return focus.hint_target(pack, vis, found_ids(db, run.id))
+
+
+def support_options(db: Session, run: CampaignRun, pack: Pack, hero: Hero) -> dict[str, dict[str, Any]]:
+    """The supporting hands the engine can really give right now, each with its exact terms."""
+    trades = trades_of(db, run.id)
+    p = purse(db, run, pack)
+    out: dict[str, dict[str, Any]] = {}
+    back = min(run.hp_lost, run.hp_start * rules.PATRON_GRANT_PCT // 100)
+    if back >= 1:
+        out["patron_grant"] = {"hp": back, "gift_eur": float(back * HP_EUR), "repay": "none"}
+    if loan_capacity(run, trades) > 0:
+        out["loan"] = loan_terms(run, trades)
+    if p["position_eur"] > 0:
+        out["rescue_buyback"] = {"max_eur": p["position_eur"], "price": "today's board price",
+                                 "default_portion": "half"}  # fmt: skip
+    if second_look_clue(db, run, pack):
+        out["second_look"] = {"gives": "one clue", "cost": "free"}
+    elif run.focus_left < focus.starting_focus(hero_items(db, hero)):
+        out["second_look"] = {"gives": "one Focus", "cost": "free"}
+    return out
+
+
+def open_support(
+    db: Session, run: CampaignRun, kind: str, reason: str, by: dict[str, str], text: str,
+    terms: dict[str, Any],
+) -> dict[str, Any]:
+    """The Master's supporting hand becomes the open scene; terms and reason come from the engine."""
+    offer = {"kind": kind, "by": by, "terms": terms, "reason": reason}
+    run.market_scene = {"beat": "offer", "story_day": run.clock_day, "text": text, "offer": offer,
+                        "ignored": 0}  # fmt: skip
+    append_event(db, run, "support_offer", {"beat": "offer", **offer})
+    return offer
+
+
+def close_offer(db: Session, run: CampaignRun, event: str, payload: dict[str, Any]) -> None:
+    """The open offer ends with no trade (declined, or ignored); the story simply goes on."""
+    run.market_scene = None
+    append_event(db, run, event, payload)
+
+
+def accept_grant(db: Session, run: CampaignRun, pack: Pack) -> Trade:
+    """The player takes the patron's gift: HP (and so the budget) and the purse are restored by the
+    same gold, no repayment. Stored as a ``grant`` trade so the result maths stay exact."""
+    offer = offer_out(run)
+    assert offer is not None and offer["kind"] == "patron_grant"
+    back = min(int(offer["terms"]["hp"]), run.hp_lost)
+    amount = Decimal(back * HP_EUR)
+    trades = trades_of(db, run.id)
+    pos = position_of(run, trades)
+    trade = Trade(
+        campaign_id=run.id, seq=len(trades) + 1, beat="support", story_day=run.clock_day,
+        fill_day=None, text=f"{GRANT_TEXT}: +{amount:g} gp", action="grant",
+        amount_cents=int(amount * 100), shares="0", price="0",
+        cash_after_cents=int(portfolio.q_cents(pos.cash + amount) * 100), shares_after=str(pos.shares),
+    )  # fmt: skip
+    db.add(trade)
+    run.hp_lost -= back
+    run.market_scene = None
+    run.loss_unapplied_cents = 0  # folded into cash_after, as for any trade
+    db.flush()
+    append_event(db, run, "trade", {
+        "seq": trade.seq, "beat": trade.beat, "action": trade.action,
+        "amount_eur": trade.amount_cents / 100, "story_day": trade.story_day,
+        "purse": purse(db, run, pack),
+    })  # fmt: skip
+    return trade
+
+
+def accept_second_look(db: Session, run: CampaignRun, pack: Pack, hero: Hero) -> list[str]:
+    """A free look: reveals one unlocked, unfound clue in-world (no Focus spent), or, with no clue
+    left, restores one Focus. Returns the clue ids given."""
+    run.market_scene = None
+    clue = second_look_clue(db, run, pack)
+    if clue and grant_clue(db, run, pack, clue, "character"):
+        return [clue]
+    run.focus_left = min(run.focus_left + 1, focus.starting_focus(hero_items(db, hero)))
+    append_event(db, run, "focus_gain", {"kind": "second_look"})
+    return []
 
 
 def record_decision(
@@ -978,7 +1155,7 @@ def ledger_result(run: CampaignRun, pack: Pack, trades: list[Trade]) -> ledger.L
 
 def evidence_text(trades: list[Trade], note: str) -> str:
     """The player's own words across the campaign: every decision, then the closing note."""
-    lines = [t.text for t in trades if t.beat != "damage" and t.action != "loan"]  # not the player's words
+    lines = [t.text for t in trades if t.beat != "damage" and t.action not in ("loan", "grant")]  # not the player's words
     return "\n".join([*lines, note] if note else lines)
 
 
@@ -988,7 +1165,8 @@ def reveal_payload(
     """Outcome of a locked decision (POST lock and GET reveal): story labels and numbers only;
     ``locked_at`` is the story moment, never the wall-clock time."""
     r = portfolio.investment_return(pack.buy_open, pack.end_close)
-    loan = loan_of(trades_of(db, run.id))
+    trades = trades_of(db, run.id)
+    loan, grant = loan_of(trades), grant_of(trades)
     return {
         "locked_at": f"{clock.day_label(pack.decision_day)}, evening",
         "horizon_days": pack.horizon_days,
@@ -1004,6 +1182,7 @@ def reveal_payload(
             "fees": num(oc.fees), "final_value": num(oc.final), "pl_eur": num(oc.pnl),
             "pl_pct": num(oc.pnl_pct),
             **({"loan_repay_eur": float(loan.repay), "loan": loan_out(loan)} if loan else {}),
+            **({"patron_grant_eur": _eur(grant.amount)} if grant else {}),
         },
         "hp_before": oc.hp_before,
         "hp_after": oc.hp_after,
@@ -1096,7 +1275,7 @@ def debrief_facts(
     )  # fmt: skip
     rows = ledger.whatif_rows(
         budget_now(run), ledger_result(run, pack, trades),
-        Decimal(first.price) if (first := next((t for t in trades if t.action != "loan"), None))
+        Decimal(first.price) if (first := next((t for t in trades if t.action not in ("loan", "grant")), None))
         and first.price else None, decision_price,
         pack.end_close,
     )  # fmt: skip
@@ -1117,7 +1296,7 @@ def debrief_text(parts: dict[str, Any], line: str) -> str:
     return "\n\n".join(
         str(x)
         for x in (parts.get("sound"), parts.get("reasoning"), parts.get("overlooked"), parts.get("luck"), line,
-                  parts.get("question"))
+                  parts.get("closing"), parts.get("question"))
         if x
     )  # fmt: skip
 
@@ -1178,6 +1357,7 @@ def debrief_out(deb: Debrief) -> dict[str, Any]:
         "overlooked": n.get("overlooked") or "",
         "luck": n.get("luck") or "", "forecast_line": deb.forecast_line or "",
         "reflection_question": n.get("question") or "", "whatif": whatif_out(deb.whatif or []),
+        **({"closing": n["closing"]} if n.get("closing") else {}),
     }  # fmt: skip
 
 
@@ -1387,6 +1567,7 @@ def build_state(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "purse": purse(db, run, pack),
         "market_scene": scene_out(run),
         "all_in": is_all_in(db, run, pack), "offer": offer_out(run),
+        "support_used": support_taken(db, run.id),
         "awaiting_reasoning": awaiting_trade(db, run) is not None,
         "decisions": decisions_out(db, run, pack),
         "edu": edu.edu_out(events),

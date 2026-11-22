@@ -22,6 +22,7 @@ export function decisionLabel(d: Pick<DecisionEntry, 'action' | 'amount_eur'>): 
   if (d.action === 'buy') return `Put in ${formatGold(d.amount_eur)}`;
   if (d.action === 'sell') return `Took out ${formatGold(d.amount_eur)}`;
   if (d.action === 'loan') return `Borrowed ${formatGold(d.amount_eur)}`;
+  if (d.action === 'grant') return `Patron's help: +${formatGold(d.amount_eur)}`;
   if (d.action === 'loss') return `Lost ${formatGold(d.amount_eur)} to damage`;
   return 'Held';
 }

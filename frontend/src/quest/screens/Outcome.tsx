@@ -50,6 +50,7 @@ function OutcomeView({ id }: { id: string }): React.JSX.Element {
     ['Value now', formatGold(b.value_now)],
     ['Fees', formatGold(b.fees)],
     ...(b.loan ? ([['Loan repayment', `−${formatGold(b.loan.repay_eur)} (${b.loan.lender})`]] as [string, string][]) : []),
+    ...(b.patron_grant_eur ? ([["Patron's help", `+${formatGold(b.patron_grant_eur)}`]] as [string, string][]) : []),
     ['Final value', formatGold(b.final_value)],
     ['Profit / loss', `${formatSigned(b.pl_eur)} (${formatPct(b.pl_pct)})`],
   ];

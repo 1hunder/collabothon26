@@ -196,6 +196,27 @@ def prepared_lesson(concept_key: str, facts: dict[str, Any]) -> dict[str, Any]:
             "Spreading your coins limits the damage of one bad surprise.",
             "You carry 5 eggs in each of two baskets and drop one. How many break?",
             "5", ["10", "0"], concept_key)
+    if concept_key == "bouncing_back":
+        sup = facts.get("support") or {}
+        kind = sup.get("kind")
+        amount = _n(sup, "amount")
+        offered = {
+            "patron_grant": f"A patron offered you a gift of {amount} gp, with nothing to repay.",
+            "loan": f"A moneylender offered you up to {amount} gp now, to be repaid with interest.",
+            "rescue_buyback": f"A broker offered to buy part of your coins at today's board price, up to {amount} gp worth.",
+            "second_look": "A mentor offered you a free look: a clue, or a moment of rest.",
+        }.get(str(kind), "Someone offered you a helping hand.")
+        return _lesson(
+            f"Things went badly for you{day}. {offered}",
+            "Everyone who invests has setbacks. What matters is how you answer one. Take a pause, look at what "
+            "actually happened, and separate what you could control from what you could not. Help can come as a "
+            "gift, a loan or advice. A gift costs nothing. A loan must be repaid with interest, so it adds a new risk.",
+            "Imagine you lose 20 gp on a trade. You could rush a bigger trade to win it back, or you could stop, "
+            "write down what you missed, and decide calmly. Rushing to win back a loss often makes it larger.",
+            "A loss is a lesson. Pause before you act to win it back.",
+            "You just lost 20 gp. What is a calm first step?",
+            "Pause and look at what happened", ["Trade bigger to win it back at once", "Ignore it and hope"],
+            concept_key)
     if concept_key == "loan_cost":
         loan = facts.get("loan")
         what = (f"A moneylender offered you {_n(loan, 'principal')} gp now, to be repaid with "

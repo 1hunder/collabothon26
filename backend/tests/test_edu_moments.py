@@ -262,13 +262,14 @@ def test_every_prepared_lesson_passes_the_lesson_guards(client: TestClient, enro
     facts = {"gp": {"cash": 600, "position": 400, "total": 1000}, "hp": 100, "hp_start": 100, "day": "Day 4",
              "trade": {"action": "buy", "amount": 400}, "loan": {"principal": 500, "repay": 550, "interest": 50},
              "price": {"first": 3188, "last": 2900, "change_pct": -9}, "share_pct": 90, "hp_loss": 2, "hp_loss_gp": 20,
-             "roll": {"title": "The Quarterly Ledger", "result": "setback", "used": 3}, "term": "cash flow"}
+             "roll": {"title": "The Quarterly Ledger", "result": "setback", "used": 3}, "term": "cash flow",
+             "support": {"kind": "patron_grant", "reason": "low_hp", "amount": 150}}
     with Session(get_engine()) as db:
         run, pack, hero = service.load(db, uuid.UUID(cid), uuid.UUID(h["X-Session-Id"]))
         ctx = C.build_agent_context(db, run, pack, hero)
     cases = [(k, {**facts, "term": None}) for k in edu.CATALOG if k != "concept_question"]
     cases += [("concept_question", {**facts, "term": t}) for t in TERM_LESSONS]
-    assert len(edu.CATALOG) == 10
+    assert len(edu.CATALOG) == 11
     for key, f in cases:
         les = prepared_lesson(key, f)
         out = S.LessonOut(what_happened=les["what_happened"], idea=les["idea"], example=les["example"],

@@ -165,6 +165,7 @@ class DebriefOut(BaseModel):
     overlooked: str
     luck: str
     reflection_question: str
+    closing: str = Field(default="", description="A short supportive closing line, only when asked")
 
 
 class XpScore(BaseModel):
@@ -185,6 +186,17 @@ class OfferOut(BaseModel):
     kind: Literal["buyback", "loan", "fast_forward"]
     name: str = Field(default="", description="The offerer's generated fantasy name")
     role: str = Field(default="", description="Short role, e.g. 'Moneylender'")
+    text: str = Field(description="At most 100 words, ends with a question")
+    suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short replies")
+
+
+class SupportOut(BaseModel):
+    """The Master's supporting hand for a hero in trouble: one in-world helper and one kind of help.
+    The engine lists the allowed kinds, picks every figure and validates the kind."""
+
+    kind: Literal["loan", "patron_grant", "rescue_buyback", "second_look"]
+    name: str = Field(default="", description="The helper's generated fantasy name")
+    role: str = Field(default="", description="Short role, e.g. 'Guild patron'")
     text: str = Field(description="At most 100 words, ends with a question")
     suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short replies")
 

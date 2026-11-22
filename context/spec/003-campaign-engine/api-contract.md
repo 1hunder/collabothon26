@@ -454,6 +454,96 @@ kind must be in the allowed list, else the first allowed is used), `campaign_off
 accepted) and `campaign_forward` (the days pass). All run through the guards (number allowlist
 includes the offer's own terms and the 10% / 50% rates; no advice; no leak) with prepared templates.
 
+## 11b. The supporting hand: help for a player in trouble
+
+When the player is in trouble the Campaign Master offers one in-world supporting hand, **once per
+campaign**. It reuses the offer machinery of section 11 (the open offer is the scene
+`market_scene.beat == "offer"`, the answer is typed to `POST /actions`), but declining never ends the
+story. The engine detects the trouble, lists the kinds it can really give and supplies every figure;
+the Master only chooses among the allowed kinds and voices a generated character (`speaker_kind: "npc"`,
+e.g. a guild patron, an old mentor, a moneylender, a sympathetic broker). Neutral and kind; never advice
+on what to buy or sell.
+
+**Detection (engine, `service.support_reason`).** Checked after every narrated reply that may have
+changed the situation (turn or move, decision-scene answer, reasoning answer, dice narration), with the
+phase `play` (so never once the decision is locked). Not while a scene, an offer, a dice check or a
+reasoning follow-up is open, and not if a supporting hand was already offered (event `support_offer`).
+The first match wins:
+
+| `reason` | Condition |
+|---|---|
+| `broke` | HP is 0 (budget 0) |
+| `low_hp` | damage was taken and HP <= 40% of the starting HP |
+| `loss_sale` | a sale lost >= 25% of the amount sold (average-cost basis) |
+| `position_down` | coins held are worth >= 30% less than was paid for them, at today's board price |
+
+**No collision.** An open offer (all-in or support) is the open scene, so no second one opens beside it;
+a trade that flags the all-in plot opens the all-in offer instead (the support check is skipped that
+turn). The all-in offer and the supporting hand are counted separately (`all_in_offer` vs
+`support_offer`): once the all-in offer was used, the supporting hand can still come, once.
+
+**Offer.** `done.offer` / state `offer`: `{kind, by: {name, role}, terms, reason}` with
+`kind` in `loan | patron_grant | rescue_buyback | second_look` and `reason` in
+`low_hp | position_down | loss_sale | broke` (the all-in offers have no `reason`). Also a card
+`{kind: "offer", offer_kind, reason, by, terms, text, suggestions, day_label, purse, audio_text_id}`
+(in the SSE `card` events and `done.offer_card`). Allowed kinds and `terms` (engine only, gold pieces):
+- `loan`: `{principal_eur, interest_pct: 10, repay_eur, due}`; principal = what is left of 50% of the
+  starting budget after earlier loans (so smaller after a first loan; **never more than 50% in total**;
+  no loan is offered, also in the all-in plot, once the cap is used). The accept path is `accept_loan`.
+- `patron_grant`: `{hp, gift_eur, repay: "none"}`; `hp = min(20% of the starting HP, HP lost)`,
+  `gift_eur = hp * 10`. Needs HP lost.
+- `rescue_buyback`: `{max_eur, price: "today's board price", default_portion: "half"}`; accepting is a
+  `sell` at the board price like the all-in buyback. Needs coins held.
+- `second_look`: `{gives: "one clue", cost: "free"}`, or `{gives: "one Focus", cost: "free"}` when no
+  unlocked, unfound clue is left and Focus is below its start value.
+FAKE_LLM picks by `rules.SUPPORT_PREFERENCE` (broke / low_hp: grant > loan > look; position_down:
+rescue > loan > look > grant; loss_sale: loan > look > grant), scripted with
+`fake.script_support(kind)`. The real Master picks among the allowed kinds (prompt `SUPPORT`).
+
+**Answers (`POST /actions` while the open offer has a `reason`).**
+- accept `loan`: a `loan` trade (section 11), receipt card with `loan`;
+- accept `patron_grant`: a `grant` trade (below), receipt card `{kind: "trade", action: "grant",
+  grant: {amount_eur, label}}`; HP and the budget are restored by `hp * 10` gold, cash +gift;
+- accept `rescue_buyback`: executes like a decision (`Trade.beat = "offer"`), "sell half" / "sell 100" work;
+- accept `second_look`: one unlocked, unfound clue is revealed (a `clue_found` event, `source:
+  "character"`, ids in `clue_ids_given`), no Focus spent; with none left, Focus +1 (event `focus_gain`);
+- decline, or something else twice: the Master narrates in a line, the offer closes
+  (`support_declined`) and **the story simply goes on** (phase stays `play`, no fast-forward; the
+  fast-forward rules of section 11 apply only to the all-in plot);
+- something else once: the normal turn runs and the offer stays open (`offer_ignored`).
+An accepted help writes `support_taken {kind, by}`.
+
+**Fields.** State: `support_used: bool` (true once a supporting hand was accepted). `purse` gains
+`grant: {amount_eur, label: "Patron's help: +200 gp, no repayment"}` **only after a grant**.
+`decisions[]` rows may have `action: "grant"` (`amount_eur` = the gift, `beat: "support"`, text
+"Patron's help: +200 gp"). `breakdown` gains `patron_grant_eur` **only when a grant was taken**; the
+key set is otherwise unchanged (`starting_budget, cash_kept, invested, value_now, fees, final_value,
+pl_eur, pl_pct`, plus the loan keys with a loan). `debrief` gains `closing` only when it applies.
+
+**Result maths (exact).** The grant restores HP and cash by the same gold: `starting_budget` (the
+budget now = HP * 10) and `cash_kept` both rise by the gift, so a gift is not a profit:
+`final_value = cash_kept + value_now - loan_repay_eur`, `pl_eur = final_value - starting_budget`, and
+the P&L equals that of the same decisions without the damage and the gift. Several loans add up
+(`loan.lender` joins the lenders). What-if rows are unchanged.
+
+**Persistence.** No migration. The grant is a `campaign_trade` row (`action: "grant"`, `beat:
+"support"`, `amount_cents` = gift, `cash_after_cents` includes it, `shares_after` unchanged) and
+`campaign_run.hp_lost` goes down by the restored HP. Events: `support_offer {kind, by, terms, reason}`,
+`support_taken`, `support_declined`, `focus_gain`.
+
+**Agent nodes.** `campaign_support` (structured `SupportOut`: kind in the four kinds, name, role, text,
+suggestions; the kind must be in the allowed list, else the engine's preference is used; text <= 100
+words, guarded: number allowlist with the offer's own terms, no advice, no leak, prepared template
+fallback) and `campaign_support_answer` (narrates taking or declining, no figure).
+
+**Closing line.** If the final result is <= 60% of the starting budget and no supporting hand was
+taken, the debrief node may add `closing` (one or two warm sentences, no advice, no figures, <= 45
+words; a prepared line is the fallback). It is spoken before the reflection question.
+
+**Edu.** New concept `bouncing_back` "Bouncing back from a loss": detected when a supporting hand is
+offered (the offer carries a `reason`); prepared lesson in `edu_lessons.py`; the 3-pending cap applies
+like for every concept.
+
 ## 12. Educational moments (CommerzBuddy bubbles)
 
 A rule-based, generous detector (`campaign/edu.py`, run in the commit phase of every narrated
@@ -468,7 +558,7 @@ Catalog (`concept_key`: title): `news_reaction` Reacting to news; `first_trade` 
 what you actually own; `cash_vs_profit` Profit isn't cash; `debt_and_equity` Debt vs what owners
 own; `price_move` Why prices move (board move of 8 percent or more while at the market or on the
 price board, or the player asks about the chart); `concentration` All eggs in one basket (all-in or
-80 percent of gold in one company); `loan_cost` Borrowing costs; `thin_reasoning` Deciding with
+80 percent of gold in one company); `loan_cost` Borrowing costs; `bouncing_back` Bouncing back from a loss (a supporting hand is offered); `thin_reasoning` Deciding with
 evidence; `luck_vs_skill` Luck vs judgement (failed or natural 1/20 check, or damage);
 `concept_question` "<Term> in plain words" (the player asks what revenue, profit, cash flow, debt,
 dividend, share, price, risk, diversification, equity, margin, earnings or ledger means).

@@ -61,7 +61,7 @@ class DecisionReply:
 class OfferReply:
     """The Master's choice for a hero with nothing left at stake (the engine adds the terms)."""
 
-    kind: str  # buyback / loan / fast_forward
+    kind: str  # buyback / loan / fast_forward, or a supporting hand (loan / patron_grant / ...)
     name: str
     role: str
     text: str
@@ -70,6 +70,8 @@ class OfferReply:
 
 
 class Narration(Protocol):
+    def support(self, ctx: AgentContext, reason: str, allowed: list[str]) -> OfferReply: ...
+    def support_answer(self, ctx: AgentContext, kind: str, taken: bool) -> TurnReply: ...
     def offer(self, ctx: AgentContext, allowed: list[str]) -> OfferReply: ...
     def offer_answer(self, ctx: AgentContext) -> TurnReply: ...
     def fast_forward(self, ctx: AgentContext, why: str) -> TurnReply: ...
