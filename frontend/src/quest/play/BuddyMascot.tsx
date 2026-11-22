@@ -29,7 +29,15 @@ export default function BuddyMascot({ onOpenChat, pending = [], poppedId = null 
       aria-disabled={playing}
       className="buddy-mascot"
       data-playing={playing}
-      onClick={() => setPlaying(true)}
+      onClick={() => {
+        // Awake (a learning moment waits): his frames already played and stopped on the standing
+        // pose, so no animation would end again — open the chat straight away.
+        if (waiting > 0) {
+          onOpenChat();
+          return;
+        }
+        setPlaying(true);
+      }}
     >
       <span className="buddy-frames" onAnimationEnd={() => { if (playing) onOpenChat(); }} style={{
         animationTimingFunction: `steps(${frames.length}, jump-none)`,
