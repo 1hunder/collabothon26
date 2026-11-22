@@ -19,19 +19,28 @@ interface VnStageProps {
   children: React.ReactNode;
 }
 
-/** Keeps the dock visible above the iOS keyboard: --vvh follows the visual viewport. */
+/**
+ * Keeps the stage on the visible part of the screen while the iOS keyboard is open: --vvh is the
+ * visual viewport's height and --vvtop its offset. iOS scrolls the page when the keyboard opens, so
+ * a stage pinned to top: 0 would slide up out of view; it follows the visual viewport instead.
+ */
 function useVisualViewportHeight(): void {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
+    const root = document.documentElement.style;
     const update = (): void => {
-      document.documentElement.style.setProperty('--vvh', `${vv.height}px`);
+      root.setProperty('--vvh', `${vv.height}px`);
+      root.setProperty('--vvtop', `${Math.max(0, vv.offsetTop)}px`);
     };
     update();
     vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
     return () => {
       vv.removeEventListener('resize', update);
-      document.documentElement.style.removeProperty('--vvh');
+      vv.removeEventListener('scroll', update);
+      root.removeProperty('--vvh');
+      root.removeProperty('--vvtop');
     };
   }, []);
 }
@@ -64,8 +73,8 @@ export default function VnStage({ location, exploring, status, chips, hotspots, 
     <div
       ref={stageRef}
       data-testid="vn-stage"
-      style={{ height: 'var(--vvh, 100dvh)' }}
-      className="fixed left-1/2 top-0 z-10 w-full max-w-[430px] -translate-x-1/2 overflow-hidden bg-quest-lapis-deep font-quest text-quest-vellum"
+      style={{ height: 'var(--vvh, 100dvh)', top: 'var(--vvtop, 0px)' }}
+      className="fixed left-1/2 z-10 w-full max-w-[430px] -translate-x-1/2 overflow-hidden bg-quest-lapis-deep font-quest text-quest-vellum"
     >
       <SceneArt location={location} exploring={exploring} />
       {hotspots}
