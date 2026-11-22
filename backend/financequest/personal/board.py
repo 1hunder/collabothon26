@@ -197,7 +197,13 @@ def board(db: Session, sid: uuid.UUID) -> dict[str, Any]:
     curated = [
         card_for_scenario(db, sc, kind="curated", budget=budget, runs=runs) for _, sc in cards
     ]
-    mine = [card_for_job(db, j, budget=budget, runs=runs) for j in list_jobs(db, sid)]
+    # Failed or rejected generations are not shown: the board lists only quests that are ready
+    # or still being written.
+    mine = [
+        card_for_job(db, j, budget=budget, runs=runs)
+        for j in list_jobs(db, sid)
+        if j.status not in ("failed", "rejected")
+    ]
     return {"curated": curated, "mine": mine, "suggestion": suggestion(sid)}
 
 
