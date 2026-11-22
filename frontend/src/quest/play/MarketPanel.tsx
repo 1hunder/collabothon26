@@ -10,6 +10,8 @@ interface MarketPanelProps {
   rows: readonly PriceRow[];
   newsDay: number | null;
   onClose: () => void;
+  /** The hero owns the Rumour ledger: open it from the stall (there is no chip for it). */
+  onRumours?: () => void;
 }
 
 function PricesTab({ rows, newsDay }: { rows: readonly PriceRow[]; newsDay: number | null }): React.JSX.Element {
@@ -44,7 +46,7 @@ const canvas: React.CSSProperties = {
 };
 
 /** Market Square: the stall panel. Section one is the stock price chart up to story today. */
-export default function MarketPanel({ rows, newsDay, onClose }: MarketPanelProps): React.JSX.Element {
+export default function MarketPanel({ rows, newsDay, onClose, onRumours }: MarketPanelProps): React.JSX.Element {
   const [tabId, setTabId] = useState(marketTabs[0]?.id ?? '');
   const tab = marketTabs.find((t) => t.id === tabId) ?? marketTabs[0];
   useEscapeKey(onClose);
@@ -62,6 +64,15 @@ export default function MarketPanel({ rows, newsDay, onClose }: MarketPanelProps
         </button>
         <h2 className="font-quest-title text-3xl text-quest-gilt">Market stall</h2>
         <p className="mb-3 text-base italic text-quest-vellum/80">Daily figures up to today</p>
+        {onRumours ? (
+          <button
+            type="button"
+            onClick={onRumours}
+            className="mb-3 min-h-11 rounded-full border border-quest-gilt/70 px-4 font-quest-sans text-sm text-quest-gilt"
+          >
+            Rumour ledger
+          </button>
+        ) : null}
         <div role="tablist" aria-label="Stall sections" className="mb-3 flex gap-2 border-b border-[#7a5a34]">
           {marketTabs.map((t) => (
             <button

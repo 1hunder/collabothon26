@@ -598,7 +598,7 @@ describe('2.6 Locations', () => {
     await goTo(user, 'Market Square');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Price board' }));
+    await user.click(await screen.findByRole('button', { name: 'Visit the market stall' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
   });
@@ -609,7 +609,7 @@ describe('2.6 Locations', () => {
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Library documents' }));
+    await user.click(await screen.findByRole('button', { name: "Read the guild's records" }));
     const lib = await screen.findByRole('dialog', { name: 'Library' });
     const text = await readParchment(user, lib);
     expect(text).toContain('Guild ledger, year one');
@@ -626,7 +626,7 @@ describe('2.6 Locations', () => {
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Library documents' }));
+    await user.click(await screen.findByRole('button', { name: "Read the guild's records" }));
     const card = within(await screen.findByRole('dialog', { name: 'Library' })).getByRole('region', { name: 'Company card' });
     for (const t of ['Lumenvale Guild', 'Lantern oil and lighting', 'About 4,200 workers', 'Barrels sold']) expect(card).toHaveTextContent(t);
   });
@@ -862,14 +862,14 @@ describe('2.9 In-period news event', () => {
     await user.click(await screen.findByTestId('title-card'));
     await user.click(within(await screen.findByRole('article', { name: 'Breaking news' })).getByRole('button', { name: 'Continue' }));
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Price board' }));
+    await user.click(await screen.findByRole('button', { name: 'Visit the market stall' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '84');
     await user.click(within(board).getByRole('button', { name: /Close/ }));
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Library documents' }));
+    await user.click(await screen.findByRole('button', { name: "Read the guild's records" }));
     expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('Quarterly loss notice');
   });
 });
@@ -1331,7 +1331,7 @@ describe('2.16 Safeguards', () => {
     await goTo(user, 'Market Square');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Price board' }));
+    await user.click(await screen.findByRole('button', { name: 'Visit the market stall' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     const storyToday = readDb().campaign?.story_day ?? 0;
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', String(storyToday));
@@ -1379,7 +1379,7 @@ describe('2.17 Focus and items', () => {
     await goTo(user, 'Library');
     await skipTitle(user);
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Library documents' }));
+    await user.click(await screen.findByRole('button', { name: "Read the guild's records" }));
     expect(await readParchment(user, await screen.findByRole('dialog', { name: 'Library' }))).toContain('How many barrels were sold in a year.');
   });
   it('2.17-AC8 an item changes no figure on screen: starting HP and gold are the same with an item', async () => {

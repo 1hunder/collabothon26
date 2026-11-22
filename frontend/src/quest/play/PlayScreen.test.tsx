@@ -198,7 +198,7 @@ describe('PlayScreen: map, titles and places', () => {
     await enterTavern(user);
     await moveTo(user, 'Library');
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Library documents' }));
+    await user.click(await screen.findByRole('button', { name: "Read the guild's records" }));
     const lib = await screen.findByRole('dialog', { name: 'Library' });
     const text = await readParchment(user, lib);
     expect(text).toContain('Guild ledger, year one');
@@ -215,7 +215,7 @@ describe('PlayScreen: map, titles and places', () => {
     await enterTavern(user);
     await moveTo(user, 'Market Square');
     await readToChoices(user);
-    await user.click(await screen.findByRole('button', { name: 'Price board' }));
+    await user.click(await screen.findByRole('button', { name: 'Visit the market stall' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
     expect(within(board).queryByRole('table')).not.toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('PlayScreen: scene hotspots', () => {
     expect(screen.queryByRole('button', { name: 'Notice board' })).not.toBeInTheDocument();
   });
 
-  it("the Library books open the parchment; the Library documents chip still reaches it", async () => {
+  it("the Library books open the parchment; there is no Library documents chip", async () => {
     const user = userEvent.setup();
     setupPlay('analyst');
     await enterTavern(user);
@@ -241,8 +241,20 @@ describe('PlayScreen: scene hotspots', () => {
     const lib = await screen.findByRole('dialog', { name: 'Library' });
     expect(within(lib).getByRole('region', { name: 'Company card' })).toHaveTextContent('Lumenvale Guild');
     await user.click(within(lib).getByRole('button', { name: 'Close Library' }));
-    await user.click(screen.getByRole('button', { name: 'Library documents' }));
-    expect(await screen.findByRole('dialog', { name: 'Library' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Library documents' })).not.toBeInTheDocument();
+  });
+
+  it('no place shows chips under the hero status: the scene itself is the way in', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    expect(screen.queryByRole('button', { name: /Talk to Brannoc$/ })).not.toBeInTheDocument(); // the table hotspot stays
+    expect(screen.getByRole('button', { name: 'Talk to Brannoc at the table' })).toBeInTheDocument();
+    await moveTo(user, 'Market Square');
+    await readToChoices(user);
+    expect(screen.queryByRole('button', { name: 'Price board' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Rumour ledger' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Visit the market stall' })).toBeInTheDocument();
   });
 
   it('the market stall opens the stall panel with the price chart as its first tab', async () => {

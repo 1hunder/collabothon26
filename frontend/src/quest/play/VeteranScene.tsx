@@ -8,7 +8,6 @@ import {
 } from '../../api/veteran';
 import DialogueBox, { VETERAN_NAME, type VoiceKind } from './DialogueBox';
 import { VETERAN_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
-import { VeteranToken } from './VeteranPortrait';
 
 interface VeteranSceneProps {
   stream: DmStream;
@@ -199,19 +198,5 @@ function OwnWords({ busy, onSend, onCancel }: { busy: boolean; onSend: (text: st
         </button>
       </div>
     </form>
-  );
-}
-
-/** The chip in the Tavern's top row. */
-export function VeteranChip({ onClick }: { onClick: () => void }): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-quest-gilt/60 bg-quest-soot/50 py-1 pl-1.5 pr-4 font-quest-sans text-sm text-quest-gilt"
-    >
-      <VeteranToken size={30} />
-      Talk to Brannoc
-    </button>
   );
 }

@@ -31,7 +31,7 @@ import type { HotspotTarget } from './sceneHotspots';
 import RumourLedger from './RumourLedger';
 import { hasRumourLedger, rumoursHeard } from './rumours';
 import TitleCard from './TitleCard';
-import VeteranScene, { VeteranChip } from './VeteranScene';
+import VeteranScene from './VeteranScene';
 import VeteranTimeline from './VeteranTimeline';
 import VnStage from './VnStage';
 import { formatGold } from '../lib/gold';
@@ -91,7 +91,6 @@ interface DamageToast {
 const damageText = (h: HpChange): string => `−${Math.abs(h.delta)} HP (−${formatGold(Math.abs(h.delta) * 10)}): ${h.reason}`;
 
 const notYou = (speaker: string): boolean => !speaker.startsWith('You') && speaker !== 'CommerzBuddy';
-const TAVERN = 'tavern';
 
 export default function PlayScreen({ voiceOn, onToggleVoice, onPageShown }: PlayScreenProps): React.JSX.Element {
   const hero = useHero();
@@ -270,7 +269,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       window.clearTimeout(giveUp);
     };
   }, [exploreId, refresh]);
-  const npc = location?.npc ?? null;
   const diceOpen = activeOverlay.kind === 'dice' || c.pending !== null;
   const voice = voiceOn ?? (hasProvider ? voiceApi.enabled : localVoice);
   const state = dm.state;
@@ -522,12 +520,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     setSheet(t === 'library' ? 'library' : 'board');
   };
 
-  const npcChip =
-    npc !== null ? (
-      <span data-testid="npc-chip" className="inline-flex min-h-8 items-center rounded-full border border-quest-verdigris-light/60 bg-quest-soot/60 px-3 font-quest-sans text-sm text-quest-vellum">
-        {npc.name} · {npc.role}
-      </span>
-    ) : null;
   const openVeteran = (): void => {
     stopVoice();
     setBuddyOpen(false);
@@ -538,29 +530,13 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     stopVoice();
     setVeteranOpen(false);
   };
-  const inTavern = locKey === TAVERN;
   const sceneFree = sheet === null && !buddyOpen && !veteranOpen && !diceOpen && activeOverlay.kind === 'none' && title === null && (state.phase === 'idle' || state.phase === 'done');
-
-  const chips =
-    npcChip !== null ? (
-      npcChip
-    ) : locKey === 'market_square' ? (
-      <>
-        <Chip label="Price board" onClick={() => setSheet('board')} />
-        {hasRumourLedger(c.hero.items, c.rumours) ? <Chip label="Rumour ledger" onClick={() => setSheet('rumours')} /> : null}
-      </>
-    ) : locKey === 'library' ? (
-      <Chip label="Library documents" onClick={() => setSheet('library')} />
-    ) : inTavern && !veteranOpen ? (
-      <VeteranChip onClick={openVeteran} />
-    ) : null;
 
   return (
     <VnStage
       location={location}
       exploring={exploring}
       status={<HeroStatus campaign={c} hitKey={hitKey} onOpen={() => void navigate('/quest/hero')} />}
-      chips={chips}
       hotspots={<HotspotLayer locationKey={locKey} active={sceneFree} onOpen={openHotspot} />}
       dock={
         <Dock
@@ -581,7 +557,12 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           ) : null}
           {sheet === 'backlog' ? <Backlog entries={c.backlog} onClose={() => setSheet(null)} /> : null}
           {sheet === 'board' ? (
-            <MarketPanel rows={c.price_board} newsDay={c.news_shown ? c.story_day : null} onClose={() => setSheet(null)} />
+            <MarketPanel
+              rows={c.price_board}
+              newsDay={c.news_shown ? c.story_day : null}
+              onClose={() => setSheet(null)}
+              onRumours={hasRumourLedger(c.hero.items, c.rumours) ? () => setSheet('rumours') : undefined}
+            />
           ) : null}
           {sheet === 'rumours' ? <RumourLedger rumours={rumoursHeard(c.rumours, c.backlog)} onClose={() => setSheet(null)} /> : null}
           {sheet === 'library' ? <LibraryScroll library={c.library} onClose={() => setSheet(null)} /> : null}
@@ -630,13 +611,5 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
         dialogue
       )}
     </VnStage>
-  );
-}
-
-function Chip({ label, onClick }: { label: string; onClick: () => void }): React.JSX.Element {
-  return (
-    <button type="button" onClick={onClick} className="min-h-11 rounded-full border border-quest-gilt/60 bg-quest-soot/50 px-4 font-quest-sans text-sm text-quest-gilt">
-      {label}
-    </button>
   );
 }
