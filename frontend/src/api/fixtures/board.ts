@@ -62,7 +62,7 @@ const curated: Entry[] = [
       budget_gp: 1500,
       learn: ['Cost shocks', 'Diversifying a purse', 'Patience'],
       scenario_id: 'fixture-keel',
-      played: true,
+      played: false,
       finished: false,
     },
     details: {
@@ -88,8 +88,8 @@ const curated: Entry[] = [
       budget_gp: 2500,
       learn: ['Concentration risk', 'Reading rumours', 'Expecting the unexpected'],
       scenario_id: 'fixture-spice',
-      played: true,
-      finished: true,
+      played: false,
+      finished: false,
     },
     details: {
       briefing:
