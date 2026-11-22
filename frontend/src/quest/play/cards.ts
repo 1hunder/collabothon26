@@ -3,7 +3,8 @@ import type { DecisionBeat, DiceCard, LoanInfo, MarketCard, NewsCard, Offer, Pur
 const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
 const int = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback);
 const beats: readonly DecisionBeat[] = ['opening', 'news', 'decision', 'story', 'offer'];
-const actions: readonly TradeAction[] = ['buy', 'sell', 'hold', 'loan'];
+const actions: readonly TradeAction[] = ['buy', 'sell', 'hold', 'loan', 'grant'];
+const offerKinds: readonly Offer['kind'][] = ['buyback', 'loan', 'patron_grant', 'rescue_buyback', 'second_look'];
 
 /** The offer of the all-in plot, as a card (who offers, on what terms). */
 export interface OfferMomentCard extends Omit<Offer, 'kind'> {
@@ -70,10 +71,11 @@ export function normalizeCard(raw: Record<string, unknown>): QuestCard | null {
   if (kind === 'offer') {
     const by = (raw.by && typeof raw.by === 'object' ? raw.by : {}) as Record<string, unknown>;
     const terms = (raw.terms && typeof raw.terms === 'object' ? raw.terms : {}) as Offer['terms'];
-    const offerKind = raw.offer_kind === 'loan' || raw.offer_kind === 'buyback' ? raw.offer_kind : 'buyback';
+    const offerKind = offerKinds.includes(raw.offer_kind as Offer['kind']) ? (raw.offer_kind as Offer['kind']) : 'buyback';
+    const reason = typeof raw.reason === 'string' ? (raw.reason as Offer['reason']) : undefined;
     return {
       kind: 'offer', offer_kind: offerKind,
-      by: { name: str(by.name), role: str(by.role) }, terms,
+      by: { name: str(by.name), role: str(by.role) }, terms, ...(reason ? { reason } : {}),
       text: str(raw.text), suggestions: strings(raw.suggestions),
       day_label: str(raw.day_label), purse: purse(raw.purse),
     };

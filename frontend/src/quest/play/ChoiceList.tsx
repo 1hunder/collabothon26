@@ -5,6 +5,7 @@ import { ACTION_DRAFT_KEY, useSessionDraft } from './useSessionDraft';
 export interface ChoiceListProps {
   /** The question above the input; a decision scene asks about the coins. */
   prompt?: string;
+  mascot?: React.ReactNode;
   /** Shown under the question while a decision scene is open. */
   purse?: Purse;
   /** Show "I'm ready to decide". */
@@ -25,6 +26,7 @@ const buttonBase =
 /** The player's turn: a text input is the only way to answer. */
 export default function ChoiceList({
   prompt = 'What would you do?',
+  mascot,
   purse,
   canDecide,
   awaitingReasoning = false,
@@ -44,13 +46,16 @@ export default function ChoiceList({
           <span aria-hidden="true" className="text-quest-gilt">◀</span> Read again
         </button>
       ) : null}
+      <div className="relative">
+        <ActionInput
+          prompt={awaitingReasoning ? 'Why did you choose that?' : prompt}
+          placeholder={awaitingReasoning ? 'Your reasoning, in your own words…' : undefined}
+          busy={busy}
+          onSend={onSend}
+        />
+        {mascot}
+      </div>
       {purse ? <PurseLine purse={purse} className="mx-1.5 mb-1 text-quest-vellum [text-shadow:0_1px_8px_rgba(0,0,0,0.8)]" /> : null}
-      <ActionInput
-        prompt={awaitingReasoning ? 'Why did you choose that?' : prompt}
-        placeholder={awaitingReasoning ? 'Your reasoning, in your own words…' : undefined}
-        busy={busy}
-        onSend={onSend}
-      />
       {canDecide ? (
         <button
           type="button"

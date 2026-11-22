@@ -137,6 +137,8 @@ export interface Purse {
   loan?: LoanInfo | null;
   /** Coins owned once the loan is repaid (only with a loan). */
   net_eur?: number;
+  /** A patron's one-time gift, when the hero accepted one (a supporting hand); no repayment. */
+  grant?: { amount_eur: number; label: string } | null;
 }
 
 export interface LoanInfo {
@@ -149,13 +151,18 @@ export interface LoanInfo {
 }
 
 export type DecisionBeat = 'opening' | 'news' | 'decision' | 'story' | 'offer';
-export type TradeAction = 'buy' | 'sell' | 'hold' | 'loan';
+export type TradeAction = 'buy' | 'sell' | 'hold' | 'loan' | 'grant';
 
 /** An in-world way out for a hero with every coin committed (the all-in plot). The hero answers by typing. */
 export interface Offer {
-  kind: 'buyback' | 'loan';
+  kind: 'buyback' | 'loan' | 'patron_grant' | 'rescue_buyback' | 'second_look';
   by: { name: string; role: string };
-  /** Engine figures: buyback { max_eur, price, default_portion }, loan { principal_eur, interest_pct, repay_eur, due }. */
+  /** Why the supporting hand came (absent for the all-in plot's offers). */
+  reason?: 'low_hp' | 'position_down' | 'loss_sale' | 'broke';
+  /**
+   * Engine figures: buyback / rescue_buyback { max_eur, price, default_portion }, loan { principal_eur,
+   * interest_pct, repay_eur, due }, patron_grant { hp, gift_eur, repay }, second_look { gives, cost }.
+   */
   terms: Record<string, number | string>;
 }
 
@@ -225,6 +232,8 @@ export interface PortfolioBreakdown {
   /** The loan's repayment, subtracted from the final value (0 without a loan). */
   loan_repay_eur?: number;
   loan?: LoanInfo | null;
+  /** A patron's gift (only when one was accepted); part of the cash kept, not a profit. */
+  patron_grant_eur?: number;
   starting_budget: number;
   cash_kept: number;
   invested: number;
@@ -273,6 +282,8 @@ export interface DebriefData {
   luck: string;
   forecast_line: string;
   reflection_question: string;
+  /** A short supportive line after a big loss with no supporting hand taken. */
+  closing?: string;
   whatif: WhatIfRow[];
 }
 
@@ -473,8 +484,10 @@ export interface CampaignState {
   market_scene?: MarketScene | null;
   /** Every coin is in the company (free cash is at most 2% of the starting budget). */
   all_in?: boolean;
-  /** The open offer of the all-in plot, if any. */
+  /** The open offer (the all-in plot's, or a supporting hand), if any. */
   offer?: Offer | null;
+  /** The hero accepted a supporting hand (a loan, a gift, a rescue sale or a free look). */
+  support_used?: boolean;
   /** The curious trader asked "why?" about the last decision and waits for the next message. */
   awaiting_reasoning?: boolean;
   decisions?: DecisionEntry[];

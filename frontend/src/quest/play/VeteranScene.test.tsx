@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DmStream, DmStreamState } from '../../api/useDmStream';
 import type { VeteranOverview, VeteranTimeline as Timeline } from '../../api/veteran';
 import DialogueBox, { VETERAN_NAME } from './DialogueBox';
-import TavernVeteran from './TavernVeteran';
+import HotspotLayer from './HotspotLayer';
 import VeteranPortrait from './VeteranPortrait';
 import VeteranScene from './VeteranScene';
 import VeteranTimeline from './VeteranTimeline';
@@ -46,7 +46,7 @@ describe('VeteranScene', () => {
     expect(s.send).toHaveBeenCalledTimes(1);
     expect(s.send).toHaveBeenCalledWith({ text: '', topic: null });
     expect(screen.getByText('Brannoc puffs on his pipe…')).toBeInTheDocument();
-    expect(screen.getByTestId('veteran-figure')).toBeInTheDocument();
+    expect(screen.queryByTestId('veteran-figure')).toBeNull();
   });
 
   it('speaks under his own wax-red name tab, then offers the remembered roads', async () => {
@@ -115,14 +115,12 @@ describe('Veteran voice and figure', () => {
     }
   });
 
-  it('sits by the fire as a tap target, disabled while something else is open', async () => {
+  it('makes the seated man a tap target, hidden while something else is open', async () => {
     const onOpen = vi.fn();
-    const { rerender } = render(<TavernVeteran active hidden={false} onOpen={onOpen} />);
+    const { rerender } = render(<HotspotLayer locationKey="tavern" active onOpen={onOpen} />);
     await userEvent.click(screen.getByRole('button', { name: /Talk to Brannoc/ }));
-    expect(onOpen).toHaveBeenCalledTimes(1);
-    rerender(<TavernVeteran active={false} hidden={false} onOpen={onOpen} />);
-    expect(screen.getByRole('button', { name: /Talk to Brannoc/ })).toBeDisabled();
-    rerender(<TavernVeteran active hidden onOpen={onOpen} />);
+    expect(onOpen).toHaveBeenCalledWith('veteran');
+    rerender(<HotspotLayer locationKey="tavern" active={false} onOpen={onOpen} />);
     expect(screen.queryByRole('button', { name: /Talk to Brannoc/ })).toBeNull();
   });
 });
@@ -169,5 +167,56 @@ describe('VeteranTimeline', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Kept in your journal' })).toBeDisabled());
     const post = fetchMock.mock.calls.find(([u, i]) => String(u).endsWith('/lessons') && i?.method === 'POST');
     expect(JSON.parse(String(post?.[1]?.body))).toEqual({ text: 'Reread my reasons before I sell.', campaign_id: 'c-1' });
+  });
+
+  it('shows the real case: real company, real dates and dollar prices, real headlines', async () => {
+    const real: Timeline = {
+      ...TL,
+      real_case: {
+        company: 'Enron Corporation', ticker: 'ENE',
+        start: { date: '1 August 2001', price: '$43' }, decision_day: { date: '7 September 2001', price: '$31' },
+        end: { date: '30 November 2001', price: '26 cents' },
+        move_pct: -99, move_after_decision_pct: -99, high: '$43', low: '26 cents',
+        decisions: [
+          { seq: 1, action: 'buy', date: '3 August 2001', price: '$42' },
+          { seq: 2, action: 'sell', date: '16 October 2001', price: '$34' },
+        ],
+        events: [{ date: '14 August 2001', headline: 'CEO Jeffrey Skilling resigns', price: '$43' }],
+      },
+    };
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return new Response(JSON.stringify({ session_id: 's' }), { status: 201 });
+      if (url.includes('/timeline')) return new Response(JSON.stringify(real), { status: 200 });
+      return new Response('{}', { status: 200 });
+    }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <VeteranTimeline campaignId="c-1" onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    const rows = await screen.findAllByTestId('timeline-row');
+    expect(rows[1]).toHaveTextContent('In history: 16 October 2001, share at $34');
+    const section = screen.getByRole('region', { name: 'The real case' });
+    expect(section).toHaveTextContent('Enron Corporation (ENE)');
+    expect(section).toHaveTextContent('1 August 2001 – 30 November 2001: $43 → 26 cents (-99%)');
+    expect(screen.getByTestId('real-event')).toHaveTextContent('14 August 2001 · $43CEO Jeffrey Skilling resigns');
+  });
+
+  it('a quest without real history shows no real-case section', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return new Response(JSON.stringify({ session_id: 's' }), { status: 201 });
+      if (url.includes('/timeline')) return new Response(JSON.stringify({ ...TL, real_case: null }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <VeteranTimeline campaignId="c-1" onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findAllByTestId('timeline-row');
+    expect(screen.queryByRole('region', { name: 'The real case' })).toBeNull();
+    expect(screen.queryByTestId('real-when')).toBeNull();
   });
 });

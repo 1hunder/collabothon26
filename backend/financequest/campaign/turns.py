@@ -91,7 +91,7 @@ def replay_streamed(db: Session, run: CampaignRun, pack: Pack, ev: Event) -> Str
     """An idempotent repeat streams the stored, already guarded reply."""
     p = dict(ev.payload or {})
     delta = state_delta(db, run, pack)
-    cards = [c for c in (p.get("card"), p.get("news"), p.get("scene")) if c]
+    cards = [c for c in (p.get("card"), p.get("news"), p.get("scene"), p.get("offer_card")) if c]
     done = {**p, **_done_fields(p), "audio_text_id": ev.id, **delta, "replayed": True,
             "edu_new": list(p.get("edu_new") or [])}
     if (p.get("news") or {}).get("framing"):
@@ -327,7 +327,8 @@ def commit_reasoning(
         }  # fmt: skip
         ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
         _finish(db, run)
-        return _streamed(db, run, pack, ev, [])
+        out = _streamed(db, run, pack, ev, [])
+    return _support_followup(sid, cid, out, get_narration())  # the question held the offer back
 
 
 def nar_suggestions(ctx: C.AgentContext) -> list[str]:
@@ -365,14 +366,31 @@ _EXPLORE_RE = re.compile(
 )
 
 
+_SKILL_RE = re.compile(
+    r"\b(search|searching|inspect|examine|investigate|look (?:for|around|closely)|study|"
+    r"scrutini[sz]e|read (?:his|her|their) (?:face|eyes|expression)|watch (?:him|her|them)|"
+    r"is (?:he|she|they) (?:lying|hiding)|persuade|convince|charm|bargain with|pressure|"
+    r"sneak|eavesdrop|overhear|listen in|spy|recall|remember what)\b"
+)
+
+
 def _plan_scene_answer(
     sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
 ) -> StreamPlan:
     """An answer in an open decision scene is a decision, a question about the trade, or something
     else entirely (travel, talk, explore): that last one passes the scene and runs a normal turn."""
 
+    keep_scene = False  # a skill attempt runs as a normal turn but leaves the scene open
+
     def work() -> DecisionReply | TurnReply:
+        nonlocal keep_scene
         no_trade_words = not rules.parse_decision(text)[0]
+        # Investigating the world (search, study a face, persuade, eavesdrop…) is a dice-worthy
+        # action, not a question about the trade: the Master handles it (and may call for a roll),
+        # and the decision scene stays open for when the player comes back to it.
+        if no_trade_words and _SKILL_RE.search(text.lower()):
+            keep_scene = True
+            return _normal_turn_work(nar, ctx, text)
         # No LLM call needed: travel to a known place, or any explore/travel/talk wording with no
         # buy/sell/hold in it (e.g. "I want to explore some new locations").
         if no_trade_words and (names_travel(ctx, text) or _EXPLORE_RE.search(text.lower())):
@@ -393,7 +411,8 @@ def _plan_scene_answer(
     def commit(reply: DecisionReply | TurnReply) -> Streamed:
         if isinstance(reply, DecisionReply):
             return commit_decision(sid, cid, text, reply, msg=msg, nar=nar)
-        pass_scene(sid, cid, text, msg=msg)
+        if not keep_scene:
+            pass_scene(sid, cid, text, msg=msg)
         return commit_turn(sid, cid, reply, msg=msg, nar=nar)
 
     return StreamPlan(
@@ -544,7 +563,7 @@ def commit_turn(
         out = _streamed(db, run, pack, stored_ev, cards)
     if news_card:
         out.done["news_text"] = news_card.get("framing")
-    return out
+    return _support_followup(sid, cid, out, nar)
 
 
 def frame_news(
@@ -669,7 +688,7 @@ def commit_decision(
         reply_id = ev.id
     if flag and nar is not None and reply_id is not None:
         return _all_in_followup(sid, cid, reply_id, flag, nar, [receipt] if receipt else [], say)
-    return out
+    return _support_followup(sid, cid, out, nar) if nar is not None else out
 
 
 # ==============================================================================================
@@ -738,6 +757,114 @@ def _all_in_followup(
     return _stored_reply(sid, cid, reply_id, cards)
 
 
+# ==============================================================================================
+# the supporting hand: help for a player in trouble
+# ==============================================================================================
+def _support_followup(sid: uuid.UUID, cid: uuid.UUID, out: Streamed, nar: Narration) -> Streamed:
+    """After a reply that may have put the player in trouble (damage, a loss at the board, a sale at
+    a loss) the engine checks; the Master then offers one fitting supporting hand, once per
+    campaign. The engine lists the kinds it can really give and supplies every figure; a refused or
+    failed model falls back to the prepared offer. Never fails the reply."""
+    reply_id = out.done.get("audio_text_id")
+    if not isinstance(reply_id, int) or out.done.get("replayed"):
+        return out
+    try:
+        with _session() as db:
+            run, pack, hero = service.load(db, cid, sid, write=False)
+            reason = service.support_reason(db, run, pack)
+            options = service.support_options(db, run, pack, hero) if reason else {}
+            if reason is None or not options:
+                return out
+            ctx = C.build_agent_context(db, run, pack, hero).with_deadline(TURN_BUDGET_S)
+            ctx.offer_facts = options
+        picked = nar.support(ctx, reason, list(options))
+        with _session() as db:
+            run, pack, hero = service.load(db, cid, sid)
+            options = service.support_options(db, run, pack, hero)
+            if service.support_reason(db, run, pack) is None or picked.kind not in options:
+                return out
+            by = {"name": picked.name, "role": picked.role}
+            offer = service.open_support(db, run, picked.kind, reason, by, picked.text,
+                                         options[picked.kind])  # fmt: skip
+            fev = append_event(db, run, "dm_reply", {
+                "text": picked.text, "speaker": picked.name, "speaker_kind": "npc",
+                "speaker_id": "support_helper", "intent": "support", "offer": offer,
+                "suggestions": picked.suggestions,
+            })  # fmt: skip
+            run.market_scene = {**(run.market_scene or {}), "suggestions": picked.suggestions}
+            card = {
+                **offer, "kind": "offer", "offer_kind": offer["kind"], "text": picked.text,
+                "suggestions": picked.suggestions, "story_day": run.clock_day,
+                "day_label": clock.day_label(run.clock_day), "purse": service.purse(db, run, pack),
+                "audio_text_id": fev.id,
+            }  # fmt: skip
+            ev = db.get(Event, reply_id)
+            if ev is not None:
+                ev.payload = {**(ev.payload or {}), "offer": offer, "offer_card": card}
+                db.add(ev)
+            _finish(db, run)
+        new = _stored_reply(sid, cid, reply_id, [*out.cards, card])
+        for key in ("news_text",):
+            if key in out.done:
+                new.done[key] = out.done[key]
+        return new
+    except ApiError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - help is a bonus: the reply stands without it
+        log.warning("supporting hand failed: %s", exc)
+        return out
+
+
+def _note_support_taken(sid: uuid.UUID, cid: uuid.UUID, kind: str) -> None:
+    """A rescue buyback went through the decision path: record that the help was taken."""
+    with _session() as db:
+        run, _, _ = service.load(db, cid, sid)
+        if service.offer_out(run) is None and not service.support_taken(db, run.id):
+            append_event(db, run, "support_taken", {"kind": kind})
+        _finish(db, run)
+
+
+def commit_support(
+    sid: uuid.UUID, cid: uuid.UUID, text: str, reply: TurnReply, *, taken: bool, msg: str | None
+) -> Streamed:
+    """The answer to a supporting hand (a loan, a patron's gift, a free look, or a decline): the
+    engine applies it, the Master narrates it, and the story simply goes on."""
+    with _session() as db:
+        run, pack, hero = service.load(db, cid, sid)
+        stored = find_by_msg_id(db, cid, f"{msg}:reply" if msg else None)
+        if stored is not None:
+            return replay_streamed(db, run, pack, stored)
+        service.require_phase(run, "play")
+        offer = service.offer_out(run)
+        card: dict[str, Any] | None = None
+        clues: list[str] = []
+        if offer and offer.get("reason"):
+            kind = str(offer["kind"])
+            if not taken:
+                service.close_offer(db, run, "support_declined", {"kind": kind, "text": text})
+            else:
+                if kind == "loan":
+                    trade = service.accept_loan(db, run, pack, text)
+                    loan = service.loan_of([trade])
+                    assert loan is not None
+                    card = {**trade_card(trade, service.purse(db, run, pack)), "loan": service.loan_out(loan)}
+                elif kind == "patron_grant":
+                    trade = service.accept_grant(db, run, pack)
+                    grant = service.grant_of([trade])
+                    assert grant is not None
+                    card = {**trade_card(trade, service.purse(db, run, pack)), "grant": service.grant_out(grant)}
+                else:
+                    clues = service.accept_second_look(db, run, pack, hero)
+                append_event(db, run, "support_taken", {"kind": kind, "by": offer["by"]})
+        payload = _plot_payload(
+            reply, intent="offer_answer", card=card, clue_ids_given=clues,
+            suggestions=nar_suggestions(C.build_agent_context(db, run, pack, hero)),
+        )  # fmt: skip
+        ev = append_event(db, run, "dm_reply", payload, f"{msg}:reply" if msg else None)
+        _finish(db, run)
+        return _streamed(db, run, pack, ev, [card] if card else [])
+
+
 def _plan_offer_answer(
     sid: uuid.UUID, cid: uuid.UUID, text: str, ctx: C.AgentContext, msg: str | None, nar: Narration
 ) -> StreamPlan:
@@ -746,22 +873,28 @@ def _plan_offer_answer(
     moves the plot to its finish."""
     offer = (ctx.scene or {}).get("offer") or {}
     kind = str(offer.get("kind"))
+    support = bool(offer.get("reason"))  # a supporting hand: declining just lets the story go on
+    sells = kind in ("buyback", "rescue_buyback")
     ignored = int((ctx.scene or {}).get("ignored", 0))
     read = rules.read_offer_answer(text)
     action = rules.parse_decision(text)[0]
-    if kind == "buyback" and action == "sell":
+    if sells and action == "sell":
         read = "accept"
-    elif kind == "buyback" and action == "hold":
+    elif sells and action == "hold":
         read = "decline"
     if read == "other" and ignored + 1 >= rules.OFFER_IGNORED_MAX:
         read = "ignored"
 
     def work() -> tuple[str, Any]:
-        if read == "accept" and kind == "buyback":
+        if read == "accept" and sells:
             say = text if action == "sell" else "I sell half of my coins to the broker."
             return "buyback", nar.decide(ctx, say)
+        if read == "accept" and support:
+            return "support", nar.support_answer(ctx, kind, True)
         if read == "accept":
             return "loan", nar.offer_answer(ctx)
+        if read in ("decline", "ignored") and support:
+            return "support_no", nar.support_answer(ctx, kind, False)
         if read in ("decline", "ignored"):
             why = ("declined: they turned the offer down" if read == "decline"
                    else "ignored: they paid the offer no attention twice")  # fmt: skip
@@ -774,7 +907,12 @@ def _plan_offer_answer(
             if isinstance(reply, DecisionReply) and reply.kind == "decision" and reply.action == "sell" \
                     and reply.amount_eur is None and reply.portion is None:
                 reply.portion = "half"  # "I accept": the default is half of what they hold
-            return commit_decision(sid, cid, text, reply, msg=msg, nar=nar)
+            out = commit_decision(sid, cid, text, reply, msg=msg, nar=nar)
+            if support:
+                _note_support_taken(sid, cid, kind)
+            return out
+        if tag in ("support", "support_no"):
+            return commit_support(sid, cid, text, reply, taken=tag == "support", msg=msg)
         if tag == "loan":
             return commit_loan(sid, cid, text, reply, msg=msg)
         if tag == "forward":
@@ -911,7 +1049,8 @@ def plan_narrate_roll(sid: uuid.UUID, cid: uuid.UUID, roll_id: uuid.UUID) -> Str
                        "degraded": reply.degraded, "suggestions": reply.suggestions}  # fmt: skip
             ev = append_event(db, run, "dm_reply", payload, key)
             _finish(db, run)
-            return _streamed(db, run, pack, ev, [])
+            out = _streamed(db, run, pack, ev, [])
+        return _support_followup(sid, cid, out, nar)
 
     return StreamPlan(cid, work=lambda: nar.narrate_roll(ctx, roll), commit=commit,
                       deadline_s=TURN_BUDGET_S)

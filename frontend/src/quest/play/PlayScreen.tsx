@@ -30,7 +30,6 @@ import HotspotLayer from './HotspotLayer';
 import type { HotspotTarget } from './sceneHotspots';
 import RumourLedger from './RumourLedger';
 import { hasRumourLedger, rumoursHeard } from './rumours';
-import TavernVeteran from './TavernVeteran';
 import TitleCard from './TitleCard';
 import VeteranScene, { VeteranChip } from './VeteranScene';
 import VeteranTimeline from './VeteranTimeline';
@@ -409,6 +408,14 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
   const inChoices = current !== null && advancedKey === current.key;
   const locKey = location?.key;
 
+  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
+    (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
+  const showMascot = (masterSpeaking || inChoices) && !sheet && activeOverlay.kind === 'none';
+
+  const mascot = showMascot ? (
+    <BuddyMascot pending={edu.pending} poppedId={edu.poppedId} onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />
+  ) : null;
+
   const dialogue = ((): React.ReactNode => {
     if (state.phase === 'lost') {
       return (
@@ -426,28 +433,31 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       // reached and the voice that already started carry on, instead of a remount at page one.
       return (
         <>
-        {null}
-        <DialogueBox
-          key={state.clientMsgId}
-          // The server names the speaker before the first word; until then, at a place with an
-          // NPC the NPC is the likely speaker (the Master only steps in when the NPC hands over).
-          speaker={(state.phase === 'streaming' ? state.speaker : null) ?? location?.npc?.name ?? DM_NAME}
-          speakerKind={
-            state.phase === 'streaming' && state.speakerKind
-              ? (state.speakerKind as SpeakerKind)
-              : location?.npc
-                ? 'npc'
-                : undefined
-          }
-          text={state.phase === 'streaming' ? state.text : ''}
-          final={false}
-          writing
-          audioTextId={state.phase === 'streaming' ? (state.audioTextId ?? null) : null}
-          audioText={state.phase === 'streaming' ? (state.audioText ?? null) : null}
-          onAdvance={advance}
-          onPageShown={onPageShown}
-          onSwipeDown={() => setSheet('backlog')}
-        />
+          {null}
+          <div className="relative">
+            <DialogueBox
+              key={state.clientMsgId}
+              // The server names the speaker before the first word; until then, at a place with an
+              // NPC the NPC is the likely speaker (the Master only steps in when the NPC hands over).
+              speaker={(state.phase === 'streaming' ? state.speaker : null) ?? location?.npc?.name ?? DM_NAME}
+              speakerKind={
+                state.phase === 'streaming' && state.speakerKind
+                  ? (state.speakerKind as SpeakerKind)
+                  : location?.npc
+                    ? 'npc'
+                    : undefined
+              }
+              text={state.phase === 'streaming' ? state.text : ''}
+              final={false}
+              writing
+              audioTextId={state.phase === 'streaming' ? (state.audioTextId ?? null) : null}
+              audioText={state.phase === 'streaming' ? (state.audioText ?? null) : null}
+              onAdvance={advance}
+              onPageShown={onPageShown}
+              onSwipeDown={() => setSheet('backlog')}
+            />
+            {mascot}
+          </div>
         </>
       );
     }
@@ -455,6 +465,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     if (inChoices) {
       return (
         <ChoiceList
+          mascot={mascot}
           prompt={c.offer ? `${c.offer.by.name}, ${c.offer.by.role}: ${offerTerms(c.offer)} How do you answer?` : c.market_scene ? 'What do you do with your coins?' : undefined}
           purse={c.market_scene ? c.purse : undefined}
           canDecide={!c.market_scene && (c.can_decide || current.showDecide)}
@@ -477,36 +488,36 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
             <span aria-hidden="true" className="h-px flex-1 bg-quest-gilt/40" />
           </p>
         ) : null}
-        <DialogueBox
-          key={current.key}
-          speaker={current.speaker}
-          speakerKind={current.speakerKind}
-          text={current.text}
-          instant={current.instant}
-          audioTextId={current.audioTextId}
-          revisit={rereadKey === current.key}
-          onAdvance={
-            rereadKey === current.key
-              ? () => {
-                  setRereadKey(null);
-                  setAdvancedKey(current.key);
-                }
-              : activeOverlay.kind === 'none'
-                ? advance
-                : () => undefined
-          }
-          onPageShown={onPageShown}
-          onSwipeDown={() => setSheet('backlog')}
-        />
+        <div className="relative">
+          <DialogueBox
+            key={current.key}
+            speaker={current.speaker}
+            speakerKind={current.speakerKind}
+            text={current.text}
+            instant={current.instant}
+            audioTextId={current.audioTextId}
+            revisit={rereadKey === current.key}
+            onAdvance={
+              rereadKey === current.key
+                ? () => {
+                    setRereadKey(null);
+                    setAdvancedKey(current.key);
+                  }
+                : activeOverlay.kind === 'none'
+                  ? advance
+                  : () => undefined
+            }
+            onPageShown={onPageShown}
+            onSwipeDown={() => setSheet('backlog')}
+          />
+          {mascot}
+        </div>
       </>
     );
   })();
 
-  const masterSpeaking = state.phase === 'sending' || state.phase === 'streaming' ||
-    (state.phase !== 'lost' && !inChoices && current?.speaker === DM_NAME);
-  const showMascot = (masterSpeaking || inChoices) && !sheet && activeOverlay.kind === 'none';
-
   const openHotspot = (t: HotspotTarget): void => {
+    if (t === 'veteran') return openVeteran();
     stopVoice();
     setSheet(t === 'library' ? 'library' : 'board');
   };
@@ -550,12 +561,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       exploring={exploring}
       status={<HeroStatus campaign={c} hitKey={hitKey} onOpen={() => void navigate('/quest/hero')} />}
       chips={chips}
-      hotspots={
-        <>
-          <HotspotLayer locationKey={locKey} active={sceneFree} onOpen={openHotspot} />
-          {inTavern ? <TavernVeteran active={sceneFree} hidden={veteranOpen} onOpen={openVeteran} /> : null}
-        </>
-      }
+      hotspots={<HotspotLayer locationKey={locKey} active={sceneFree} onOpen={openHotspot} />}
       dock={
         <Dock
           mapDisabled={diceOpen}
@@ -621,10 +627,7 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       ) : buddyOpen ? (
         <BuddyScene edu={edu} stream={buddy} onClose={() => { stopVoice(); setBuddyOpen(false); }} onPageShown={onPageShown} onAsked={stopVoice} screen={locKey === 'market_square' || locKey === 'library' ? locKey : undefined} />
       ) : (
-        <div className="relative">
-          {dialogue}
-          {showMascot && <BuddyMascot pending={edu.pending} poppedId={edu.poppedId} onOpenChat={() => { stopVoice(); setBuddyOpen(true); }} />}
-        </div>
+        dialogue
       )}
     </VnStage>
   );

@@ -27,8 +27,8 @@ describe('coverRect (object-fit: cover, centred)', () => {
     expect(r.height).toBeCloseTo(296, 0);
   });
 
-  it('the tavern has no hotspot: the notice board was removed', () => {
-    expect(sceneHotspots.tavern).toBeUndefined();
+  it('the seated veteran is the only tavern hotspot', () => {
+    expect(sceneHotspots.tavern?.hotspots.map(h => h.target)).toEqual(['veteran']);
   });
 
   it('market stall at 430x932 starts at the left edge', () => {
