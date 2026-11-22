@@ -282,6 +282,13 @@ def plan_action(
                 db.commit()
                 return _plan_reasoning(sid, cid, text, msg, reasoning_mod.is_skip(text))
         in_scene = bool(run.market_scene)
+        if not in_scene and _states_a_decision(text) and service.due_beat(
+            db, run, pack, news_now=False, asked=True, story_call=False
+        ) == "decision":
+            # "I want to decide: I put 300 gp in because…": the player already said what they do.
+            # Open the decision scene and read this message as the answer, without asking again.
+            service.open_scene(db, run, pack, "decision")
+            in_scene = True
         append_event(db, run, "action", {"text": text, **({"scene": True} if in_scene else {})},
                      f"{msg}:action" if msg else None)  # fmt: skip
         db.commit()
@@ -291,6 +298,17 @@ def plan_action(
     if in_scene:  # the player answers the decision scene: read it, execute it, react
         return _plan_scene_answer(sid, cid, text, ctx, msg, nar)
     return _plan_normal_turn(sid, cid, text, ctx, msg, nar)
+
+
+def _states_a_decision(text: str) -> bool:
+    """The message already carries a trade the engine can act on: a buy or sell with a sum or a
+    share, or any buy/sell/hold said together with "I want to decide" wording."""
+    action, amount, portion = rules.parse_decision(text)
+    if action is None:
+        return False
+    if rules.is_decision_intent(text):
+        return True
+    return action in ("buy", "sell") and (amount is not None or portion is not None)
 
 
 def _plan_reasoning(
