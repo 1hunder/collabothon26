@@ -111,6 +111,11 @@ export function lockDecision(id: string, req: CommitRequest): Promise<LockRespon
   return request<LockResponse>('POST', `/campaigns/${id}/lock`, req);
 }
 
+/** "I'm ready to decide": seal the position as it stands, without the forecast form. */
+export function quickLock(id: string): Promise<LockResponse> {
+  return request<LockResponse>('POST', `/campaigns/${id}/lock`, { quick: true });
+}
+
 export function useOutcome(id: string) {
   return useQuery({
     queryKey: ['outcome', id] as const,

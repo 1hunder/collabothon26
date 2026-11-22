@@ -143,3 +143,15 @@ def test_an_open_offer_cannot_be_left_with_the_button(client: TestClient, enron:
     open_scene(h, cid, "offer")
     assert client.post(f"/campaigns/{cid}/scene/leave", headers=h).status_code == 409
     assert campaign_state(client, h, cid)["market_scene"] is not None
+
+
+def test_ready_to_decide_seals_without_the_forecast_form(client: TestClient, enron: str) -> None:
+    from test_campaign_api import play_to_decide
+
+    h, cid = _setup(client)
+    assert client.post(f"/campaigns/{cid}/lock", json={"quick": True}, headers=h).status_code == 409
+    play_to_decide(client, h, cid)
+    r = client.post(f"/campaigns/{cid}/lock", json={"quick": True}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["breakdown"]["final_value"] > 0
+    assert client.get(f"/campaigns/{cid}/reveal", headers=h).status_code == 200

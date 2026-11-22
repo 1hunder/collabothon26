@@ -224,7 +224,8 @@ function patchCampaign(patch: Partial<CampaignState>): CampaignState {
 
 function lock(body: unknown): unknown {
   const db = readDb();
-  const d = body as CommitRequest;
+  const quick = (body as { quick?: boolean } | undefined)?.quick === true;
+  const d = (quick ? { confidence: 'medium', forecast_pct: 0 } : body) as CommitRequest;
   if (!db.campaign || !d?.confidence || typeof d.forecast_pct !== 'number') throw new FixtureHttpError(422);
   if (investedBy(db.campaign.decisions ?? []) > db.campaign.hp_eur) throw new FixtureHttpError(422, 'amount_over_budget');
   writeDb({ ...db, decision: d, campaign: { ...db.campaign, phase: 'reveal' } });

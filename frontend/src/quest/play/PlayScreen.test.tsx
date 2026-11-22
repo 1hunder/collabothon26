@@ -387,7 +387,7 @@ describe('PlayScreen: news', () => {
 });
 
 describe('PlayScreen: deciding', () => {
-  it("shows I'm ready to decide only when the server says can_decide, and opens the commit screen", async () => {
+  it("shows I'm ready to decide only when the server says can_decide, and goes straight to the outcome", async () => {
     const user = userEvent.setup();
     const router = setupPlay('analyst');
     await enterTavern(user);
@@ -407,7 +407,7 @@ describe('PlayScreen: deciding', () => {
     }
     await sendSuggestion(user, 'Walk to Market Square and study the price board');
     await user.click(await screen.findByRole('button', { name: "I'm ready to decide" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/commit'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/outcome'));
   });
 });
 

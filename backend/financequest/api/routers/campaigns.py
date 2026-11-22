@@ -234,7 +234,12 @@ def resume_play(cid: uuid.UUID, db: DbSession, sid: SessionId) -> dict[str, Any]
 @router.post("/{cid}/lock")
 def lock(cid: uuid.UUID, body: dict[str, Any], db: DbSession, sid: SessionId) -> dict[str, Any]:
     run, pack, _ = _load(db, cid, sid)
-    dec, oc = service.lock_decision(db, run, pack, body)
+    if body.get("quick") is True:  # "I'm ready to decide": sealed as it stands, no forecast form
+        if service.decision_of(db, run.id) is None and not service.decide_ready(db, run, pack):
+            raise ApiError(409, "not_ready", "Keep investigating first")
+        dec, oc = service.lock_decision(db, run, pack, {}, auto=True)
+    else:
+        dec, oc = service.lock_decision(db, run, pack, body)
     _finish(db, run)
     return service.reveal_payload(db, run, pack, dec, oc)
 

@@ -375,14 +375,14 @@ describe('2.4 Scenes and turns', () => {
     expect(readDb().play?.events.some((e) => e.type === 'dm_reply' && /Ready to make your decision\?/.test(String(e.text)))).toBe(true);
     expect(await screen.findByRole('button', { name: "I'm ready to decide" })).toBeInTheDocument();
   });
-  it('2.4-AC16 tapping "I\'m ready to decide" opens the commit screen', async () => {
+  it('2.4-AC16 tapping "I\'m ready to decide" seals and opens the outcome', async () => {
     const user = userEvent.setup();
     const router = setupPlay('analyst');
     await enterTavern(user);
     readyToDecide();
     await send(user, 'Walk to Market Square and study the price board');
     await user.click(await screen.findByRole('button', { name: "I'm ready to decide" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/commit'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/outcome'));
   });
 });
 

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { leaveScene, patchCampaignCache, queryKeys, saveCommitDraft, useCampaign, useHero } from '../../api/campaign';
+import { leaveScene, patchCampaignCache, queryKeys, quickLock, useCampaign, useHero } from '../../api/campaign';
 import { request } from '../../api/client';
 import type { CampaignState, DiceCard, DiceMode, HpChange, MarketCard, NewsCard, PlayLocation, RollResult, SpeakerKind, TradeCard, TurnExtras } from '../../api/types';
 import { useDmStream, type DmDone } from '../../api/useDmStream';
@@ -362,11 +362,13 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
     }
   };
 
+  // "I'm ready to decide" seals the position as it stands and goes straight to the outcome.
   const decide = async (): Promise<void> => {
     try {
-      await saveCommitDraft(id, {});
-      patchCampaignCache(qc, id, { phase: 'commit' });
-      void navigate('/quest/commit', { replace: true });
+      stopVoice();
+      await quickLock(id);
+      patchCampaignCache(qc, id, { phase: 'reveal' });
+      void navigate('/quest/outcome', { replace: true });
     } catch {
       refresh();
     }
