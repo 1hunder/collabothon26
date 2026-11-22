@@ -162,6 +162,27 @@ describe('PlayScreen: a streamed reply and its voice', () => {
   });
 });
 
+describe('PlayScreen: CommerzBuddy', () => {
+  it('stays on the dialogue box while an NPC speaks, not only the Campaign Master', async () => {
+    const user = userEvent.setup();
+    setupPlay('analyst');
+    await enterTavern(user);
+    let emit: (e: DmEvent) => void = () => undefined;
+    vi.spyOn(sse, 'postSse').mockImplementation(
+      (_url, _body, onEvent) => new Promise<void>(() => { emit = onEvent; }),
+    );
+    await user.type(screen.getByRole('textbox'), 'Ask Tobin what the ledgers say');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    act(() => {
+      emit({ event: 'speaker', data: { speaker: 'Tobin Marsh', speaker_kind: 'npc' } as never });
+      emit({ event: 'token', data: { text: '"Ledgers are where your answers live."' } });
+      emit({ event: 'done', data: { text: '"Ledgers are where your answers live."', speaker: 'Tobin Marsh', speaker_kind: 'npc', suggestions: [] } as never });
+    });
+    await waitFor(() => expect(screen.getByTestId('name-tab')).toHaveTextContent('Tobin Marsh'));
+    expect(screen.getByRole('button', { name: /Chat with CommerzBuddy/ })).toBeInTheDocument();
+  });
+});
+
 describe('PlayScreen: map, titles and places', () => {
   it('Map lists the places with "you are here" and "this tale only"', async () => {
     const user = userEvent.setup();
