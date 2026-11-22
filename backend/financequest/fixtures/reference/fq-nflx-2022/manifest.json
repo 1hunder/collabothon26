@@ -1,0 +1,701 @@
+{
+  "meta": {
+    "case_id": "FQ-NFLX-2022",
+    "version": "1.0",
+    "campaign_title": "The Dimming of the Dream-Lanterns",
+    "currency": "USD",
+    "learning_objectives": [
+      "Tell slowing growth apart from shrinking, and both apart from a business that is losing money.",
+      "See how a big drop can be a bargain or a trap, and why nobody knows which on the day.",
+      "Weigh debts and future spending promises against profit and coin.",
+      "Size a position when the evidence points both ways."
+    ]
+  },
+  "world": {
+    "setting_name": "Vellmoor",
+    "company_name": "The Dreamweaver Guild",
+    "shares_name": "dream-shares",
+    "market_name": "The Moonstone Exchange",
+    "annual_report_name": "the Guild's Great Scroll",
+    "quarterly_report_name": "the Season Scroll",
+    "tone_notes": "Moody, theatrical fantasy: dream-lanterns that show tales in every home, rival theatres rising, a guild that once seemed unstoppable. Evidence points both ways; reward careful reasoning, not hindsight. Never use real names, years, months or brands; never write amounts in prose, use the figure placeholders."
+  },
+  "checkpoints": [
+    {
+      "id": "G0",
+      "role": "intro",
+      "cutoff_date": "2022-01-21",
+      "label": "The winter scroll and a sudden fall"
+    },
+    {
+      "id": "G1",
+      "role": "disclosure",
+      "cutoff_date": "2022-04-19",
+      "label": "The first lost members in a decade"
+    },
+    {
+      "id": "G2",
+      "role": "decision",
+      "cutoff_date": "2022-04-20",
+      "label": "The morning of the great fall"
+    }
+  ],
+  "company_card": {
+    "name": "The Dreamweaver Guild",
+    "trade": "Rents dream-lanterns that show tales and plays in members' homes, for a fee each moon",
+    "size": "The largest lantern guild of the realm, with members in almost every kingdom",
+    "key_figures": [
+      {
+        "id": "KF-MEMBERS",
+        "label": "Paying members",
+        "value": "221840000",
+        "family": "users",
+        "period": "close of the last season",
+        "checkpoint": "G0",
+        "explain": "Each member pays a fee every moon."
+      },
+      {
+        "id": "KF-REV",
+        "label": "Takings in the last season",
+        "value": "7710",
+        "family": "money",
+        "period": "the last season",
+        "checkpoint": "G0",
+        "explain": "Takings are fees collected before costs."
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "E-WINTER-SCROLL",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "ledger",
+      "key": true,
+      "title": "The winter Season Scroll",
+      "player_text": "The Season Scroll shows takings of {FIG-Q4-REV} and {FIG-Q4-ADDS} new paying members this season, for {FIG-MEMBERS} in all. For the coming season the Guild expects only {FIG-Q1-GUIDE} new members, far fewer than the {FIG-Q1-PRIOR} it added in the same season a year before.",
+      "figures": [
+        {
+          "id": "FIG-Q4-REV",
+          "label": "Takings this season",
+          "value": "7710",
+          "family": "money",
+          "period": "the last season"
+        },
+        {
+          "id": "FIG-Q4-ADDS",
+          "label": "New paying members this season",
+          "value": "8280000",
+          "family": "users",
+          "period": "the last season"
+        },
+        {
+          "id": "FIG-MEMBERS",
+          "label": "Paying members in all",
+          "value": "221840000",
+          "family": "users",
+          "period": "close of the last season"
+        },
+        {
+          "id": "FIG-Q1-GUIDE",
+          "label": "Expected new members next season",
+          "value": "2500000",
+          "family": "users",
+          "period": "the coming season"
+        },
+        {
+          "id": "FIG-Q1-PRIOR",
+          "label": "New members in the same season a year earlier",
+          "value": "3980000",
+          "family": "users",
+          "period": "the same season a year earlier"
+        }
+      ],
+      "teaching_note": "Still growing, but the Guild itself expects much slower growth."
+    },
+    {
+      "id": "E-GROWTH-SLOWING",
+      "checkpoint": "G0",
+      "location": "library",
+      "kind": "opinion",
+      "key": false,
+      "title": "Scholar Fenwick's growth table",
+      "player_text": "Scholar Odile Fenwick lines up the yearly growth in members: each year the Guild added fewer new members than the year before. In the home realms, she says, almost every household that wants a dream-lantern may already have one.",
+      "figures": [],
+      "teaching_note": "When a market fills up, growth slows even if nothing is wrong."
+    },
+    {
+      "id": "E-BOARD-DROP",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "market",
+      "key": true,
+      "title": "The first fall",
+      "player_text": "The day after the winter scroll, dream-shares fell about {FIG-JAN-DROP} percent on the Moonstone Exchange.",
+      "figures": [
+        {
+          "id": "FIG-JAN-DROP",
+          "label": "One-day fall of dream-shares",
+          "value": "22",
+          "family": "percent",
+          "period": "the day after the winter scroll"
+        }
+      ],
+      "teaching_note": "A big fall shows disappointment; it does not say whether the price is now cheap."
+    },
+    {
+      "id": "E-RIVAL-THEATRES",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "Rival theatres",
+      "player_text": "At the tavern, players grumble that several great houses have opened rival lantern-theatres with cheaper fees and famous old tales of their own.",
+      "figures": [],
+      "teaching_note": "Competition can slow growth and push up the cost of new tales."
+    },
+    {
+      "id": "E-RIVAL-COSTS",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "kind": "opinion",
+      "key": false,
+      "title": "What the rivals pay",
+      "player_text": "A theatre carpenter tells you the rival houses are spending heavily and losing coin to win members, and some may not keep it up.",
+      "figures": [],
+      "teaching_note": "Rivals losing money can be a threat now and a relief later."
+    },
+    {
+      "id": "E-FEE-RISE",
+      "checkpoint": "G0",
+      "location": "market_square",
+      "kind": "announcement",
+      "key": false,
+      "title": "Higher fees in the home realms",
+      "player_text": "The Guild has raised its monthly fee in the home realms. Traders argue whether members will pay more or leave.",
+      "figures": [],
+      "teaching_note": "Raising prices tests how loyal customers are."
+    },
+    {
+      "id": "E-SPRING-SCROLL",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "ledger",
+      "key": true,
+      "title": "The spring Season Scroll",
+      "player_text": "The Guild lost {FIG-Q1-LOSS:abs} paying members this season, its first loss in more than ten years, after promising to add {FIG-Q1-GUIDE2}. Takings still rose {FIG-Q1-REV-YOY} percent to {FIG-Q1-REV}, and the Guild kept {FIG-Q1-MARGIN} percent of takings as profit from its trade. It expects to lose about {FIG-Q2-GUIDE:abs} more members next season.",
+      "figures": [
+        {
+          "id": "FIG-Q1-LOSS",
+          "label": "Change in paying members this season",
+          "value": "-200000",
+          "family": "users",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q1-GUIDE2",
+          "label": "New members the Guild had expected",
+          "value": "2500000",
+          "family": "users",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q1-REV-YOY",
+          "label": "Change in takings against a year earlier",
+          "value": "10",
+          "family": "percent",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q1-REV",
+          "label": "Takings this season",
+          "value": "7870",
+          "family": "money",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q1-MARGIN",
+          "label": "Share of takings kept as trade profit",
+          "value": "25",
+          "family": "percent",
+          "period": "the latest season"
+        },
+        {
+          "id": "FIG-Q2-GUIDE",
+          "label": "Expected change in members next season",
+          "value": "-2000000",
+          "family": "users",
+          "period": "the coming season"
+        }
+      ],
+      "teaching_note": "Shrinking members, but still growing takings and still profitable: the evidence points both ways."
+    },
+    {
+      "id": "E-SHARED-LANTERNS",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "announcement",
+      "key": true,
+      "title": "The shared lanterns",
+      "player_text": "The Guild says its lanterns are shared with more than {FIG-SHARED} households that do not pay, {FIG-SHARED-HOME} of them in the home realms. It plans to start charging for sharing.",
+      "figures": [
+        {
+          "id": "FIG-SHARED",
+          "label": "Households sharing lanterns without paying",
+          "value": "100000000",
+          "family": "users",
+          "period": "as estimated by the Guild"
+        },
+        {
+          "id": "FIG-SHARED-HOME",
+          "label": "Sharing households in the home realms",
+          "value": "30000000",
+          "family": "users",
+          "period": "as estimated by the Guild"
+        }
+      ],
+      "teaching_note": "A problem can also be an opportunity: sharers might become payers, or leave."
+    },
+    {
+      "id": "E-NORTH-EXIT",
+      "checkpoint": "G1",
+      "location": "market_square",
+      "kind": "announcement",
+      "key": false,
+      "title": "Leaving the Frost Kingdom",
+      "player_text": "The Guild stopped its lanterns in the Frost Kingdom during a war there, which alone cost it {FIG-FROST} members.",
+      "figures": [
+        {
+          "id": "FIG-FROST",
+          "label": "Members lost by leaving the Frost Kingdom",
+          "value": "700000",
+          "family": "users",
+          "period": "the latest season"
+        }
+      ],
+      "teaching_note": "Separate one-off losses from the underlying trend."
+    },
+    {
+      "id": "E-VAULT",
+      "checkpoint": "G1",
+      "location": "library",
+      "kind": "figure",
+      "key": true,
+      "title": "Coin, debts and promises",
+      "player_text": "The Guild holds {FIG-CASH} in coin, owes {FIG-DEBT} in debts, and this season took in {FIG-FCF} more coin than it spent. It has promised large sums to tale-makers for years ahead.",
+      "figures": [
+        {
+          "id": "FIG-CASH",
+          "label": "Coin in the vault",
+          "value": "6000",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-DEBT",
+          "label": "Debts",
+          "value": "14600",
+          "family": "money",
+          "period": "close of the latest season"
+        },
+        {
+          "id": "FIG-FCF",
+          "label": "Coin taken in beyond spending this season",
+          "value": "800",
+          "family": "money",
+          "period": "the latest season"
+        }
+      ],
+      "teaching_note": "Debts and spending promises do not shrink when members do."
+    },
+    {
+      "id": "E-NEW-PLANS",
+      "checkpoint": "G1",
+      "location": "campaign:dreamweaver_hall",
+      "kind": "announcement",
+      "key": false,
+      "title": "The Guild's new plans",
+      "player_text": "Steward Lysa Corran admits the Guild is now considering a cheaper lantern that shows heralds' messages between tales, something it long refused, and charging households that share.",
+      "figures": [],
+      "teaching_note": "New plans can work or fail; they are not results yet."
+    },
+    {
+      "id": "E-CRASH",
+      "checkpoint": "G2",
+      "location": "market_square",
+      "kind": "market",
+      "key": true,
+      "title": "The great fall",
+      "player_text": "The morning after the spring scroll, dream-shares fell about {FIG-CRASH} percent in a single session. Some of the Guild's best-known backers are said to be selling.",
+      "figures": [
+        {
+          "id": "FIG-CRASH",
+          "label": "One-day fall of dream-shares",
+          "value": "35",
+          "family": "percent",
+          "period": "the day after the spring scroll"
+        }
+      ],
+      "teaching_note": "A price that falls a third in a day can be a bargain or a trap; the day itself cannot tell you which."
+    },
+    {
+      "id": "E-FUND-EXIT",
+      "checkpoint": "G2",
+      "location": "market_square",
+      "kind": "opinion",
+      "key": false,
+      "title": "A famous backer gives up",
+      "player_text": "A runner whispers that a famous investment house that bought dream-shares only weeks ago has sold them all at a large loss, saying it can no longer judge the Guild's future.",
+      "figures": [],
+      "teaching_note": "Even experts change their minds; that is information, not proof."
+    },
+    {
+      "id": "E-SCHOLAR-COLUMNS",
+      "checkpoint": "G2",
+      "location": "library",
+      "kind": "opinion",
+      "key": true,
+      "title": "Scholar Fenwick's two columns",
+      "player_text": "Scholar Fenwick writes two columns. Known: members are shrinking, takings still grow, the Guild still makes a trade profit, it carries large debts and spending promises, and it has new plans for cheaper lanterns and sharing fees. Unknown: whether members return, whether the plans work, how hard rivals push, and whether the price has fallen too far or not far enough.",
+      "figures": [],
+      "teaching_note": "When evidence points both ways, size your bet for being wrong."
+    }
+  ],
+  "documents": [
+    {
+      "id": "D-WINTER-SCROLL",
+      "checkpoint": "G0",
+      "title": "The winter Season Scroll",
+      "evidence_ids": [
+        "E-WINTER-SCROLL",
+        "E-GROWTH-SLOWING"
+      ]
+    },
+    {
+      "id": "D-SPRING-SCROLL",
+      "checkpoint": "G1",
+      "title": "The spring Season Scroll",
+      "evidence_ids": [
+        "E-SPRING-SCROLL",
+        "E-SHARED-LANTERNS",
+        "E-VAULT"
+      ]
+    },
+    {
+      "id": "D-FROST",
+      "checkpoint": "G1",
+      "title": "Notice of the Frost Kingdom exit",
+      "evidence_ids": [
+        "E-NORTH-EXIT"
+      ]
+    },
+    {
+      "id": "D-SCHOLAR",
+      "checkpoint": "G2",
+      "title": "Scholar Fenwick's two columns",
+      "evidence_ids": [
+        "E-SCHOLAR-COLUMNS"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "C-ODILE",
+      "name": "Scholar Odile Fenwick",
+      "role": "Keeper of the Guild's scrolls in the Library. Precise and cautious; explains both sides and never tells anyone what to buy.",
+      "location": "library",
+      "may_reveal": {
+        "G0": [
+          "E-WINTER-SCROLL",
+          "E-GROWTH-SLOWING"
+        ],
+        "G1": [
+          "E-SPRING-SCROLL",
+          "E-SHARED-LANTERNS",
+          "E-VAULT"
+        ],
+        "G2": [
+          "E-SCHOLAR-COLUMNS"
+        ]
+      },
+      "never": [
+        "Give an opinion on whether to buy, hold or sell",
+        "Reveal anything about prices after today"
+      ]
+    },
+    {
+      "id": "C-GARRICK",
+      "name": "Broker Garrick Stone",
+      "role": "A gruff broker on the Moonstone Exchange who reads the board and repeats what the big houses do. Gloomy after the fall.",
+      "location": "market_square",
+      "may_reveal": {
+        "G0": [
+          "E-BOARD-DROP",
+          "E-FEE-RISE"
+        ],
+        "G1": [
+          "E-NORTH-EXIT"
+        ],
+        "G2": [
+          "E-CRASH"
+        ]
+      },
+      "never": [
+        "Promise where the price goes",
+        "Reveal anything about prices after today"
+      ]
+    },
+    {
+      "id": "C-LYSA",
+      "name": "Steward Lysa Corran",
+      "role": "Steward of the Dreamweaver Guild's hall. Speaks for the Guild and its plans, never for the share price.",
+      "location": "campaign:dreamweaver_hall",
+      "may_reveal": {
+        "G0": [
+          "E-FEE-RISE"
+        ],
+        "G1": [
+          "E-NEW-PLANS",
+          "E-SHARED-LANTERNS"
+        ]
+      },
+      "never": [
+        "Comment on the share price",
+        "Promise that the plans will work"
+      ]
+    }
+  ],
+  "encounters": [
+    {
+      "id": "ENC-MEMBER-MATH",
+      "title": "Slowing or Shrinking?",
+      "checkpoint": "G0",
+      "location": "library",
+      "dc": 14,
+      "skill_flavor": "Investigation (reading the member tables)",
+      "evidence_ids": [
+        "E-WINTER-SCROLL"
+      ],
+      "success_clue_id": "E-GROWTH-SLOWING",
+      "failure_forward": "The tables are dense, but Scholar Fenwick will explain the trend if you ask.",
+      "teaching_target": "Slowing growth is not the same as shrinking."
+    },
+    {
+      "id": "ENC-RIVALS",
+      "title": "What the Rivals Pay",
+      "checkpoint": "G0",
+      "location": "tavern",
+      "dc": 14,
+      "skill_flavor": "Persuasion (getting the carpenter to talk)",
+      "evidence_ids": [
+        "E-RIVAL-THEATRES"
+      ],
+      "success_clue_id": "E-RIVAL-COSTS",
+      "failure_forward": "The carpenter clams up; the tavern still grumbles about cheaper rival theatres.",
+      "teaching_target": "Competitors' costs shape how long a fight lasts."
+    },
+    {
+      "id": "ENC-STEWARD",
+      "title": "The Steward's Plans",
+      "checkpoint": "G1",
+      "location": "campaign:dreamweaver_hall",
+      "dc": 15,
+      "skill_flavor": "Insight (reading the steward)",
+      "evidence_ids": [
+        "E-SPRING-SCROLL"
+      ],
+      "success_clue_id": "E-NEW-PLANS",
+      "failure_forward": "The steward stays guarded, but the spring scroll already mentions charging for shared lanterns.",
+      "teaching_target": "Plans are possibilities, not results."
+    },
+    {
+      "id": "ENC-BACKERS",
+      "title": "The Backers' Whisper",
+      "checkpoint": "G2",
+      "location": "market_square",
+      "dc": 16,
+      "skill_flavor": "Stealth (overhearing the runners)",
+      "evidence_ids": [
+        "E-CRASH"
+      ],
+      "success_clue_id": "E-FUND-EXIT",
+      "failure_forward": "The runners spot you and hurry off; the board still shows the fall.",
+      "teaching_target": "What big holders do is information, not proof."
+    }
+  ],
+  "news": {
+    "checkpoint": "G1",
+    "time_skip_days": 88,
+    "headline": "The Dreamweaver Guild Loses Members for the First Time in a Decade",
+    "summary": "The Guild lost {FIG-Q1-LOSS:abs} paying members after promising growth, expects to lose about {FIG-Q2-GUIDE:abs} more, and blames lanterns shared by more than {FIG-SHARED} households.",
+    "evidence_ids": [
+      "E-SPRING-SCROLL",
+      "E-SHARED-LANTERNS"
+    ]
+  },
+  "prices": {
+    "path": "prices.csv",
+    "decision_date": "2022-04-20",
+    "horizon_end": "2022-07-19"
+  },
+  "fund": null,
+  "rubric": [
+    {
+      "category": "Evidence use: ledgers and announcements",
+      "max": 25
+    },
+    {
+      "category": "Risk and position sizing",
+      "max": 25
+    },
+    {
+      "category": "Separating facts from hopes and fears",
+      "max": 20
+    },
+    {
+      "category": "Forecast clarity",
+      "max": 15
+    },
+    {
+      "category": "Post-reveal reflection",
+      "max": 15
+    }
+  ],
+  "campaign_location_seeds": [
+    {
+      "key": "dreamweaver_hall",
+      "name": "The Dreamweaver Guild Hall",
+      "description": "The velvet-draped hall where the Guild plans its tales and its fees.",
+      "art_subject": "A grand theatrical guild hall with velvet curtains, glowing lanterns projecting faint images, rows of empty seats and a stage, moody purple and gold light, empty of people, no lettering or logos"
+    },
+    {
+      "key": "rival_theatre",
+      "name": "The Rival Theatre",
+      "description": "A gleaming new theatre opened by a great house to win the Guild's members.",
+      "art_subject": "A brand-new ornate fantasy theatre interior with gilded balconies and bright lanterns, polished floors, empty of people, no lettering or logos"
+    }
+  ],
+  "board": {
+    "title": "The Dimming of the Dream-Lanterns",
+    "teaser": "In Vellmoor the Dreamweaver Guild's lanterns light almost every home, until it loses members for the first time in a decade and its shares crash. Is it a bargain after the fall, or a trap that keeps falling? The evidence points both ways.",
+    "difficulty": "hard",
+    "learn": [
+      "Slowing vs shrinking",
+      "Bargain or value trap",
+      "Debts and spending promises"
+    ],
+    "order": 3,
+    "briefing": "For years the Dreamweaver Guild's dream-lanterns seemed unstoppable. Now growth is slowing, rival theatres are rising and the Guild expects only a trickle of new members. Soon a new Season Scroll will tell whether members are still coming. Your question: after a big fall, is the Guild cheap or still too dear, and how much gold should you risk when the evidence points both ways?"
+  },
+  "debrief": {
+    "questions": [
+      "Which evidence said the Guild was weakening, and which said it was still strong? How did you weigh them?",
+      "Did the size of the fall make the shares cheap, or only cheaper?",
+      "How much did you commit when you were unsure, and why?",
+      "Was your result reasoning, timing or luck?"
+    ],
+    "post_reveal_facts": [
+      {
+        "checkpoint": "G3",
+        "text": "In the weeks after the decision the shares fell further, then recovered part of the loss."
+      },
+      {
+        "checkpoint": "G4",
+        "text": "The Guild's next scroll showed a smaller loss of members than it had feared, and its cheaper lantern with heralds' messages launched later."
+      }
+    ]
+  },
+  "secret": {
+    "real_entity": "Netflix, Inc.",
+    "ticker": "NFLX",
+    "actors": [
+      "Reed Hastings",
+      "Ted Sarandos",
+      "Spencer Neumann",
+      "Bill Ackman"
+    ],
+    "city": "Los Gatos, California",
+    "real_dates": {
+      "G0": "2022-01-21",
+      "G1": "2022-04-19",
+      "G2": "2022-04-20",
+      "horizon_end": "2022-07-19",
+      "q4_2021_letter": "2022-01-20",
+      "q1_2022_letter": "2022-04-19",
+      "pershing_exit": "2022-04-20"
+    },
+    "alias_map": {
+      "Netflix": "The Dreamweaver Guild",
+      "NFLX shares": "dream-shares",
+      "Nasdaq": "The Moonstone Exchange",
+      "Streaming service": "dream-lanterns",
+      "Subscribers": "paying members",
+      "Password sharing": "shared lanterns",
+      "Russia exit": "leaving the Frost Kingdom",
+      "Ad-supported tier": "a cheaper lantern with heralds' messages",
+      "Disney+/HBO Max/Prime Video": "rival theatres",
+      "Pershing Square (Bill Ackman)": "a famous investment house",
+      "Content obligations": "promises to tale-makers"
+    },
+    "leak_terms": [
+      "Netflix",
+      "NFLX",
+      "Reed Hastings",
+      "Hastings",
+      "Ted Sarandos",
+      "Sarandos",
+      "Spencer Neumann",
+      "Bill Ackman",
+      "Ackman",
+      "Pershing",
+      "Disney",
+      "HBO",
+      "Hulu",
+      "Prime Video",
+      "Apple TV",
+      "Amazon",
+      "Russia",
+      "Ukraine",
+      "Los Gatos",
+      "California",
+      "Nasdaq",
+      "Squid Game",
+      "Stranger Things",
+      "Bridgerton",
+      "streaming",
+      "subscribers"
+    ],
+    "later_events": [
+      {
+        "checkpoint": "G3",
+        "real_date": "2022-05-11",
+        "text": "Netflix shares fell to about $163, roughly 28% below the decision-day close."
+      },
+      {
+        "checkpoint": "G4",
+        "real_date": "2022-07-19",
+        "text": "Netflix reported a Q2 loss of 970,000 subscribers, better than its 2 million forecast."
+      }
+    ],
+    "real_events": [
+      {
+        "evidence_id": "E-SPRING-SCROLL",
+        "headline": "Netflix loses 200,000 subscribers, its first loss in over a decade",
+        "text": "On April 19, 2022 Netflix reported Q1 revenue of $7.87 billion (+{FIG-Q1-REV-YOY}%), a 25.1% operating margin and a loss of 200,000 subscribers, and forecast losing 2 million more in Q2."
+      },
+      {
+        "evidence_id": "E-CRASH",
+        "headline": "Netflix shares fall 35% in a day",
+        "text": "On April 20, 2022 NFLX fell about {FIG-CRASH}%; Pershing Square disclosed it had sold its entire stake at a loss."
+      }
+    ],
+    "evidence_sources": {
+      "E-WINTER-SCROLL": "Netflix Q4 2021 shareholder letter, 2022-01-20",
+      "E-SPRING-SCROLL": "Netflix Q1 2022 shareholder letter, 2022-04-19",
+      "E-SHARED-LANTERNS": "Netflix Q1 2022 letter (100M+ sharing households)",
+      "E-VAULT": "Netflix Q1 2022 balance sheet and cash flow",
+      "E-CRASH": "NFLX daily prices (Yahoo Finance)",
+      "E-FUND-EXIT": "Pershing Square letter, 2022-04-20"
+    }
+  }
+}
