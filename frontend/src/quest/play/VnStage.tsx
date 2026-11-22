@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { PlayLocation } from '../../api/types';
 import SceneArt from './SceneArt';
 
@@ -36,11 +36,33 @@ function useVisualViewportHeight(): void {
   }, []);
 }
 
+/**
+ * Publishes the dock's height as --dock-h on the stage, so a full-screen overlay (the map) can
+ * stop right above the dock and leave Map, Journal and Voice usable.
+ */
+function useDockHeight(stage: React.RefObject<HTMLDivElement | null>, dock: React.RefObject<HTMLDivElement | null>): void {
+  useEffect(() => {
+    const s = stage.current;
+    const d = dock.current;
+    if (!s || !d) return;
+    const update = (): void => s.style.setProperty('--dock-h', `${d.offsetHeight}px`);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(d);
+    return () => ro.disconnect();
+  }, [stage, dock]);
+}
+
 /** The visual-novel scene: a full-height stack of art, status, dialogue or choices, and the dock. */
 export default function VnStage({ location, exploring, status, chips, hotspots, dock, overlays, children }: VnStageProps): React.JSX.Element {
   useVisualViewportHeight();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  useDockHeight(stageRef, dockRef);
   return (
     <div
+      ref={stageRef}
       data-testid="vn-stage"
       style={{ height: 'var(--vvh, 100dvh)' }}
       className="fixed left-1/2 top-0 z-10 w-full max-w-[430px] -translate-x-1/2 overflow-hidden bg-quest-lapis-deep font-quest text-quest-vellum"
@@ -53,7 +75,7 @@ export default function VnStage({ location, exploring, status, chips, hotspots, 
       </header>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[6] [&>*]:pointer-events-auto flex flex-col justify-end gap-2 pb-1 pt-5">
         {children}
-        {dock}
+        <div ref={dockRef}>{dock}</div>
       </div>
       {overlays}
     </div>

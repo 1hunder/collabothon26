@@ -6,7 +6,6 @@ import { fixtureResponse, resetFixtureDb } from '../../api/fixtures';
 import PhaseGuard from '../PhaseGuard';
 import QuestLayout from '../QuestLayout';
 import { clearQuest, getQuestMeta } from '../questStore';
-import { getQuestPick, setQuestPick } from '../selectedQuest';
 import * as client from '../../api/client';
 import { renderRoutes } from '../testUtils';
 import HeroCreate from './HeroCreate';
@@ -18,7 +17,6 @@ beforeEach(() => {
   clearQuest();
   localStorage.clear();
   sessionStorage.clear();
-  setQuestPick(null);
   fixtureResponse('POST', '/hero', { name: 'Mira', class: 'guardian' });
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -67,14 +65,19 @@ describe('QuestDisclosure', () => {
   });
 });
 
-describe('QuestDisclosure with a personal quest picked on the card', () => {
-  it('sends its scenario and interest, and clears the pick', async () => {
-    setQuestPick({ scenarioId: 'fixture-lumen', category: 'music', categoryLabel: 'Music & streaming' });
+describe('QuestDisclosure with a quest picked on the board', () => {
+  it('sends its scenario_id', async () => {
     const spy = vi.spyOn(client, 'request');
-    setup();
+    renderRoutes(
+      [
+        { path: '/quest/disclosure', element: <PhaseGuard screen="/quest/disclosure"><QuestDisclosure /></PhaseGuard> },
+        { path: '/quest/play', element: <PhaseGuard screen="/quest/play"><p>play screen</p></PhaseGuard> },
+      ],
+      [{ pathname: '/quest/disclosure', state: { scenarioId: 'fixture-keel' } }],
+    );
     expect(await screen.findByText('play screen')).toBeInTheDocument();
-    expect(spy).toHaveBeenCalledWith('POST', '/campaigns', { interests: ['Music'], scenario_id: 'fixture-lumen' });
-    expect(getQuestPick()).toBeNull();
+    expect(spy).toHaveBeenCalledWith('POST', '/campaigns', { scenario_id: 'fixture-keel' });
+    expect(readDb().campaign?.scenario_id).toBe('fixture-keel');
     spy.mockRestore();
   });
 });

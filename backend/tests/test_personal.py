@@ -1,4 +1,4 @@
-"""@spec: personal-daily-quests (mock transactions -> per-company agent -> disguised daily quest)"""
+"""@spec: personal-quests (mock transactions -> per-company agent -> disguised personal quest)"""
 
 import time
 from collections.abc import Iterator
@@ -15,7 +15,7 @@ from financequest.config import get_settings
 from financequest.db.session import get_engine
 from financequest.personal import agent, market
 from financequest.personal import transactions as tx
-from financequest.refpack.approve import ApproveResult, approve_pack
+from financequest.refpack.approve import ApproveResult
 
 PACK_DIR = Path(__file__).parent.parent / "financequest" / "fixtures" / "reference" / "fq-av-001"
 TABLES = (
@@ -134,58 +134,11 @@ def test_transactions_are_listed(client: TestClient, fake_mode: None) -> None:
     assert {"date", "merchant", "amount_eur", "category_label"} <= set(rows[0])
 
 
-def test_daily_quest_generates_once_and_is_playable(client: TestClient, fake_mode: None) -> None:
-    h = _player(client)
-    first = client.post("/quests/daily", headers=h).json()
-    assert first["kind"] == "daily" and first["category_label"]
-    assert "company" not in first and "ticker" not in first  # server-only
-    assert client.post("/quests/daily", headers=h).json()["id"] == first["id"]  # idempotent
-    job = _wait_ready(client, h, first["id"])
-    assert job["status"] == "ready", job
-    assert job["scenario_id"]
-    r = client.post("/campaigns", json={"interests": ["Music"], "scenario_id": job["scenario_id"]},
-                    headers=h)  # fmt: skip
-    assert r.status_code == 201, r.text
-    assert r.json()["scenario_id"] == job["scenario_id"]
 
 
-def test_extra_quest_uses_another_company(client: TestClient, fake_mode: None) -> None:
-    h = _player(client)
-    daily = client.post("/quests/daily", headers=h).json()
-    extra = client.post("/quests/generate", headers=h).json()
-    assert extra["kind"] == "extra" and extra["id"] != daily["id"]
-    _wait_ready(client, h, daily["id"])
-    _wait_ready(client, h, extra["id"])
-    from financequest.db.models_personal import GenerationJob
-
-    with Session(get_engine()) as db:
-        tickers = {j.ticker for j in db.exec(GenerationJob.__table__.select())}  # type: ignore[attr-defined]
-    assert len(tickers) == 2
 
 
-def test_personal_quest_is_private_to_its_player(client: TestClient, fake_mode: None) -> None:
-    owner = _player(client)
-    job = _wait_ready(client, owner, client.post("/quests/daily", headers=owner).json()["id"])
-    other = _player(client)
-    r = client.post("/campaigns", json={"interests": [], "scenario_id": job["scenario_id"]},
-                    headers=other)  # fmt: skip
-    assert r.status_code == 404
-
-
-def test_demo_mode_assigns_the_pre_created_quest_instantly(
-    client: TestClient, fake_mode: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with Session(get_engine()) as db:
-        res = approve_pack(PACK_DIR, db)
-    assert res.ok
-    monkeypatch.setattr(get_settings(), "demo_mode", True)
-    h = _player(client)
-    job = client.post("/quests/daily", headers=h).json()
-    assert job["status"] == "ready"
-    assert job["scenario_id"] == res.scenario_id
-
-
-# ---- daily reuse, regeneration, no recognition gate, scan rewrite -------------------------------
+# ---- personal generation, no recognition gate, scan rewrite -------------------------------
 
 
 @pytest.fixture
@@ -210,50 +163,10 @@ def graph_calls(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 
 
 def _daily_ready(client: TestClient, h: dict[str, str]) -> dict[str, object]:
-    return _wait_ready(client, h, client.post("/quests/daily", headers=h).json()["id"])
+    return _wait_ready(client, h, client.post("/quests/generate", headers=h).json()["id"])
 
 
-def test_daily_twice_makes_no_second_generation(
-    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
-) -> None:
-    h = _player(client)
-    first = _daily_ready(client, h)
-    assert first["status"] == "ready" and len(graph_calls) == 1
-    again = client.post("/quests/daily", headers=h).json()
-    assert again["id"] == first["id"] and again["scenario_id"] == first["scenario_id"]
-    assert len(graph_calls) == 1  # zero LLM work on the second call
 
-
-def test_second_session_reuses_the_ready_quest(
-    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
-) -> None:
-    a, b = _player(client), _player(client)
-    first = _daily_ready(client, a)
-    second = client.post("/quests/daily", headers=b).json()
-    assert second["status"] == "ready" and second["scenario_id"] == first["scenario_id"]
-    assert second["id"] != first["id"]  # job rows stay per session
-    assert len(graph_calls) == 1
-    assert len(client.get("/quests", headers=b).json()) == 1
-    # the reused quest is startable by its new owner
-    r = client.post("/campaigns", json={"interests": [], "scenario_id": second["scenario_id"]},
-                    headers=b)  # fmt: skip
-    assert r.status_code == 201, r.text
-
-
-def test_regenerate_builds_a_new_quest_that_replaces_today(
-    client: TestClient, fake_mode: None, graph_calls: list[list[str]]
-) -> None:
-    h = _player(client)
-    first = _daily_ready(client, h)
-    new = client.post("/quests/daily?regenerate=true", headers=h).json()
-    assert new["id"] != first["id"] and new["category"] == first["category"]
-    done = _wait_ready(client, h, new["id"])
-    assert done["status"] == "ready" and done["scenario_id"] != first["scenario_id"]
-    assert len(graph_calls) == 2
-    today = client.post("/quests/daily", headers=h).json()  # now returns the regenerated one
-    assert today["id"] == new["id"] and len(graph_calls) == 2
-    other = _player(client)  # later players get the newest ready quest
-    assert client.post("/quests/daily", headers=other).json()["scenario_id"] == done["scenario_id"]
 
 
 def test_no_recognition_gate_in_the_pipeline(
@@ -336,27 +249,32 @@ def test_documents_are_saved_to_storage(client: TestClient, fake_mode: None) -> 
         assert st.exists(f"quests/{job['id']}/{name}")
 
 
-def test_a_failed_daily_quest_is_not_restarted_by_polling(
-    client: TestClient, fake_mode: None
-) -> None:
-    """Regression: the page polls POST /quests/daily; a failed job used to start a new company on
-    every poll. Only the regenerate button may start again."""
+def test_generated_quest_is_playable(client: TestClient, fake_mode: None) -> None:
+    h = _player(client)
+    card = client.post("/quests/generate", headers=h).json()
+    assert card["kind"] == "personal" and card["status"] == "generating"
+    assert "company" not in card and "ticker" not in card
+    job = _wait_ready(client, h, card["id"])
+    assert job["status"] == "ready" and job["scenario_id"]
+    r = client.post("/campaigns", json={"scenario_id": job["scenario_id"]}, headers=h)
+    assert r.status_code == 201, r.text
+
+
+def test_two_generated_quests_use_two_companies(client: TestClient, fake_mode: None) -> None:
     from financequest.db.models_personal import GenerationJob
 
     h = _player(client)
-    first = client.post("/quests/daily", headers=h).json()
-    _wait_ready(client, h, first["id"])
-    with Session(get_engine()) as s:
-        job = s.get(GenerationJob, __import__("uuid").UUID(first["id"]))
-        assert job is not None
-        job.status, job.step = "failed", "Failed"
-        s.add(job)
-        s.commit()
-    for _ in range(3):
-        again = client.post("/quests/daily", headers=h).json()
-        assert again["id"] == first["id"] and again["status"] == "failed"
-    with Session(get_engine()) as s:
-        n = len(s.exec(text("select id from generation_job")).all())
-    assert n == 1  # nothing new was started
-    regen = client.post("/quests/daily?regenerate=true", headers=h).json()
-    assert regen["id"] != first["id"]
+    a = client.post("/quests/generate", headers=h).json()
+    b = client.post("/quests/generate", headers=h).json()
+    _wait_ready(client, h, a["id"])
+    _wait_ready(client, h, b["id"])
+    with Session(get_engine()) as db:
+        assert len({j.ticker for j in db.exec(GenerationJob.__table__.select())}) == 2  # type: ignore[attr-defined]
+
+
+def test_personal_quest_is_private_to_its_player(client: TestClient, fake_mode: None) -> None:
+    owner = _player(client)
+    job = _daily_ready(client, owner)
+    other = _player(client)
+    r = client.post("/campaigns", json={"scenario_id": job["scenario_id"]}, headers=other)
+    assert r.status_code == 404

@@ -51,4 +51,10 @@ describe('Overview', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
   });
+
+  it('has no daily quest panel, only Start', () => {
+    setup();
+    expect(screen.queryByText(/Today's quest/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Generate another quest|Regenerate/ })).toBeNull();
+  });
 });

@@ -178,6 +178,17 @@ class Secret(_Model):
     evidence_sources: dict[str, str] = {}  # evidence id -> "section / source ids"
 
 
+class BoardMeta(_Model):
+    """Quest Board card text (player-safe, fantasy names only). Optional: derived when absent."""
+
+    title: str
+    teaser: str
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    learn: list[str] = Field(default_factory=list, max_length=3)
+    order: int = 1000
+    briefing: str = ""  # 3-5 sentences for the detail view; derived when empty
+
+
 class CampaignManifest(_Model):
     meta: Meta
     world: World
@@ -192,6 +203,7 @@ class CampaignManifest(_Model):
     fund: FundSeries | None = None
     rubric: list[RubricItem] | None = None
     campaign_location_seeds: list[LocationSeed] = []
+    board: BoardMeta | None = None
     debrief: Debrief
     secret: Secret
 

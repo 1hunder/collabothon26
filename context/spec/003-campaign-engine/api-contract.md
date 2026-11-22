@@ -586,3 +586,33 @@ dividend, share, price, risk, diversification, equity, margin, earnings or ledge
 - Buddy's normal reply context lists the titles of pending moments, so it may mention one; the
   offer and the lesson flow are driven by the UI.
 - `buddy_q` events now also store `screen` when the client sent one.
+
+## 13. Quest Board (replaces the daily quest)
+
+After choosing a character the player sees a board of quests. Nothing is generated on login or
+when visiting the bank. All text is player-safe: fantasy names, no real company, ticker or year;
+every field passes the scenario's leak terms (a hit is replaced by a neutral fallback).
+
+**QuestCard** `{id, kind: "curated"|"personal", status: "ready"|"generating"|"failed", step: string|null, title, company_name, trade, teaser, difficulty: "easy"|"medium"|"hard", horizon_days, budget_gp, learn: [<=3 topics], scenario_id: string|null, played, finished}`
+
+- `id`: curated = the scenario id; personal = the generation job id (stable while generating and after).
+- `step`: player-safe progress label while generating (e.g. "Writing the campaign"), else null.
+- `scenario_id`: null until `ready`; pass it to `POST /campaigns`.
+- `horizon_days`: story days from the decision to the end of the quest (0 while generating).
+- `budget_gp`: the hero's starting purse in gold pieces (class HP x 10; 1000 without a hero).
+- `played` / `finished`: this session has / has finished a campaign run on the scenario.
+
+**GET /quests/board** -> `{curated: QuestCard[], mine: QuestCard[], suggestion: {theme, category_label, why}}`
+- `curated`: every playable scenario that is not a personal quest (reference packs and approved gate scenarios); identical for every player; ordered by `board.order`, then title.
+- `mine`: this session's personal quests, newest first, including `generating` and `failed` ones.
+- `suggestion`: from the mock spending ranking, e.g. `{theme: "Sportswear & sneakers", category_label: "Sportswear & sneakers", why: "You spent the most on sportswear and sneakers this month"}`.
+
+**GET /quests/board/{id}** -> QuestCard plus `details: {briefing, characters: [{name, role}], places: [string], what_you_do: [3 steps]}`. `id` is a curated scenario id or one of the caller's own personal ids; 404 `quest_not_found` otherwise (another player's personal quest is 404). A `generating`/`failed` card has an empty `characters`/`places` and the teaser as briefing.
+
+**POST /quests/generate** body `{theme?: string}` (max 200 chars; body may be omitted) -> 201 QuestCard with `status: "generating"`. Without a theme, the suggestion's category is used. With a theme it is matched deterministically (keywords, category label words, company names and aliases; a company hit picks that company, else the best category); no match falls back to the suggestion. The theme is stored on the job (`detail.theme`). The job runs research, manifest, disguise, publish; poll `GET /quests/board` until the card is `ready` (or `failed`). A company already used by this player (not failed) is skipped.
+
+**Reference-pack manifest `board` block** (optional): `{title, teaser, difficulty, learn[<=3], order, briefing?}`. When absent it is derived from the manifest (title from `meta.campaign_title`, teaser from world and company card, learn from the rubric categories, difficulty from the encounter DCs) at approve time and stored in `scenario.manifest.board`. Packs approved before this change fall back to the same derivation when the board is built. The board text is scanned like any other player text.
+
+**POST /quests/daily** is deprecated and removed in behaviour: it returns `410` `{error: {code: "daily_quests_removed"}}` and generates nothing. `GET /quests` (job list) stays for compatibility; prefer `/quests/board`.
+
+**POST /campaigns** `{scenario_id, interests?}`: `interests` is optional; any ready board quest can be started (a personal quest only by its owner).

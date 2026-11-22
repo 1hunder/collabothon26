@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useCampaign, useHero } from '../api/campaign';
-import { phaseToPath } from './phase';
+import { BOARD_PATH, phaseToPath } from './phase';
 import { saveProgress } from './questStore';
 import { HERO_CLASS_PATH, type QuestEntryState } from './setupNavigation';
 
@@ -45,5 +45,5 @@ export default function PhaseGuard({ screen, children }: PhaseGuardProps): React
     const reflecting = campaign.data.phase === 'debrief' && here === '/quest/reflect';
     return target === here || reflecting ? children : go(target);
   }
-  return here === '/quest/disclosure' || here === HERO_CLASS_PATH ? children : go('/quest/disclosure');
+  return here === BOARD_PATH || here === '/quest/disclosure' || here === HERO_CLASS_PATH ? children : go(BOARD_PATH);
 }

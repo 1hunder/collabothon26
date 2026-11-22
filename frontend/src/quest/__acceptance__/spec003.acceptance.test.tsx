@@ -91,7 +91,10 @@ async function typeAction(user: User, text: string, stopAt?: () => boolean): Pro
 async function goTo(user: User, place: string): Promise<void> {
   await user.click(choiceButton('Map'));
   const map = await screen.findByRole('dialog', { name: 'The map' });
-  await user.click(within(map).getByRole('button', { name: new RegExp(place) }));
+  const name = new RegExp(place);
+  // Tale-only places sit in the list behind "Other locations", below the village map.
+  if (!within(map).queryByRole('button', { name })) await user.click(within(map).getByRole('button', { name: /Other locations/ }));
+  await user.click(within(map).getByRole('button', { name }));
 }
 
 const guard = (path: string, el: ReactNode) => ({ path, element: <PhaseGuard screen={path}>{el}</PhaseGuard> });
@@ -136,21 +139,21 @@ describe('2.1 First entry: create your hero', () => {
     await userEvent.click(screen.getAllByRole('radio')[1]!);
     expect(screen.getByRole('button', { name: 'Begin' })).toBeEnabled();
   });
-  it('2.1-AC5 tapping Begin opens the disclosure', async () => {
+  it('2.1-AC5 tapping Begin opens the quest board', async () => {
     const router = renderRoutes(heroRoutes, ['/quest/hero/new']);
     await userEvent.click(screen.getByRole('radio', { name: /Analyst/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/disclosure'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/quest/board'));
     expect(readDb().hero).toMatchObject({ name: 'Lena', class: 'analyst' });
   });
-  it('2.1-AC6 a player with a hero opens play directly', async () => {
+  it('2.1-AC6 a player with a hero opens the quest board', async () => {
     fixtureResponse('POST', '/hero', { name: 'Mira', class: 'guardian' });
     const router = renderRoutes(
-      [{ path: '/quest', element: <QuestEntry /> }, { ...guard('/quest/disclosure', <QuestDisclosure />) }, { path: '/quest/play', element: <p>playing</p> }, { path: '/quest/hero/new', element: <p>creation</p> }],
+      [{ path: '/quest', element: <QuestEntry /> }, { path: '/quest/board', element: <p>the board</p> }, { path: '/quest/play', element: <p>playing</p> }, { path: '/quest/hero/new', element: <p>creation</p> }],
       ['/quest'],
     );
-    expect(await screen.findByText('playing')).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe('/quest/play');
+    expect(await screen.findByText('the board')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/quest/board');
     expect(screen.queryByText('creation')).not.toBeInTheDocument();
   });
   it('2.1-AC7 after a finished campaign a new one keeps name, class and total XP, and HP starts fresh', () => {
@@ -547,8 +550,9 @@ describe('2.6 Locations', () => {
     await enterTavern(user);
     await user.click(choiceButton('Map'));
     const map = await screen.findByRole('dialog', { name: 'The map' });
-    for (const n of ['Tavern', 'Market Square', 'Library', 'The Lamp Works']) expect(within(map).getByRole('button', { name: new RegExp(n) })).toBeInTheDocument();
+    for (const n of ['Tavern', 'Market Square', 'Library']) expect(within(map).getByRole('button', { name: new RegExp(n) })).toBeInTheDocument();
     expect(within(map).getByRole('button', { name: /Tavern/ })).toHaveTextContent('you are here');
+    await user.click(within(map).getByRole('button', { name: /Other locations/ }));
     expect(within(map).getByRole('button', { name: /Lamp Works/ })).toHaveTextContent('this tale only');
   });
   it('2.6-AC2 tapping another location changes the background and the Campaign Master describes it, no dice', async () => {
@@ -892,7 +896,7 @@ describe('2.10 Voice narration', () => {
   const spoken = (i: { calls: string[] }) => i.calls.filter((c) => c.startsWith('speak:'));
 
   it('2.10-AC1 a player who never touched voice: Begin unlocks sound and the opening is read, voice shown on', async () => {
-    renderRoutes([{ path: '/quest/hero/new', element: <HeroCreate /> }, { path: '/quest/disclosure', element: <p>starting</p> }], ['/quest/hero/new']);
+    renderRoutes([{ path: '/quest/hero/new', element: <HeroCreate /> }, { path: '/quest/board', element: <p>starting</p> }], ['/quest/hero/new']);
     await userEvent.click(screen.getByRole('radio', { name: /Guardian/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Begin' }));
     expect(unlockVoice).toHaveBeenCalled();

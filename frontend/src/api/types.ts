@@ -496,8 +496,8 @@ export interface CampaignState {
 }
 
 export interface CreateCampaignRequest {
-  interests: Interest[];
-  /** A personal quest chosen on the Finance Quest card; omitted -> the server's default pick. */
+  interests?: Interest[];
+  /** The quest chosen on the Quest Board; omitted -> the server's default pick. */
   scenario_id?: string;
 }
 
@@ -512,22 +512,52 @@ export interface Transaction {
   category_label: string;
 }
 
-export type QuestJobStatus = 'queued' | 'running' | 'ready' | 'rejected' | 'failed';
+// ---- Quest Board ----
 
-/** A generated quest. Names only the spending category, never the company behind it. */
-export interface QuestJob {
+export type BoardQuestKind = 'curated' | 'personal';
+export type BoardQuestStatus = 'ready' | 'generating' | 'failed';
+export type BoardDifficulty = 'easy' | 'medium' | 'hard';
+
+/** One notice on the Quest Board. Names the trade, never the real company. */
+export interface QuestCard {
   id: string;
-  kind: 'daily' | 'extra';
-  quest_date: string;
-  category: string;
-  category_label: string;
-  status: QuestJobStatus;
-  /** Player-safe progress label, e.g. "Researching the story". */
-  step: string;
-  /** Set only when the quest is ready. */
+  kind: BoardQuestKind;
+  status: BoardQuestStatus;
+  /** Player-safe progress label while generating. */
+  step: string | null;
+  title: string;
+  company_name: string;
+  trade: string;
+  teaser: string;
+  difficulty: BoardDifficulty;
+  horizon_days: number;
+  budget_gp: number;
+  learn: string[];
   scenario_id: string | null;
-  created_at: string;
+  played: boolean;
+  finished: boolean;
 }
+
+export interface BoardSuggestion {
+  theme: string;
+  category_label: string;
+  why: string;
+}
+
+export interface QuestBoard {
+  curated: QuestCard[];
+  mine: QuestCard[];
+  suggestion: BoardSuggestion;
+}
+
+export interface QuestDetails {
+  briefing: string;
+  characters: { name: string; role: string }[];
+  places: string[];
+  what_you_do: string[];
+}
+
+export type QuestCardDetail = QuestCard & { details: QuestDetails };
 
 // ---- SSE events (tech §2.5) ----
 

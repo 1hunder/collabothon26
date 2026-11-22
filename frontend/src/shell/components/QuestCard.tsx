@@ -9,15 +9,12 @@ interface QuestCardProps {
   variant: 'overview' | 'depot';
   onStart: (path: string) => void;
   onContinue: (resumePath: string) => void;
-  /** Extra content under the subtitle (the overview shows today's personal quest here). */
-  children?: React.ReactNode;
 }
 
 export default function QuestCard({
   variant,
   onStart,
   onContinue,
-  children,
 }: QuestCardProps): React.JSX.Element | null {
   const { inProgress, resumePath } = useQuestMeta();
   const [confirming, setConfirming] = useState(false);
@@ -80,7 +77,6 @@ export default function QuestCard({
       </div>
       <p className="mt-3 text-sm leading-5 text-petrol-muted">Learn to invest with real market history — risk-free</p>
       {inProgress && <p className="mt-1 text-sm font-semibold">Quest in progress</p>}
-      {children}
       <div className="mt-4">{buttons}</div>
     </section>
   );
