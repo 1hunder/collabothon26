@@ -261,7 +261,7 @@ def plan_action(
         done = find_by_msg_id(db, cid, f"{msg}:reply" if msg else None)
         if done is not None:  # idempotent "Try again"
             return StreamPlan(cid, replay=replay_streamed(db, run, pack, done))
-        text = raw_text.strip()
+        text = rules.plain_quotes(raw_text.strip())  # "I don’t take it" from a phone keyboard
         if not text:
             raise ApiError(422, "empty", "Say what you would do")
         service.require_phase(run, "play")

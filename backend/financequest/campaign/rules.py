@@ -177,7 +177,8 @@ OFFER_IGNORED_MAX = 2  # something else twice in front of an open offer: the plo
 
 _DONE_RE = re.compile(r"\b(done|that'?s it|that is it|finished|all out|out for good|no more|enough)\b", re.I)
 _DECLINE_RE = re.compile(
-    r"\b(no|nope|decline|declined|refuse|reject|not interested|no thanks|pass|never|don'?t|do not|"
+    r"\b(no|nope|decline|declined|declining|refuse|refused|refusing|reject|rejected|rejecting|"
+    r"not interested|no thanks|no need|pass|never|don'?t|do not|"
     r"won'?t|will not|keep (my|what|it)|hold)\b", re.I)
 _ACCEPT_RE = re.compile(
     r"\b(accept|agree|deal|yes|yeah|yep|sure|okay|ok|take (it|the|your|that)|i'?ll take|let'?s do it|"
@@ -189,9 +190,18 @@ def says_done(text: str) -> bool:
     return bool(_DONE_RE.search(text))
 
 
+_CURLY = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u201c": '"', "\u201d": '"'})
+
+
+def plain_quotes(text: str) -> str:
+    """Phone keyboards type curly apostrophes ("don’t"); every word rule expects a straight one."""
+    return text.translate(_CURLY)
+
+
 def read_offer_answer(text: str) -> str:
     """accept / decline / other: a plain reading of the player's words about an open offer. A
     refusal wins over acceptance wording; anything that is neither is "other" (something else)."""
+    text = plain_quotes(text)
     if _DECLINE_RE.search(text):
         return "decline"
     if _ACCEPT_RE.search(text):

@@ -204,3 +204,14 @@ def test_a_normal_decision_is_not_all_in(client: TestClient, enron: str) -> None
     st = campaign_state(client, h, cid)
     assert st["all_in"] is False and st["market_scene"] is None and st["purse"]["loan"] is None
     assert "all_in_offer" not in types(cid)
+
+
+def test_a_phone_typed_refusal_with_a_curly_apostrophe_never_takes_the_loan(
+    client: TestClient, enron: str
+) -> None:
+    """Seen on prod: "I don’t take it" (iPhone apostrophe) was read as accepting the loan."""
+    fake.script_offer("loan")
+    h, cid = setup(client)
+    assert act(client, h, cid, ALL_IN)["offer"]["kind"] == "loan"
+    act(client, h, cid, "I don’t take it")
+    assert "loan" not in [t.action for t in trades(cid)]
