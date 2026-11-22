@@ -1,7 +1,6 @@
 import { X } from 'lucide-react';
 import { Suspense, useState } from 'react';
 import type { PriceRow } from '../../api/types';
-import { formatStoryNumber } from '../lib/storyNumber';
 import { useEscapeKey } from './useEscapeKey';
 
 // Bundled, not lazy: a lazy chunk from a build replaced by a later deploy failed mid-game.
@@ -16,43 +15,10 @@ interface MarketPanelProps {
 function PricesTab({ rows, newsDay }: { rows: readonly PriceRow[]; newsDay: number | null }): React.JSX.Element {
   const points = rows.map((r) => ({ story_day: r.day, price: r.close }));
   const markers = newsDay === null ? [] : [{ at: newsDay, label: 'News' }];
-  const shown = [...rows].reverse();
-  const hasVolume = rows.some((r) => r.volume !== undefined && r.volume !== null);
   return (
-    <>
-      <div className="mb-3 overflow-hidden rounded-md border border-[#3a2a18]">
-        <Suspense fallback={<p role="status" className="p-4 font-quest">Loading chart…</p>}>
-          <StoryChart mode="story" points={points} markers={markers} />
-        </Suspense>
-      </div>
-      <div className="max-h-56 overflow-auto">
-        <table className="w-full font-quest-sans text-sm">
-          <caption className="sr-only">Daily open, high, low and close</caption>
-          <thead>
-            <tr className="text-left text-[#e8dcc2]/70">
-              <th scope="col" className="pr-2">Day</th>
-              <th scope="col" className="pr-2">Open</th>
-              <th scope="col" className="pr-2">High</th>
-              <th scope="col" className="pr-2">Low</th>
-              <th scope="col" className="pr-2">Close</th>
-              {hasVolume ? <th scope="col">Volume</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => (
-              <tr key={r.day}>
-                <th scope="row" className="pr-2 text-left font-medium">{r.day}</th>
-                <td className="pr-2">{formatStoryNumber(r.open)}</td>
-                <td className="pr-2">{formatStoryNumber(r.high)}</td>
-                <td className="pr-2">{formatStoryNumber(r.low)}</td>
-                <td className={hasVolume ? 'pr-2' : ''}>{formatStoryNumber(r.close)}</td>
-                {hasVolume ? <td>{r.volume == null ? '' : formatStoryNumber(r.volume)}</td> : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+    <Suspense fallback={<p role="status" className="p-4 font-quest">Loading chart…</p>}>
+      <StoryChart mode="story" points={points} markers={markers} attributionLogo={false} />
+    </Suspense>
   );
 }
 

@@ -176,9 +176,7 @@ describe('PlayScreen: map, titles and places', () => {
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
-    expect(within(board).getByRole('rowheader', { name: '60' })).toBeInTheDocument();
-    expect(within(board).queryByRole('rowheader', { name: '61' })).not.toBeInTheDocument();
-    expect(within(board).getByRole('columnheader', { name: 'Volume' })).toBeInTheDocument();
+    expect(within(board).queryByRole('table')).not.toBeInTheDocument();
   });
 });
 

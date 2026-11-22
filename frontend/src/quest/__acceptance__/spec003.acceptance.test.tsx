@@ -597,7 +597,6 @@ describe('2.6 Locations', () => {
     await user.click(await screen.findByRole('button', { name: 'Price board' }));
     const board = await screen.findByRole('dialog', { name: 'Market stall' });
     expect(within(board).getByRole('img', { name: 'Price chart' })).toHaveAttribute('data-last-day', '60');
-    expect(within(board).queryByRole('rowheader', { name: '61' })).not.toBeInTheDocument();
   });
   it('2.6-AC6 before the news the Library lists only the introduction documents', async () => {
     const user = userEvent.setup();
