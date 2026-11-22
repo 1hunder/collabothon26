@@ -105,7 +105,12 @@ def types(cid: str) -> list[str]:
         return [e.type for e in campaign_events(db, uuid.UUID(cid))]
 
 
-def test_each_concept_once_cap_three_pending_and_edu_skipped(client: TestClient, enron: str) -> None:
+def test_each_concept_once_cap_three_pending_and_edu_skipped(
+    client: TestClient, enron: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from financequest.campaign import edu as edu_mod
+
+    monkeypatch.setattr(edu_mod, "MAX_PENDING", 3)  # the cap logic, at a small cap
     h = new_player(client)
     cid, _ = start(client, h)
     assert campaign_state(client, h, cid)["edu"] == {"pending": [], "pending_count": 0}
