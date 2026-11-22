@@ -13,7 +13,19 @@ export interface DmCard {
 export type DmStreamState =
   | { phase: 'idle' }
   | { phase: 'sending'; clientMsgId: string }
-  | { phase: 'streaming'; clientMsgId: string; status: string | null; text: string; cards: DmCard[]; canDecide: boolean | null; speaker?: string | null; speakerKind?: string | null }
+  | {
+      phase: 'streaming';
+      clientMsgId: string;
+      status: string | null;
+      text: string;
+      cards: DmCard[];
+      canDecide: boolean | null;
+      speaker?: string | null;
+      speakerKind?: string | null;
+      /** From the speaker event: the voice starts while the text still streams. */
+      audioTextId?: number | string | null;
+      audioText?: string | null;
+    }
   | { phase: 'lost'; clientMsgId: string; reason: string }
   | {
       phase: 'done';
@@ -55,7 +67,13 @@ export function dmReducer(state: DmStreamState, action: Action): DmStreamState {
         case 'status':
           return { ...current, status: ev.data.state };
         case 'speaker':
-          return { ...current, speaker: ev.data.speaker ?? null, speakerKind: ev.data.speaker_kind ?? null };
+          return {
+            ...current,
+            speaker: ev.data.speaker ?? null,
+            speakerKind: ev.data.speaker_kind ?? null,
+            audioTextId: ev.data.audio_text_id ?? null,
+            audioText: ev.data.audio_text ?? null,
+          };
         case 'token':
           return { ...current, text: current.text + ev.data.text };
         case 'card':

@@ -130,4 +130,26 @@ describe('DialogueBox', () => {
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(onAdvance).toHaveBeenCalledTimes(1);
   });
+
+  it('starts the server audio with the first word and never again when the reply completes', () => {
+    const onPageShown = vi.fn();
+    const props = { speaker: 'Campaign Master', onAdvance: () => undefined, onPageShown, audioTextId: 42, audioText: long };
+    const { rerender } = render(<DialogueBox {...props} text={sentence(5, 'a')} final={false} />);
+    expect(onPageShown).toHaveBeenCalledTimes(1);
+    expect(onPageShown).toHaveBeenCalledWith(long, 'dm', 42); // the whole stored text, not the part streamed so far
+    rerender(<DialogueBox {...props} text={long.slice(0, 200)} final={false} />);
+    rerender(<DialogueBox {...props} text={long} final />);
+    expect(onPageShown).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the page reached while streaming when the reply completes', async () => {
+    const props = { speaker: 'Campaign Master', onAdvance: () => undefined };
+    const { rerender } = render(<DialogueBox {...props} text={long} final={false} />);
+    const box = screen.getByTestId('dialogue-box');
+    await userEvent.click(box); // complete page 1
+    await userEvent.click(box); // page 2, still streaming
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+    rerender(<DialogueBox {...props} text={long} final />);
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+  });
 });

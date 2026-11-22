@@ -428,29 +428,37 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
       );
     }
     if (state.phase === 'sending' || state.phase === 'streaming') {
+      // The same tree shape as the finished reply below (a fragment: escalation slot, then the box
+      // with the same key), so React keeps this box when the reply completes: the page the player
+      // reached and the voice that already started carry on, instead of a remount at page one.
       return (
-        <div className="relative">
-          <DialogueBox
-            key={state.clientMsgId}
-            // The server names the speaker before the first word; until then, at a place with an
-            // NPC the NPC is the likely speaker (the Master only steps in when the NPC hands over).
-            speaker={(state.phase === 'streaming' ? state.speaker : null) ?? location?.npc?.name ?? DM_NAME}
-            speakerKind={
-              state.phase === 'streaming' && state.speakerKind
-                ? (state.speakerKind as SpeakerKind)
-                : location?.npc
-                  ? 'npc'
-                  : undefined
-            }
-            text={state.phase === 'streaming' ? state.text : ''}
-            final={false}
-            writing
-            onAdvance={advance}
-            onPageShown={onPageShown}
-            onSwipeDown={() => setSheet('backlog')}
-          />
-          {mascot}
-        </div>
+        <>
+          {null}
+          <div className="relative">
+            <DialogueBox
+              key={state.clientMsgId}
+              // The server names the speaker before the first word; until then, at a place with an
+              // NPC the NPC is the likely speaker (the Master only steps in when the NPC hands over).
+              speaker={(state.phase === 'streaming' ? state.speaker : null) ?? location?.npc?.name ?? DM_NAME}
+              speakerKind={
+                state.phase === 'streaming' && state.speakerKind
+                  ? (state.speakerKind as SpeakerKind)
+                  : location?.npc
+                    ? 'npc'
+                    : undefined
+              }
+              text={state.phase === 'streaming' ? state.text : ''}
+              final={false}
+              writing
+              audioTextId={state.phase === 'streaming' ? (state.audioTextId ?? null) : null}
+              audioText={state.phase === 'streaming' ? (state.audioText ?? null) : null}
+              onAdvance={advance}
+              onPageShown={onPageShown}
+              onSwipeDown={() => setSheet('backlog')}
+            />
+            {mascot}
+          </div>
+        </>
       );
     }
     if (current === null) return null;

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from financequest.api.deps import DbSession
 from financequest.db.models import Event
@@ -53,7 +53,11 @@ async def speak(
     if not isinstance(text, str) or not text.strip():
         raise HTTPException(404, "Unknown audio text")
     try:
-        wav = await tts.synthesize(text, voice)
+        audio = await tts.open_audio(text, voice)
     except tts.TtsUnavailable:
         raise HTTPException(503, "Voice unavailable") from None
-    return Response(wav, media_type="audio/wav", headers={"Cache-Control": "max-age=86400"})
+    if isinstance(audio, bytes):
+        return Response(audio, media_type="audio/wav", headers={"Cache-Control": "max-age=86400"})
+    # Still being made: stream it, so the voice starts with the first chunk (about 3 s) instead
+    # of after the whole reply. Not cached by the browser: a cut-off stream must not stick.
+    return StreamingResponse(audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})

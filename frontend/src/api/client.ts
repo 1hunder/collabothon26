@@ -139,8 +139,9 @@ async function send(
   body: unknown,
   sessionId: string,
   signal?: AbortSignal,
+  extra?: Record<string, string>,
 ): Promise<Response> {
-  const headers: Record<string, string> = { 'X-Session-Id': sessionId };
+  const headers: Record<string, string> = { ...extra, 'X-Session-Id': sessionId };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   try {
     return await fetch(`${baseUrl()}${path}`, {
@@ -160,14 +161,15 @@ export async function authedFetch(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  extra?: Record<string, string>,
 ): Promise<Response> {
   let sessionId = readSession() ?? (await bootstrapSession());
-  let res = await send(method, path, body, sessionId, signal);
+  let res = await send(method, path, body, sessionId, signal, extra);
   if (res.status === 401) {
     // Stale session: bootstrap a new one and retry once.
     writeSession(null);
     sessionId = await bootstrapSession();
-    res = await send(method, path, body, sessionId, signal);
+    res = await send(method, path, body, sessionId, signal, extra);
   }
   return res;
 }

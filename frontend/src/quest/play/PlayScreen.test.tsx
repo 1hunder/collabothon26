@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readDb, writeDb } from '../../api/fixtures/db';
 import * as sse from '../../api/sse';
+import type { DmEvent } from '../../api/types';
 import { FIRST_EVENT_TIMEOUT_MS } from '../../api/useDmStream';
 import { openBuddy, readParchment, readToChoices, setupPlay, skipTitle } from './playTestUtils';
 
@@ -118,6 +119,46 @@ describe('PlayScreen: sending actions', () => {
     const second = spy.mock.calls[1]?.[1] as { client_msg_id: string; text: string };
     expect(second).toEqual(first);
     expect(screen.getByRole('status')).toHaveTextContent('The Campaign Master is writing…');
+  });
+});
+
+describe('PlayScreen: a streamed reply and its voice', () => {
+  const sentence = (n: number, tag: string): string => `${Array.from({ length: n }, (_, i) => `${tag}${i}`).join(' ')}.`;
+  const long = [sentence(30, 'a'), sentence(30, 'b'), sentence(30, 'c')].join(' ');
+
+  it('keeps the page reached while streaming and its voice when the reply completes', async () => {
+    const user = userEvent.setup();
+    const onPageShown = vi.fn();
+    setupPlay('analyst', { onPageShown });
+    await enterTavern(user);
+    let emit: (e: DmEvent) => void = () => undefined;
+    let finish: () => void = () => undefined;
+    vi.spyOn(sse, 'postSse').mockImplementation(
+      (_path, _body, onEvent) =>
+        new Promise<void>((resolve) => {
+          emit = onEvent;
+          finish = resolve;
+        }),
+    );
+    await user.type(screen.getByRole('textbox'), 'I read the guild ledgers');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    onPageShown.mockClear();
+    act(() => {
+      emit({ event: 'status', data: { state: 'writing' } });
+      emit({ event: 'speaker', data: { speaker: 'Campaign Master', audio_text_id: 77, audio_text: long } });
+      emit({ event: 'token', data: { text: long } });
+    });
+    expect(onPageShown).toHaveBeenCalledWith(long, 'dm', 77); // the voice starts with the text
+    const box = screen.getByTestId('dialogue-box');
+    await user.click(box); // complete page 1
+    await user.click(box); // page 2, while the reply still streams
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+    await act(async () => {
+      emit({ event: 'done', data: { text: long, speaker: 'Campaign Master', audio_text_id: 77, suggestions: [] } as never });
+      finish();
+    });
+    expect(screen.getByText('2 / 3')).toBeInTheDocument(); // not thrown back to page one
+    expect(onPageShown).toHaveBeenCalledTimes(1); // and the voice was not started again
   });
 });
 
