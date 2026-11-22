@@ -175,11 +175,12 @@ def card_for_job(
 
 
 def _personal_ids(db: Session) -> set[uuid.UUID]:
-    return {
-        sid for sid in db.exec(
-            select(GenerationJob.scenario_id).where(GenerationJob.scenario_id.is_not(None))  # type: ignore[union-attr]
-        ).all() if sid
-    }  # fmt: skip
+    """Scenarios a player actually generated. Old demo-mode daily jobs only *pointed at* a
+    curated scenario (detail.demo) and must not hide it from everyone's board."""
+    jobs = db.exec(
+        select(GenerationJob).where(GenerationJob.scenario_id.is_not(None))  # type: ignore[union-attr]
+    ).all()
+    return {j.scenario_id for j in jobs if j.scenario_id and not (j.detail or {}).get("demo")}
 
 
 def board(db: Session, sid: uuid.UUID) -> dict[str, Any]:
