@@ -19,3 +19,6 @@ docs/screenshots/
 # TTS sample output (backend/scripts/tts_samples.py)
 tts-samples/
 .claude/worktrees/
+
+# source case archives (never commit)
+*.zip

@@ -269,7 +269,7 @@ def test_every_prepared_lesson_passes_the_lesson_guards(client: TestClient, enro
         ctx = C.build_agent_context(db, run, pack, hero)
     cases = [(k, {**facts, "term": None}) for k in edu.CATALOG if k != "concept_question"]
     cases += [("concept_question", {**facts, "term": t}) for t in TERM_LESSONS]
-    assert len(edu.CATALOG) == 11
+    assert len(edu.CATALOG) == 12
     for key, f in cases:
         les = prepared_lesson(key, f)
         out = S.LessonOut(what_happened=les["what_happened"], idea=les["idea"], example=les["example"],

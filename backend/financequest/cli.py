@@ -80,6 +80,32 @@ def refpack_approve(
     raise typer.Exit(1)
 
 
+@refpack_app.command("seed")
+def refpack_seed(
+    root: Annotated[
+        Path, typer.Argument(exists=True, file_okay=False, help="One pack per sub-folder")
+    ] = Path(__file__).parent / "fixtures" / "reference",
+) -> None:
+    """Approve every curated pack under ROOT (idempotent). Run on every deploy: these are the
+    Guild notices every player sees on the Quest Board."""
+    from sqlmodel import Session
+
+    from financequest.db.session import get_engine
+    from financequest.refpack.approve import approve_pack
+
+    failed = 0
+    for pack_dir in sorted(p for p in root.iterdir() if (p / "manifest.json").exists()):
+        with Session(get_engine()) as session:
+            res = approve_pack(pack_dir, session, 0)
+        if res.ok:
+            typer.echo(f"{pack_dir.name}: scenario {res.scenario_id} status={res.status}")
+        else:
+            failed += 1
+            typer.echo(f"{pack_dir.name}: NOT PLAYABLE: " + "; ".join(res.reasons[:5]), err=True)
+    if failed:
+        raise typer.Exit(1)
+
+
 @app.command("intake")
 def intake(
     md: Annotated[Path, typer.Option("--md", exists=True, dir_okay=False)],

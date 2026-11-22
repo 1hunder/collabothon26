@@ -35,11 +35,13 @@ CATALOG: dict[str, str] = {
     "bouncing_back": "Bouncing back from a loss",
     "thin_reasoning": "Deciding with evidence",
     "luck_vs_skill": "Luck vs judgement",
+    "short_squeeze": "Short squeezes",
     "concept_question": "Terms in plain words",
 }
 # detection priority when several fire in one turn (the cap then keeps the first three)
 ORDER = ("concept_question", "luck_vs_skill", "news_reaction", "first_trade", "bouncing_back", "loan_cost",
-         "concentration", "thin_reasoning", "debt_and_equity", "cash_vs_profit", "price_move")  # fmt: skip
+         "concentration", "short_squeeze", "thin_reasoning", "debt_and_equity", "cash_vs_profit",
+         "price_move")  # fmt: skip
 
 # canonical term -> pattern in the player's words
 TERMS: dict[str, str] = {
@@ -58,6 +60,10 @@ _CASH_RE = re.compile(r"cash[- ]?flow|operating cash|cash (?:statement|ledger)|r
 _EARN_RE = re.compile(r"earnings|profit|net income|income statement|revenue|\bsales\b", re.I)
 _DEBT_RE = re.compile(
     r"\bdebts?\b|liabilit|equity|owners'? claim|\bowed?\b|due (?:soon|later)|borrow|\bloans?\b|leverage|balance sheet", re.I,
+)
+_SHORT_RE = re.compile(
+    r"sold short|short[- ]?sell\w*|short interest|squeez\w*|borrowed (?:and sold )?certificates?|"
+    r"borrowed shares?|buy(?:ing)? (?:them |it )?back|betting against|bet against", re.I,
 )
 _LEDGER_RE = re.compile(r"ledger|statement|balance sheet|cash flow|earnings", re.I)
 
@@ -134,6 +140,8 @@ def detect(f: EduFacts) -> list[Candidate]:
         add("concentration")
     if f.thin_reasoning:
         add("thin_reasoning")
+    if _SHORT_RE.search(" ".join([*f.clue_texts, *f.screen_texts, f.text or ""])):
+        add("short_squeeze")
     seen = " ".join([*f.clue_texts, *f.screen_texts])
     if f.loan_offered or _DEBT_RE.search(seen) or _DEBT_RE.search(f.text):
         add("debt_and_equity")
