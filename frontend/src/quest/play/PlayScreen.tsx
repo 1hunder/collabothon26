@@ -555,8 +555,6 @@ function Play({ c, id, voiceOn, onToggleVoice, onPageShown: onPageShownProp }: P
           onMap={() => setSheet('map')}
           onJournal={() => setSheet('journal')}
           onToggleVoice={toggleVoice}
-          eduWaiting={edu.pending.length}
-          onBuddy={() => { stopVoice(); setBuddyOpen(true); }}
         />
       }
       overlays={
