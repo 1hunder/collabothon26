@@ -27,7 +27,7 @@ export function setupPlay(heroClass: HeroClass = 'analyst', props: React.Compone
 }
 
 export async function openBuddy(user: UserEvent): Promise<void> {
-  const mascot = screen.getByRole('button', { name: 'Chat with CommerzBuddy' });
+  const mascot = screen.getByRole('button', { name: /^Chat with CommerzBuddy/ });
   await user.click(mascot);
   // React falls back to the WebKit event when jsdom lacks AnimationEvent.
   const end = 'AnimationEvent' in window ? 'animationend' : 'webkitAnimationEnd';

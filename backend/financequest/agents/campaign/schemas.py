@@ -187,3 +187,15 @@ class OfferOut(BaseModel):
     role: str = Field(default="", description="Short role, e.g. 'Moneylender'")
     text: str = Field(description="At most 100 words, ends with a question")
     suggestions: list[str] = Field(default_factory=list, description="Exactly 3 short replies")
+
+
+class LessonOut(BaseModel):
+    """A CommerzBuddy lesson on one educational moment. Plain words, about age 16."""
+
+    what_happened: str = Field(description="1-2 short sentences about the player's own game moment")
+    idea: str = Field(description="The concept in plain words, at most 60 words")
+    example: str = Field(description="A tiny hypothetical worked example with small round numbers in gp")
+    takeaway: str = Field(description="One sentence")
+    check_question: str
+    check_options: list[str] = Field(min_length=3, max_length=3)
+    answer_index: int = Field(ge=0, le=2)

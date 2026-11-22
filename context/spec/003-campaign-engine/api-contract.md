@@ -453,3 +453,46 @@ The debrief context shows `loan_repay`.
 kind must be in the allowed list, else the first allowed is used), `campaign_offer_answer` (the loan
 accepted) and `campaign_forward` (the days pass). All run through the guards (number allowlist
 includes the offer's own terms and the 10% / 50% rates; no advice; no leak) with prepared templates.
+
+## 12. Educational moments (CommerzBuddy bubbles)
+
+A rule-based, generous detector (`campaign/edu.py`, run in the commit phase of every narrated
+reply: actions, NPC turns, moves, dice narration, decision scenes, offers, Buddy) flags up to three
+"learning moments". It never calls a model and never produces a figure. Each concept fires at most
+once per campaign (`concept_question` once per term). Stored in the event log: `edu_moment`
+(id, concept_key, title, turn seq, facts snapshot: whole numbers, gp, the player's quote),
+`edu_viewed`, `edu_dismissed`, `edu_lesson` (cached lesson), `edu_skipped` (detected while three
+were pending; dropped, and it may fire again once a slot is free).
+
+Catalog (`concept_key`: title): `news_reaction` Reacting to news; `first_trade` Your first trade:
+what you actually own; `cash_vs_profit` Profit isn't cash; `debt_and_equity` Debt vs what owners
+own; `price_move` Why prices move (board move of 8 percent or more while at the market or on the
+price board, or the player asks about the chart); `concentration` All eggs in one basket (all-in or
+80 percent of gold in one company); `loan_cost` Borrowing costs; `thin_reasoning` Deciding with
+evidence; `luck_vs_skill` Luck vs judgement (failed or natural 1/20 check, or damage);
+`concept_question` "<Term> in plain words" (the player asks what revenue, profit, cash flow, debt,
+dividend, share, price, risk, diversification, equity, margin, earnings or ledger means).
+
+- **State** (`GET /campaigns/{id}`, the SSE `state` event and every `done`):
+  `edu: {pending: [{id, concept_key, title}], pending_count: 0..3}`. A moment is pending until its
+  lesson is opened (viewed) or it is dismissed.
+- **Every SSE `done`** (actions, move, narrate-roll, buddy, scene answers, offers, opening) carries
+  `edu_new: [{id, concept_key, title}]`: moments detected this turn (`[]` if none). A replayed reply
+  keeps its `edu_new`.
+- `POST /campaigns/{id}/edu/{moment_id}/lesson` (JSON, not SSE, at most 10 s, deterministic under
+  FAKE_LLM) returns
+  `{id, title, what_happened, idea, example, takeaway, check: {question, options: [3 strings], answer_index}}`
+  and marks the moment viewed (frees its slot). Asking again returns the same cached lesson. 404 for
+  an unknown moment or another player's campaign.
+- `POST /campaigns/{id}/edu/{moment_id}/dismiss` returns `{id, status, edu}` (`status` is
+  `dismissed`, or the existing `viewed`); idempotent. "Later" in the UI calls nothing.
+- The lesson is written by the CommerzBuddy node `campaign_edu_lesson` through the shared guards:
+  number allowlist (the moment's snapshot figures; small round numbers, multiples of 5 up to 1,000,
+  only in `example` and the quiz), leak terms, advice (prefilter, classifier and a lesson-only
+  "never says what to buy or sell" rule), internal identifiers, gold pieces only, whole numbers,
+  idea at most 60 words, sentences at most 25 words, three distinct options. Any failure, refusal or
+  crash serves the prepared lesson of the concept (`agents/campaign/edu_lessons.py`, also the FAKE
+  output).
+- Buddy's normal reply context lists the titles of pending moments, so it may mention one; the
+  offer and the lesson flow are driven by the UI.
+- `buddy_q` events now also store `screen` when the client sent one.

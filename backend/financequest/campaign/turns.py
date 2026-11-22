@@ -18,9 +18,9 @@ from financequest.agents.campaign import context as C
 from financequest.agents.campaign import graphs
 from financequest.agents.campaign.fake import names_travel
 from financequest.api.errors import ApiError
-from financequest.campaign import clock, focus, rules, service
+from financequest.campaign import clock, edu, edu_turn, focus, rules, service
 from financequest.campaign import reasoning as reasoning_mod
-from financequest.campaign.events import append_event, find_by_msg_id
+from financequest.campaign.events import append_event, campaign_events, find_by_msg_id
 from financequest.campaign.narration import DecisionReply, Narration, TurnReply, get_narration
 from financequest.campaign.pack import Pack
 from financequest.campaign.stream import Streamed, StreamPlan
@@ -55,6 +55,7 @@ def state_delta(db: Session, run: CampaignRun, pack: Pack) -> dict[str, Any]:
         "purse": service.purse(db, run, pack), "market_scene": service.scene_out(run),
         "awaiting_reasoning": service.awaiting_trade(db, run) is not None,
         "offer": service.offer_out(run), "hp": service.hp_now(run), "hp_eur": service.hp_now(run) * service.HP_EUR,
+        "edu": service.edu_state(db, run.id),
         "locations": [
             {"id": str(x.id), "key": x.key, "name": x.name, "description": x.description,
              "fixed": x.fixed, "art_status": x.art_status, "visited": x.visited,
@@ -91,7 +92,8 @@ def replay_streamed(db: Session, run: CampaignRun, pack: Pack, ev: Event) -> Str
     p = dict(ev.payload or {})
     delta = state_delta(db, run, pack)
     cards = [c for c in (p.get("card"), p.get("news"), p.get("scene")) if c]
-    done = {**p, **_done_fields(p), "audio_text_id": ev.id, **delta, "replayed": True}
+    done = {**p, **_done_fields(p), "audio_text_id": ev.id, **delta, "replayed": True,
+            "edu_new": list(p.get("edu_new") or [])}
     if (p.get("news") or {}).get("framing"):
         done["news_text"] = p["news"]["framing"]
     return Streamed(text=str(p.get("text", "")), cards=cards, state=delta, done=done)
@@ -100,11 +102,12 @@ def replay_streamed(db: Session, run: CampaignRun, pack: Pack, ev: Event) -> Str
 def _streamed(
     db: Session, run: CampaignRun, pack: Pack, ev: Event, cards: list[dict[str, Any]]
 ) -> Streamed:
+    edu_new = edu_turn.detect_for_reply(db, run, pack, ev)  # moments this reply made worth a look
     p = dict(ev.payload or {})
     delta = state_delta(db, run, pack)
     return Streamed(
         text=str(p.get("text", "")), cards=cards, state=delta,
-        done={**p, **_done_fields(p), "audio_text_id": ev.id, **delta},
+        done={**p, **_done_fields(p), "audio_text_id": ev.id, **delta, "edu_new": edu_new},
     )  # fmt: skip
 
 
@@ -929,7 +932,8 @@ def plan_buddy(
         text = raw_text.strip()
         if not text:
             raise ApiError(422, "empty", "Ask a question")
-        append_event(db, run, "buddy_q", {"text": text}, f"{msg}:q" if msg else None)
+        append_event(db, run, "buddy_q", {"text": text, **({"screen": screen} if screen else {})},
+                     f"{msg}:q" if msg else None)
         db.commit()
         ctx = C.build_agent_context(db, run, pack, hero, screen=screen).with_deadline(TURN_BUDGET_S)
 
@@ -1054,3 +1058,62 @@ __all__ = [
     "plan_action", "plan_buddy", "plan_debrief", "plan_hint", "plan_move", "plan_narrate_roll",
     "plan_opening",
 ]  # fmt: skip
+
+
+# ==============================================================================================
+# educational moments: the lesson (JSON, not SSE) and dismissing a bubble
+# ==============================================================================================
+LESSON_BUDGET_S = 10.0
+
+
+def _moment(db: Session, cid: uuid.UUID, moment_id: str) -> tuple[edu.Moment, list[Event]]:
+    events = campaign_events(db, cid)
+    m = next((x for x in edu.moments(events) if x.id == moment_id), None)
+    if m is None:
+        raise ApiError(404, "not_found", "Educational moment not found")
+    return m, events
+
+
+def make_lesson(sid: uuid.UUID, cid: uuid.UUID, moment_id: str) -> dict[str, Any]:
+    """CommerzBuddy's lesson for a moment (guarded; the prepared lesson on any failure), cached in
+    the event log so asking again returns the same lesson. Marks a pending moment as viewed."""
+    nar = get_narration()
+    with _session() as db:
+        run, pack, hero = service.load(db, cid, sid, write=False)
+        m, events = _moment(db, cid, moment_id)
+        have = edu.cached_lesson(events, moment_id)
+        if have is None:
+            ctx = C.build_agent_context(db, run, pack, hero).with_deadline(LESSON_BUDGET_S)
+            moment = {"id": m.id, "concept_key": m.concept_key, "title": m.title, "facts": m.facts}
+        db.rollback()
+    if have is None:
+        try:
+            have = nar.edu_lesson(ctx, moment)
+        except Exception as exc:  # noqa: BLE001 - the prepared lesson always works
+            log.warning("lesson graph failed, using the prepared lesson: %s", exc)
+            from financequest.agents.campaign.edu_lessons import prepared_lesson
+
+            have = prepared_lesson(m.concept_key, m.facts)
+    with _session() as db:
+        run, _, _ = service.load(db, cid, sid)
+        m, events = _moment(db, cid, moment_id)
+        cached = edu.cached_lesson(events, moment_id)
+        if cached is None:
+            append_event(db, run, "edu_lesson", {"id": m.id, "lesson": have})
+        else:
+            have = cached
+        if m.status == "pending":
+            append_event(db, run, "edu_viewed", {"id": m.id})
+        _finish(db, run)
+    return {"id": m.id, "title": m.title, **have}
+
+
+def dismiss_moment(sid: uuid.UUID, cid: uuid.UUID, moment_id: str) -> dict[str, Any]:
+    with _session() as db:
+        run, _, _ = service.load(db, cid, sid)
+        m, _ = _moment(db, cid, moment_id)
+        if m.status == "pending":
+            append_event(db, run, "edu_dismissed", {"id": m.id})
+        _finish(db, run)
+        return {"id": m.id, "status": "dismissed" if m.status == "pending" else m.status,
+                "edu": service.edu_state(db, cid)}

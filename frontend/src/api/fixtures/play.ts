@@ -9,6 +9,7 @@ import {
   type FixtureEvent,
   type FixturePlay,
 } from './db';
+import { eduFixtureLesson, withEdu } from './edu';
 import type {
   BacklogEntry,
   CampaignState,
@@ -455,15 +456,15 @@ export function fixturePlaySse(path: string, body?: unknown): string[] | undefin
   const b = (body ?? {}) as Record<string, string>;
   switch (m[1]) {
     case 'opening':
-      return openingSse();
+      return withEdu(openingSse());
     case 'actions':
-      return actionSse(b);
+      return withEdu(actionSse(b));
     case 'move':
-      return moveSse(b);
+      return withEdu(moveSse(b));
     case 'buddy':
-      return buddySse(b);
+      return withEdu(buddySse(b));
     case 'narrate-roll':
-      return narrateSse(b);
+      return withEdu(narrateSse(b));
     default:
       return hintSse();
   }
@@ -610,6 +611,7 @@ export function fixturePlayResponse(method: string, path: string, body?: unknown
   if (m === 'POST' && (hit = /^\/campaigns\/[^/]+\/rolls\/([^/]+)\/reroll$/.exec(path))) return doReroll(hit[1] ?? '');
   if (m === 'POST' && (hit = /^\/campaigns\/[^/]+\/rolls\/([^/]+)\/accept$/.exec(path))) return doAccept(hit[1] ?? '');
   if (m === 'POST' && /^\/campaigns\/[^/]+\/focus\/bonus-lead$/.test(path)) return bonusLead();
+  if (m === 'POST' && (hit = /^\/campaigns\/[^/]+\/edu\/([^/]+)\/(lesson|dismiss)$/.exec(path))) return eduFixtureLesson(hit[1] ?? '', hit[2] === 'dismiss');
   if (m === 'GET' && /^\/campaigns\/[^/]+\/journal$/.test(path)) return { entries: journalEntries() };
   if (m === 'PUT' && /^\/campaigns\/[^/]+\/commit-draft$/.test(path)) {
     // Opening the commit screen moves the server phase; the draft itself is stored by the commit slice.

@@ -747,6 +747,8 @@ describe('2.8 Journal and memory', () => {
     await skipTitle(user);
     await readToChoices(user);
     await openBuddy(user);
+    // Buddy first offers the learning moment the Library raised
+    await user.click(screen.getByRole('button', { name: 'Later' }));
     await user.type(screen.getByRole('textbox', { name: 'Your question for CommerzBuddy' }), 'What is a drawdown?');
     await user.click(screen.getByRole('button', { name: 'Ask' }));
     await waitFor(() => expect(readDb().play?.events.some((e) => e.type === 'buddy_a')).toBe(true));
