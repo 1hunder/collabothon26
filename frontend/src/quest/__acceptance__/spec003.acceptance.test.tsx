@@ -1,3 +1,4 @@
+import tavernArt from '../../assets/tavern.jpg';
 /**
  * Acceptance tests for spec 003 (campaign engine), frontend half, one per criterion.
  * @spec: 003-campaign-engine
@@ -211,7 +212,7 @@ describe('2.3 Choosing the quest', () => {
     renderRoutes(routes, ['/quest/disclosure']);
     await screen.findByTestId('name-tab');
     expect(screen.getAllByText('Tavern').length).toBeGreaterThan(0);
-    expect(await screen.findByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
+    expect(await screen.findByTestId('scene-art')).toHaveAttribute('src', tavernArt);
     await userEvent.click(screen.getByTestId('dialogue-box'));
     expect(screen.getByTestId('dialogue-box')).toHaveTextContent(/Gilded Tavern/);
   });
@@ -224,7 +225,7 @@ describe('2.4 Scenes and turns', () => {
   it('2.4-AC1 a scene shows the location background and the "Campaign Master" name tab', async () => {
     setupPlay('analyst');
     expect(await screen.findByTestId('name-tab')).toHaveTextContent('Campaign Master');
-    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', '/backgrounds/tavern.webp');
+    expect(screen.getByTestId('scene-art')).toHaveAttribute('src', tavernArt);
     expect(screen.getByTestId('scene-art').parentElement).toHaveClass('absolute', 'inset-0');
   });
   it('2.4-AC2 a reply over 50 words is split into pages with "1 / 3" and "▼"', async () => {
@@ -634,8 +635,8 @@ describe('2.6 Locations', () => {
     expect(screen.getByText('Tavern')).toBeInTheDocument();
   });
   it('2.6-AC10 the Tavern shows the same background file in every campaign', () => {
-    expect(artSrc(loc({ id: 'campaign-A-tavern' }))).toBe('/backgrounds/tavern.webp');
-    expect(artSrc(loc({ id: 'campaign-B-tavern' }))).toBe('/backgrounds/tavern.webp');
+    expect(artSrc(loc({ id: 'campaign-A-tavern' }))).toBe(tavernArt);
+    expect(artSrc(loc({ id: 'campaign-B-tavern' }))).toBe(tavernArt);
   });
   it('2.6-AC11 a campaign location with pending art shows the placeholder with its name and the player can act', async () => {
     const user = userEvent.setup();

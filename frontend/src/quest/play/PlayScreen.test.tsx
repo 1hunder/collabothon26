@@ -56,7 +56,7 @@ describe('PlayScreen: scene and hero status', () => {
     await readToChoices(user);
     const list = screen.getByRole('region', { name: 'Your turn' });
     expect(within(list).getByText('What would you do?')).toBeInTheDocument();
-    expect(within(list).getAllByRole('button').map((b) => b.textContent)).toEqual(['◀ Read again', 'Send']); // no hint, no bonus lead
+    expect(within(list).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['◀ Read again', 'Send', 'Chat with CommerzBuddy']); // no hint, no bonus lead
     expect(within(list).queryByRole('button', { name: "I'm ready to decide" })).not.toBeInTheDocument();
   });
 
