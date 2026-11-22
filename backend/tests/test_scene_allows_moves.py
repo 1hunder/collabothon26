@@ -101,3 +101,25 @@ def test_asking_a_named_character_in_an_open_scene_is_a_conversation(
     assert done.get("intent") != "scene_question"
     assert "trade" not in types(cid) and "scene_passed" not in types(cid)
     assert campaign_state(client, h, cid)["market_scene"] is not None  # still open for later
+
+
+def test_a_stated_decision_executes_without_asking_again(
+    client: TestClient, enron: str, monkeypatch: Any
+) -> None:
+    h, cid = _setup(client)
+    monkeypatch.setattr(service, "investigation_done", lambda *_: True)
+    say = "I want to decide: I put half of my coins in, the ledgers look strong"
+    done = act(client, h, cid, say)
+    assert "trade" in types(cid)  # executed in this one turn
+    assert done.get("intent") == "decision"
+    assert campaign_state(client, h, cid)["market_scene"] is None
+
+
+def test_only_wanting_to_decide_still_opens_the_scene(
+    client: TestClient, enron: str, monkeypatch: Any
+) -> None:
+    h, cid = _setup(client)
+    monkeypatch.setattr(service, "investigation_done", lambda *_: True)
+    act(client, h, cid, "I want to decide now")
+    assert "trade" not in types(cid)
+    assert campaign_state(client, h, cid)["market_scene"] is not None  # the scene asks what they do
